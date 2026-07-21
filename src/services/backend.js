@@ -2,6 +2,14 @@ import { invoke } from '@tauri-apps/api/core'
 
 let cachedBackendUrl = ''
 
+function isTauriOrigin() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.protocol === 'tauri:'
+}
+
 function parsePortFromUrl(rawUrl) {
   if (!rawUrl) {
     return ''
@@ -139,6 +147,13 @@ export async function getBackendStartupIssue() {
 
 export async function getBackendBaseUrl(options = {}) {
   const allowUnhealthyUrl = options.allowUnhealthyUrl !== false
+  const healthAttempts = Number.isFinite(options.healthAttempts)
+    ? Math.max(1, Number.parseInt(options.healthAttempts, 10))
+    : 40
+  const healthDelayMs = Number.isFinite(options.healthDelayMs)
+    ? Math.max(50, Number.parseInt(options.healthDelayMs, 10))
+    : 250
+  const tauriOrigin = isTauriOrigin()
   let tauriStatusError = ''
   let statusLookupFailed = false
 
@@ -149,14 +164,18 @@ export async function getBackendBaseUrl(options = {}) {
 
     if (typeof url === 'string' && url.length > 0) {
       cachedBackendUrl = url
-      const healthy = await waitForHealth(url)
+      const healthy = await waitForHealth(url, healthAttempts, healthDelayMs)
       if (healthy) {
         return url
       }
 
-      const alternateUrl = alternateLoopbackUrl(url)
+      const alternateUrl = tauriOrigin ? '' : alternateLoopbackUrl(url)
       if (alternateUrl) {
-        const alternateHealthy = await waitForHealth(alternateUrl, 8, 200)
+        const alternateHealthy = await waitForHealth(
+          alternateUrl,
+          Math.min(8, healthAttempts),
+          healthDelayMs
+        )
         if (alternateHealthy) {
           cachedBackendUrl = alternateUrl
           return alternateUrl
@@ -166,7 +185,7 @@ export async function getBackendBaseUrl(options = {}) {
       if (allowUnhealthyUrl) {
         // If a URL was provided by Tauri, keep using it even if health is slow
         // under heavy OCR load. Endpoint-specific calls can still report failures.
-        return alternateUrl || url
+        return url
       }
     }
 
@@ -179,7 +198,7 @@ export async function getBackendBaseUrl(options = {}) {
   }
 
   if (cachedBackendUrl) {
-    const cachedHealthy = await waitForHealth(cachedBackendUrl, 3, 150)
+    const cachedHealthy = await waitForHealth(cachedBackendUrl, Math.min(3, healthAttempts), healthDelayMs)
     if (cachedHealthy) {
       return cachedBackendUrl
     }
@@ -198,15 +217,30 @@ export async function getBackendBaseUrl(options = {}) {
 
 export async function backendFetch(path, init = {}, options = {}) {
   const retries = Number.isFinite(options.retries) ? options.retries : 1
+  const healthAttempts = Number.isFinite(options.healthAttempts)
+    ? Math.max(1, Number.parseInt(options.healthAttempts, 10))
+    : 4
+  const healthDelayMs = Number.isFinite(options.healthDelayMs)
+    ? Math.max(50, Number.parseInt(options.healthDelayMs, 10))
+    : 150
+  const tauriOrigin = isTauriOrigin()
 
   let lastError = null
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      const backendBaseUrl = await getBackendBaseUrl({ allowUnhealthyUrl: false })
+      const backendBaseUrl = await getBackendBaseUrl({
+        allowUnhealthyUrl: false,
+        healthAttempts,
+        healthDelayMs,
+      })
       try {
         return await fetch(`${backendBaseUrl}${path}`, init)
       } catch (error) {
         if (!(error instanceof TypeError)) {
+          throw error
+        }
+
+        if (tauriOrigin) {
           throw error
         }
 
@@ -248,10 +282,16 @@ export async function getBackendConnectionDiagnostics() {
   let sidecarSelectedPath = ''
   let sidecarCheckedPaths = []
   let sidecarLogPath = ''
+  let appDataDir = ''
+  let cacheDir = ''
+  let tempDir = ''
+  let dbPath = ''
+  let uploadsDir = ''
+  let outputDir = ''
   let uptimeSeconds = null
 
   try {
-    const status = await invokeWithTimeout('backend_status')
+    const status = await invokeWithTimeout('backend_status', {}, 1800)
     backendStatusUrl = typeof status?.url === 'string' ? status.url : ''
     startupError = status?.startup_error || ''
     backendMode = status?.backend_mode || ''
@@ -259,6 +299,12 @@ export async function getBackendConnectionDiagnostics() {
     sidecarSelectedPath = status?.sidecar_selected_path || ''
     sidecarCheckedPaths = Array.isArray(status?.sidecar_checked_paths) ? status.sidecar_checked_paths : []
     sidecarLogPath = status?.sidecar_log_path || ''
+    appDataDir = status?.app_data_dir || ''
+    cacheDir = status?.cache_dir || ''
+    tempDir = status?.temp_dir || ''
+    dbPath = status?.db_path || ''
+    uploadsDir = status?.uploads_dir || ''
+    outputDir = status?.output_dir || ''
     const parsedUptime = Number(status?.uptime_seconds)
     uptimeSeconds = Number.isFinite(parsedUptime) ? parsedUptime : null
   } catch (error) {
@@ -292,6 +338,12 @@ export async function getBackendConnectionDiagnostics() {
     sidecarSelectedPath,
     sidecarCheckedPaths,
     sidecarLogPath,
+    appDataDir,
+    cacheDir,
+    tempDir,
+    dbPath,
+    uploadsDir,
+    outputDir,
     uptimeSeconds,
     health,
     projects,

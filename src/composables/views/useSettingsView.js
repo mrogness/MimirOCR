@@ -30,6 +30,12 @@ export function useSettingsView({
   const backendPort = ref('')
   const backendMode = ref('')
   const backendRuntime = ref('')
+  const appDataDir = ref('')
+  const cacheDir = ref('')
+  const tempDir = ref('')
+  const dbPath = ref('')
+  const uploadsDir = ref('')
+  const outputDir = ref('')
   const sidecarSelectedPath = ref('')
   const sidecarCheckedPaths = ref([])
   const sidecarUptimeSummary = ref('')
@@ -37,6 +43,8 @@ export function useSettingsView({
   const healthProbeSummary = ref('')
   const projectsProbeSummary = ref('')
   let diagnosticsRefreshInterval = null
+  let workerAutosaveTimeout = null
+  let lastSavedWorkerCount = null
 
   function formatDuration(seconds) {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -95,6 +103,12 @@ export function useSettingsView({
       backendPort.value = diagnostics.backendPort || ''
       backendMode.value = diagnostics.backendMode || ''
       backendRuntime.value = diagnostics.backendRuntime || ''
+      appDataDir.value = diagnostics.appDataDir || ''
+      cacheDir.value = diagnostics.cacheDir || ''
+      tempDir.value = diagnostics.tempDir || ''
+      dbPath.value = diagnostics.dbPath || ''
+      uploadsDir.value = diagnostics.uploadsDir || ''
+      outputDir.value = diagnostics.outputDir || ''
       sidecarSelectedPath.value = diagnostics.sidecarSelectedPath || ''
       sidecarCheckedPaths.value = Array.isArray(diagnostics.sidecarCheckedPaths)
         ? diagnostics.sidecarCheckedPaths
@@ -155,13 +169,16 @@ export function useSettingsView({
 
       const saved = getSavedWorkerCount(fallback)
       workerCountInput.value = String(saved)
+      lastSavedWorkerCount = saved
       brandThemeInput.value = getSavedBrandTheme()
       applyBrandTheme(brandThemeInput.value)
     } catch (error) {
       const fallbackCores = navigator.hardwareConcurrency || 1
       totalCores.value = fallbackCores
       recommendedWorkers.value = getDefaultWorkerCount(fallbackCores)
-      workerCountInput.value = String(getSavedWorkerCount(recommendedWorkers.value))
+      const saved = getSavedWorkerCount(recommendedWorkers.value)
+      workerCountInput.value = String(saved)
+      lastSavedWorkerCount = saved
       brandThemeInput.value = getSavedBrandTheme()
       applyBrandTheme(brandThemeInput.value)
       settingsError.value = String(error)
@@ -170,21 +187,42 @@ export function useSettingsView({
     }
   }
 
-  async function saveSettings() {
+  async function persistWorkerCount() {
     isSaving.value = true
-    settingsMessage.value = ''
     settingsError.value = ''
 
     try {
       const saved = saveWorkerCount(workerCountInput.value)
-      const theme = saveBrandTheme(brandThemeInput.value)
       workerCountInput.value = String(saved)
-      brandThemeInput.value = theme
+      lastSavedWorkerCount = saved
     } catch (error) {
       settingsError.value = String(error)
     } finally {
       isSaving.value = false
     }
+  }
+
+  function scheduleWorkerCountSave() {
+    if (isLoadingSystem.value) {
+      return
+    }
+
+    const parsed = Number.parseInt(workerCountInput.value, 10)
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return
+    }
+
+    if (lastSavedWorkerCount === parsed) {
+      return
+    }
+
+    if (workerAutosaveTimeout) {
+      clearTimeout(workerAutosaveTimeout)
+    }
+
+    workerAutosaveTimeout = setTimeout(() => {
+      void persistWorkerCount()
+    }, 250)
   }
 
   function previewBrandTheme() {
@@ -215,8 +253,16 @@ export function useSettingsView({
     stopDiagnosticsPolling()
   })
 
+  watch(workerCountInput, () => {
+    scheduleWorkerCountSave()
+  })
+
   onUnmounted(() => {
     stopDiagnosticsPolling()
+    if (workerAutosaveTimeout) {
+      clearTimeout(workerAutosaveTimeout)
+      workerAutosaveTimeout = null
+    }
   })
 
   return {
@@ -238,13 +284,18 @@ export function useSettingsView({
     backendPort,
     backendMode,
     backendRuntime,
+    appDataDir,
+    cacheDir,
+    tempDir,
+    dbPath,
+    uploadsDir,
+    outputDir,
     sidecarSelectedPath,
     sidecarCheckedPaths,
     sidecarUptimeSummary,
     backendStartupIssue,
     healthProbeSummary,
     projectsProbeSummary,
-    saveSettings,
     useRecommendedValue,
     previewBrandTheme,
     setDiagnosticsOpen,

@@ -258,12 +258,33 @@ where
 {
     let mut scan_dirs = vec![base_dir.clone(), base_dir.join("binaries")];
 
+    let is_placeholder_name = |name: &str| -> bool {
+        name == "backend-sentinel" || name == "backend-empty" || name == ".gitkeep"
+    };
+
     for dir in scan_dirs.drain(..) {
         if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() {
                     if let Some(file_name) = path.file_name().and_then(|name| name.to_str()) {
+                        if is_placeholder_name(file_name) {
+                            continue;
+                        }
+
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt;
+                            match fs::metadata(&path) {
+                                Ok(metadata) => {
+                                    if metadata.permissions().mode() & 0o111 == 0 {
+                                        continue;
+                                    }
+                                }
+                                Err(_) => continue,
+                            }
+                        }
+
                         if file_name == "backend" || file_name.starts_with("backend-") {
                             push_candidate(path.clone());
                             #[cfg(target_os = "windows")]
@@ -279,6 +300,9 @@ where
 
                 if path.is_dir() {
                     if let Some(dir_name) = path.file_name().and_then(|name| name.to_str()) {
+                        if is_placeholder_name(dir_name) {
+                            continue;
+                        }
                         if dir_name == "backend" || dir_name.starts_with("backend-") {
                             for candidate in with_executable_variants(path.join(dir_name)) {
                                 push_candidate(candidate);

@@ -30,12 +30,17 @@ const {
   backendPort,
   backendMode,
   backendRuntime,
+  appDataDir,
+  cacheDir,
+  tempDir,
+  dbPath,
+  uploadsDir,
+  outputDir,
   sidecarSelectedPath,
   sidecarCheckedPaths,
   backendStartupIssue,
   healthProbeSummary,
   projectsProbeSummary,
-  saveSettings,
   useRecommendedValue,
   previewBrandTheme,
   setDiagnosticsOpen,
@@ -62,7 +67,7 @@ const {
     <section class="rounded border border-brand-200 bg-white p-5 space-y-4">
       <h2 class="text-lg font-semibold">Processing Workers</h2>
       <p class="text-sm text-brand-500">
-        Worker count is shared across projects. Recommended default is one quarter of available CPU cores.
+        Worker count is shared across projects. Start with one and scale as capable.
       </p>
 
       <div v-if="isLoadingSystem" class="text-sm text-brand-600">Loading CPU info...</div>
@@ -86,13 +91,7 @@ const {
           >
             Use Recommended
           </button>
-          <button
-            class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="isSaving"
-            @click="saveSettings"
-          >
-            {{ isSaving ? 'Saving...' : 'Save' }}
-          </button>
+          <span class="text-xs text-brand-600">{{ isSaving ? 'Saving...' : 'Saved automatically on change' }}</span>
         </div>
 
         <p v-if="settingsError" class="text-sm text-red-700">{{ settingsError }}</p>
@@ -118,7 +117,7 @@ const {
               {{ option.label }}
             </option>
           </select>
-          <span class="text-xs text-brand-600">Changes are saved immediately.</span>
+          <span class="text-xs text-brand-600"></span>
         </div>
       </div>
     </section>
@@ -129,7 +128,7 @@ const {
           <div class="flex items-center justify-between gap-3">
             <div>
               <h2 class="text-sm font-semibold text-brand-900">Connectivity Diagnostics</h2>
-              <p class="text-xs text-brand-600">Auto-refreshes every 5 seconds while expanded.</p>
+              <p class="text-xs text-brand-600">Auto-refreshes while expanded.</p>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-xs text-brand-600">{{ isRefreshingDiagnostics ? 'Refreshing...' : (isDiagnosticsOpen ? 'Open' : 'Closed') }}</span>
@@ -160,6 +159,12 @@ const {
           <p><strong>Backend URL from backend_status:</strong> {{ backendStatusUrl || 'none' }}</p>
           <p><strong>Backend URL used by fetch:</strong> {{ backendBaseUrl || backendStatusUrl || 'none' }}</p>
           <p><strong>Backend port expected by frontend:</strong> {{ backendPort || 'unknown' }}</p>
+          <p><strong>App data dir:</strong> {{ appDataDir || 'unknown' }}</p>
+          <p><strong>Cache dir:</strong> {{ cacheDir || 'unknown' }}</p>
+          <p><strong>Temp dir:</strong> {{ tempDir || 'unknown' }}</p>
+          <p><strong>DB path:</strong> {{ dbPath || 'unknown' }}</p>
+          <p><strong>Uploads dir:</strong> {{ uploadsDir || 'unknown' }}</p>
+          <p><strong>Output dir:</strong> {{ outputDir || 'unknown' }}</p>
           <p><strong>/health probe:</strong> {{ healthProbeSummary || 'not checked' }}</p>
           <p><strong>/projects/ probe:</strong> {{ projectsProbeSummary || 'not checked' }}</p>
           <p v-if="backendStartupIssue" class="text-amber-700"><strong>Backend startup issue:</strong> {{ backendStartupIssue }}</p>

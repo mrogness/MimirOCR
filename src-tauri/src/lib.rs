@@ -36,11 +36,20 @@ pub fn run() {
             sidecar_log_path: Mutex::new(None),
             python_selected_path: Mutex::new(None),
             python_checked_candidates: Mutex::new(Vec::new()),
+            app_data_dir: Mutex::new(None),
+            cache_dir: Mutex::new(None),
+            temp_dir: Mutex::new(None),
+            db_path: Mutex::new(None),
+            uploads_dir: Mutex::new(None),
+            output_dir: Mutex::new(None),
         })
         .setup(move |app| {
             let backend_state = app.state::<BackendState>();
             let runtime_paths = backend_runtime_paths(app, &project_root);
             let sidecar_log_path = runtime_paths.cache_dir.join("sidecar.log");
+            let db_path = runtime_paths.app_data_dir.join("app_data.db");
+            let uploads_dir = runtime_paths.app_data_dir.join("uploads");
+            let output_dir = runtime_paths.cache_dir.join("output");
             let port = match find_open_port() {
                 Ok(port) => port,
                 Err(err) => {
@@ -59,7 +68,12 @@ pub fn run() {
             let mut sidecar_last_error: Option<String> = None;
             let mut python_checked_candidates: Vec<String> = Vec::new();
             let mut python_usable_candidates: Vec<String> = Vec::new();
-            let mode = backend_mode();
+            let requested_mode = backend_mode();
+            let mode = if cfg!(debug_assertions) {
+                requested_mode.clone()
+            } else {
+                "sidecar".to_string()
+            };
             let mut backend_runtime = "none".to_string();
             let use_reload = cfg!(debug_assertions);
 
@@ -149,6 +163,9 @@ pub fn run() {
             if child_result.is_err() {
                 let mut details: Vec<String> = Vec::new();
                 details.push(format!("Unable to start backend in '{mode}' mode"));
+                if !cfg!(debug_assertions) && requested_mode != "sidecar" {
+                    details.push(format!("Release build overrides requested mode '{requested_mode}' to 'sidecar'"));
+                }
 
                 if mode == "sidecar" || mode == "auto" {
                     if sidecar_checked_paths.is_empty() {
@@ -206,6 +223,54 @@ pub fn run() {
                     Err(poisoned) => poisoned.into_inner(),
                 };
                 *slot = Some(sidecar_log_path.display().to_string());
+            }
+
+            {
+                let mut slot = match backend_state.app_data_dir.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                *slot = Some(runtime_paths.app_data_dir.display().to_string());
+            }
+
+            {
+                let mut slot = match backend_state.cache_dir.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                *slot = Some(runtime_paths.cache_dir.display().to_string());
+            }
+
+            {
+                let mut slot = match backend_state.temp_dir.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                *slot = Some(runtime_paths.temp_dir.display().to_string());
+            }
+
+            {
+                let mut slot = match backend_state.db_path.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                *slot = Some(db_path.display().to_string());
+            }
+
+            {
+                let mut slot = match backend_state.uploads_dir.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                *slot = Some(uploads_dir.display().to_string());
+            }
+
+            {
+                let mut slot = match backend_state.output_dir.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                *slot = Some(output_dir.display().to_string());
             }
 
             {
@@ -267,9 +332,12 @@ pub fn run() {
                     *startup_error_slot = None;
                 }
                 Err(second_err) => {
-                    let msg = format!(
-                        "Failed to start backend process: {second_err}. Set MIMIR_BACKEND_MODE=python|sidecar|auto and optionally MIMIR_PYTHON to a Python with uvicorn installed."
-                    );
+                    let mode_hint = if cfg!(debug_assertions) {
+                        "Set MIMIR_BACKEND_MODE=python|sidecar|auto and optionally MIMIR_PYTHON to a Python with uvicorn installed."
+                    } else {
+                        "Release/bundled runs require a valid bundled sidecar; Python fallback is disabled."
+                    };
+                    let msg = format!("Failed to start backend process: {second_err}. {mode_hint}");
                     let mut enriched_msg = msg.clone();
                     if let Some(tail) = tail_log(&sidecar_log_path.display().to_string(), 80) {
                         enriched_msg.push_str(" Sidecar log tail:\n");

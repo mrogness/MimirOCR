@@ -16,6 +16,12 @@ pub struct BackendState {
     pub sidecar_log_path: Mutex<Option<String>>,
     pub python_selected_path: Mutex<Option<String>>,
     pub python_checked_candidates: Mutex<Vec<String>>,
+    pub app_data_dir: Mutex<Option<String>>,
+    pub cache_dir: Mutex<Option<String>>,
+    pub temp_dir: Mutex<Option<String>>,
+    pub db_path: Mutex<Option<String>>,
+    pub uploads_dir: Mutex<Option<String>>,
+    pub output_dir: Mutex<Option<String>>,
 }
 
 #[derive(Clone)]
@@ -37,6 +43,12 @@ pub struct BackendStatus {
     pub sidecar_log_path: Option<String>,
     pub python_selected_path: Option<String>,
     pub python_checked_candidates: Vec<String>,
+    pub app_data_dir: Option<String>,
+    pub cache_dir: Option<String>,
+    pub temp_dir: Option<String>,
+    pub db_path: Option<String>,
+    pub uploads_dir: Option<String>,
+    pub output_dir: Option<String>,
 }
 
 pub fn tail_log(path: &str, max_lines: usize) -> Option<String> {

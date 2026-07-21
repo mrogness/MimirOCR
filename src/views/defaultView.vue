@@ -13,6 +13,8 @@ const {
   deletingProjectId,
   errorMessage,
   backendStartupIssue,
+  isBackendWarmingUp,
+  backendWarmupMessage,
   pendingDeleteProjectId,
   isDeleteModalOpen,
   showCreateModal,
@@ -57,7 +59,10 @@ const {
     </section>
 
     <section v-if="isLoading" class="rounded border border-brand-200 bg-white p-4 text-brand-600">
-      Loading projects...
+      <p>Loading projects...</p>
+      <p v-if="isBackendWarmingUp" class="mt-2 text-sm text-brand-500">
+        {{ backendWarmupMessage || 'Backend is starting up...' }}
+      </p>
     </section>
 
     <section v-else-if="errorMessage" class="rounded border border-red-200 bg-red-50 p-4 text-red-700">

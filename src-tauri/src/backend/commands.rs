@@ -75,6 +75,36 @@ pub fn backend_status(state: State<'_, BackendState>) -> BackendStatus {
         Err(poisoned) => poisoned.into_inner(),
     };
 
+    let app_data_dir_slot = match state.app_data_dir.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
+    let cache_dir_slot = match state.cache_dir.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
+    let temp_dir_slot = match state.temp_dir.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
+    let db_path_slot = match state.db_path.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
+    let uploads_dir_slot = match state.uploads_dir.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
+    let output_dir_slot = match state.output_dir.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
     BackendStatus {
         url: port_slot.map(frontend_backend_url),
         uptime_seconds: started_at_slot
@@ -88,5 +118,11 @@ pub fn backend_status(state: State<'_, BackendState>) -> BackendStatus {
         sidecar_log_path: sidecar_log_slot.clone(),
         python_selected_path: python_selected_slot.clone(),
         python_checked_candidates: python_checked_slot.clone(),
+        app_data_dir: app_data_dir_slot.clone(),
+        cache_dir: cache_dir_slot.clone(),
+        temp_dir: temp_dir_slot.clone(),
+        db_path: db_path_slot.clone(),
+        uploads_dir: uploads_dir_slot.clone(),
+        output_dir: output_dir_slot.clone(),
     }
 }

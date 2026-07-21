@@ -92,6 +92,8 @@ def ensure_schema() -> None:
         _ensure_column(connection, "lines", "polygon_points", "VARCHAR")
         _ensure_column(connection, "lines", "char_positions", "VARCHAR")
         connection.execute(text("UPDATE projects SET ocr_run_count = 0 WHERE ocr_run_count IS NULL"))
+        connection.execute(text("UPDATE projects SET date_created = CURRENT_TIMESTAMP WHERE date_created IS NULL"))
+        connection.execute(text("UPDATE projects SET date_modified = CURRENT_TIMESTAMP WHERE date_modified IS NULL"))
 
 
 ensure_schema()

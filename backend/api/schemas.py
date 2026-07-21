@@ -20,8 +20,8 @@ class ProjectRead(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    date_created: datetime
-    date_modified: datetime
+    date_created: datetime | None = None
+    date_modified: datetime | None = None
     source_pdf_path: str | None = None
     source_pdf_name: str | None = None
     ocr_run_count: int = 0
