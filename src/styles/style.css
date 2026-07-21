@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+/*
+	Semantic app palette.
+	Switch the app theme by remapping --color-brand-* to a different Tailwind palette.
+	Example: replace var(--color-slate-500) with var(--color-slate-500), etc.
+*/
+@theme inline {
+	--color-brand-50: var(--app-brand-50);
+	--color-brand-100: var(--app-brand-100);
+	--color-brand-200: var(--app-brand-200);
+	--color-brand-300: var(--app-brand-300);
+	--color-brand-400: var(--app-brand-400);
+	--color-brand-500: var(--app-brand-500);
+	--color-brand-600: var(--app-brand-600);
+	--color-brand-700: var(--app-brand-700);
+	--color-brand-800: var(--app-brand-800);
+	--color-brand-900: var(--app-brand-900);
+	--color-brand-950: var(--app-brand-950);
+}
+
+:root,
+html[data-brand-theme='slate'] {
+	--app-brand-50: var(--color-slate-50);
+	--app-brand-100: var(--color-slate-100);
+	--app-brand-200: var(--color-slate-200);
+	--app-brand-300: var(--color-slate-300);
+	--app-brand-400: var(--color-slate-400);
+	--app-brand-500: var(--color-slate-500);
+	--app-brand-600: var(--color-slate-600);
+	--app-brand-700: var(--color-slate-700);
+	--app-brand-800: var(--color-slate-800);
+	--app-brand-900: var(--color-slate-900);
+	--app-brand-950: var(--color-slate-950);
+}
+
+html[data-brand-theme='gray'] {
+	--app-brand-50: var(--color-gray-50);
+	--app-brand-100: var(--color-gray-100);
+	--app-brand-200: var(--color-gray-200);
+	--app-brand-300: var(--color-gray-300);
+	--app-brand-400: var(--color-gray-400);
+	--app-brand-500: var(--color-gray-500);
+	--app-brand-600: var(--color-gray-600);
+	--app-brand-700: var(--color-gray-700);
+	--app-brand-800: var(--color-gray-800);
+	--app-brand-900: var(--color-gray-900);
+	--app-brand-950: var(--color-gray-950);
+}
+
+html[data-brand-theme='zinc'] {
+	--app-brand-50: var(--color-zinc-50);
+	--app-brand-100: var(--color-zinc-100);
+	--app-brand-200: var(--color-zinc-200);
+	--app-brand-300: var(--color-zinc-300);
+	--app-brand-400: var(--color-zinc-400);
+	--app-brand-500: var(--color-zinc-500);
+	--app-brand-600: var(--color-zinc-600);
+	--app-brand-700: var(--color-zinc-700);
+	--app-brand-800: var(--color-zinc-800);
+	--app-brand-900: var(--color-zinc-900);
+	--app-brand-950: var(--color-zinc-950);
+}
+
+html[data-brand-theme='neutral'] {
+	--app-brand-50: var(--color-neutral-50);
+	--app-brand-100: var(--color-neutral-100);
+	--app-brand-200: var(--color-neutral-200);
+	--app-brand-300: var(--color-neutral-300);
+	--app-brand-400: var(--color-neutral-400);
+	--app-brand-500: var(--color-neutral-500);
+	--app-brand-600: var(--color-neutral-600);
+	--app-brand-700: var(--color-neutral-700);
+	--app-brand-800: var(--color-neutral-800);
+	--app-brand-900: var(--color-neutral-900);
+	--app-brand-950: var(--color-neutral-950);
+}
+
+html[data-brand-theme='stone'] {
+	--app-brand-50: var(--color-stone-50);
+	--app-brand-100: var(--color-stone-100);
+	--app-brand-200: var(--color-stone-200);
+	--app-brand-300: var(--color-stone-300);
+	--app-brand-400: var(--color-stone-400);
+	--app-brand-500: var(--color-stone-500);
+	--app-brand-600: var(--color-stone-600);
+	--app-brand-700: var(--color-stone-700);
+	--app-brand-800: var(--color-stone-800);
+	--app-brand-900: var(--color-stone-900);
+	--app-brand-950: var(--color-stone-950);
+}
+
+html[data-brand-theme='mauve'] {
+	--app-brand-50: var(--color-mauve-50);
+	--app-brand-100: var(--color-mauve-100);
+	--app-brand-200: var(--color-mauve-200);
+	--app-brand-300: var(--color-mauve-300);
+	--app-brand-400: var(--color-mauve-400);
+	--app-brand-500: var(--color-mauve-500);
+	--app-brand-600: var(--color-mauve-600);
+	--app-brand-700: var(--color-mauve-700);
+	--app-brand-800: var(--color-mauve-800);
+	--app-brand-900: var(--color-mauve-900);
+	--app-brand-950: var(--color-mauve-950);
+}
+
+html[data-brand-theme='olive'] {
+	--app-brand-50: var(--color-olive-50);
+	--app-brand-100: var(--color-olive-100);
+	--app-brand-200: var(--color-olive-200);
+	--app-brand-300: var(--color-olive-300);
+	--app-brand-400: var(--color-olive-400);
+	--app-brand-500: var(--color-olive-500);
+	--app-brand-600: var(--color-olive-600);
+	--app-brand-700: var(--color-olive-700);
+	--app-brand-800: var(--color-olive-800);
+	--app-brand-900: var(--color-olive-900);
+	--app-brand-950: var(--color-olive-950);
+}
+
+html[data-brand-theme='mist'] {
+	--app-brand-50: var(--color-mist-50);
+	--app-brand-100: var(--color-mist-100);
+	--app-brand-200: var(--color-mist-200);
+	--app-brand-300: var(--color-mist-300);
+	--app-brand-400: var(--color-mist-400);
+	--app-brand-500: var(--color-mist-500);
+	--app-brand-600: var(--color-mist-600);
+	--app-brand-700: var(--color-mist-700);
+	--app-brand-800: var(--color-mist-800);
+	--app-brand-900: var(--color-mist-900);
+	--app-brand-950: var(--color-mist-950);
+}
+
+html[data-brand-theme='taupe'] {
+	--app-brand-50: var(--color-taupe-50);
+	--app-brand-100: var(--color-taupe-100);
+	--app-brand-200: var(--color-taupe-200);
+	--app-brand-300: var(--color-taupe-300);
+	--app-brand-400: var(--color-taupe-400);
+	--app-brand-500: var(--color-taupe-500);
+	--app-brand-600: var(--color-taupe-600);
+	--app-brand-700: var(--color-taupe-700);
+	--app-brand-800: var(--color-taupe-800);
+	--app-brand-900: var(--color-taupe-900);
+	--app-brand-950: var(--color-taupe-950);
+}
+
+html,
+body,
+#app {
+	height: 100%;
+	overflow: hidden;
+}

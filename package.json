@@ -1,0 +1,37 @@
+{
+  "name": "Mimir",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "bootstrap:windows": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap_windows_packaging.ps1",
+    "sidecar:preflight": "node scripts/check_backend_sidecar_env.mjs",
+    "build:sidecar": "node scripts/build_backend_sidecar.mjs",
+    "build:sidecar:lean": "node scripts/build_backend_sidecar.mjs --profile lean",
+    "build:sidecar:aggressive": "node scripts/build_backend_sidecar.mjs --profile aggressive",
+    "package": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build",
+    "package:lean": "yarn sidecar:preflight && yarn build:sidecar:lean && yarn tauri build",
+    "package:aggressive": "yarn sidecar:preflight && yarn build:sidecar:aggressive && yarn tauri build",
+    "package:mac:dmg": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles dmg",
+    "package:mac:app": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles app && node scripts/zip_macos_app_bundle.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "pdfjs-dist": "^6.1.200",
+    "vue": "^3.5.13",
+    "vue-router": "4"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.1",
+    "@tailwindcss/vite": "^4.3.1",
+    "@tauri-apps/cli": "^2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "tailwindcss": "^4.3.1",
+    "vite": "^6.0.3"
+  }
+}
