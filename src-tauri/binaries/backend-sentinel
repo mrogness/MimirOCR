@@ -1,0 +1,1 @@
+This sentinel file keeps tauri bundle.resources glob binaries/backend-* valid before sidecar build.

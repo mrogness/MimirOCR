@@ -60,7 +60,11 @@ backend/data/**/*.tmp
 # ------------------------------
 src-tauri/target/
 src-tauri/gen/schemas/
-src-tauri/binaries/
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
+!src-tauri/binaries/backend-empty/
+!src-tauri/binaries/backend-empty/.gitkeep
+!src-tauri/binaries/backend-sentinel
 
 # ------------------------------
 # IDE / OS

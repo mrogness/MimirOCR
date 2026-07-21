@@ -38,6 +38,6 @@
     },
     "resources": [
       "binaries/backend-*"
-      ]
+    ]
   }
 }
