@@ -117,10 +117,24 @@ jobs:
       - name: Create venv and install backend packaging dependencies
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           python -m venv .venv
           .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m pip install kraken==4.3.13
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\.venv\Scripts\python.exe -m pip install pyinstaller
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Debug installed sidecar packages
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe -m pip show kraken
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m pip show calamari-ocr
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify sidecar Python imports
         shell: pwsh
