@@ -792,4 +792,4 @@ if (-not $SkipPreflight) {
 Write-Section 'Bootstrap complete'
 Write-Host 'Recommended next commands:'
 Write-Host '  yarn package'
-Write-Host '  # or: yarn package:lean / yarn package:aggressive'
+Write-Host '  # or: yarn package:windows'

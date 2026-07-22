@@ -12,16 +12,9 @@
     "sidecar:clean": "node scripts/clean_sidecar_artifacts.mjs",
     "sidecar:preflight": "node scripts/check_backend_sidecar_env.mjs",
     "build:sidecar": "yarn sidecar:clean && node scripts/build_backend_sidecar.mjs",
-    "build:sidecar:compressed": "yarn sidecar:clean && MIMIR_SIDECAR_ARCHIVE=gz node scripts/build_backend_sidecar.mjs",
-    "build:sidecar:lean": "yarn sidecar:clean && node scripts/build_backend_sidecar.mjs --profile lean",
-    "build:sidecar:lean:compressed": "yarn sidecar:clean && MIMIR_SIDECAR_ARCHIVE=gz node scripts/build_backend_sidecar.mjs --profile lean",
-    "build:sidecar:aggressive": "yarn sidecar:clean && node scripts/build_backend_sidecar.mjs --profile aggressive",
-    "build:sidecar:aggressive:compressed": "yarn sidecar:clean && MIMIR_SIDECAR_ARCHIVE=gz node scripts/build_backend_sidecar.mjs --profile aggressive",
     "package": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build",
-    "package:lean": "yarn sidecar:preflight && yarn build:sidecar:lean && yarn tauri build",
-    "package:aggressive": "yarn sidecar:preflight && yarn build:sidecar:aggressive && yarn tauri build",
-    "package:mac:dmg": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles dmg",
-    "package:mac:app": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles app && node scripts/zip_macos_app_bundle.mjs"
+    "package:mac": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles app,dmg && node scripts/zip_macos_app_bundle.mjs",
+    "package:windows": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles nsis"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
