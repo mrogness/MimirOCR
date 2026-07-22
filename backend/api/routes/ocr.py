@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+import json
+import multiprocessing as mp
 import os
 from pathlib import Path
+import queue
 import shutil
 from threading import Thread
 import traceback
@@ -21,6 +24,104 @@ from backend.pipeline.runner import PipelineRunner
 from backend.runtime_paths import get_output_dir, get_temp_dir
 
 router = APIRouter(prefix="/ocr", tags=["ocr"])
+
+
+def _run_pipeline_worker(
+    *,
+    job_id: str,
+    project_id: int,
+    project_name: str,
+    source_pdf_path: str,
+    request_config_data: dict,
+    temp_dir_str: str,
+    output_dir_str: str,
+    progress_queue,
+    result_path: str,
+) -> None:
+    """Run OCR pipeline in a separate process so native ML crashes do not kill the API host."""
+    try:
+        requested_workers = request_config_data.get("num_workers") or 4
+        total_cores = os.cpu_count() or 1
+        effective_workers = max(1, min(int(requested_workers), total_cores))
+        effective_device = request_config_data.get("device") or "cpu"
+
+        segmentation_workers = _resolve_segmentation_worker_limit(effective_workers, effective_device)
+        segmentation_threads = _resolve_segmentation_thread_limit(segmentation_workers, effective_device)
+        os.environ["MIMIR_SEGMENTATION_WORKERS"] = str(segmentation_workers)
+        os.environ["MIMIR_SEGMENTATION_THREADS"] = str(segmentation_threads)
+
+        ocr_thread_limit = _resolve_ocr_thread_limit(effective_workers, effective_device)
+        os.environ["MIMIR_OCR_THREADS"] = str(ocr_thread_limit)
+        _apply_thread_limits(ocr_thread_limit)
+
+        config = ProjectConfig(
+            project_id=str(project_id),
+            project_name=project_name,
+            input_pdf_path=source_pdf_path,
+            temp_dir=temp_dir_str,
+            output_dir=output_dir_str,
+            num_workers=effective_workers,
+            device=effective_device,
+        )
+
+        if request_config_data.get("dpi") is not None:
+            config.ingestion.dpi = request_config_data["dpi"]
+        if request_config_data.get("binarization_threshold") is not None:
+            config.ingestion.binarization_threshold = request_config_data["binarization_threshold"]
+        if request_config_data.get("ocr_model_path") is not None:
+            config.ocr.model_path = request_config_data["ocr_model_path"]
+        if request_config_data.get("strict_top_to_bottom") is not None:
+            config.segmentation.strict_top_to_bottom = request_config_data["strict_top_to_bottom"]
+
+        project = Project(
+            id=str(project_id),
+            name=project_name,
+            source_path=source_pdf_path,
+            config=config.model_dump(),
+        )
+
+        def report_progress(phase: str, progress: int, message: str, details: Optional[dict] = None) -> None:
+            payload = {
+                "kind": "progress",
+                "phase": phase,
+                "progress": progress,
+                "message": message,
+                "details": details or {},
+            }
+            try:
+                progress_queue.put_nowait(payload)
+            except (queue.Full, OSError):
+                pass
+
+        runner = PipelineRunner(config, report_progress)
+        runner.process_project(project)
+
+        output_root = Path(config.output_dir) / project.id
+        payload = {
+            "status": "succeeded",
+            "job_id": job_id,
+            "project": project.model_dump(mode="json"),
+            "transcript_path": str(output_root / "transcript.txt"),
+            "project_json_path": str(output_root / "project.json"),
+            "ocr_pages": len(project.pages),
+        }
+        Path(result_path).write_text(json.dumps(payload), encoding="utf-8")
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        details = traceback.format_exc()
+        payload = {
+            "status": "failed",
+            "job_id": job_id,
+            "error": f"{type(exc).__name__}: {exc}\n{details}",
+        }
+        try:
+            Path(result_path).write_text(json.dumps(payload), encoding="utf-8")
+        except OSError:
+            pass
+        try:
+            progress_queue.put_nowait({"kind": "error", "error": payload["error"]})
+        except (queue.Full, OSError):
+            pass
+        raise
 
 
 def _apply_thread_limits(max_threads: int) -> None:
@@ -142,64 +243,84 @@ def _run_ocr_job(
     )
 
     try:
-        requested_workers = request_config.num_workers or 4
-        total_cores = os.cpu_count() or 1
-        effective_workers = max(1, min(int(requested_workers), total_cores))
-        effective_device = request_config.device or "cpu"
-        segmentation_workers = _resolve_segmentation_worker_limit(effective_workers, effective_device)
-        segmentation_threads = _resolve_segmentation_thread_limit(segmentation_workers, effective_device)
-        os.environ["MIMIR_SEGMENTATION_WORKERS"] = str(segmentation_workers)
-        os.environ["MIMIR_SEGMENTATION_THREADS"] = str(segmentation_threads)
+        result_path = temp_dir / "ocr-worker-result.json"
+        request_config_data = request_config.model_dump() if hasattr(request_config, "model_dump") else dict(request_config)
 
-        ocr_thread_limit = _resolve_ocr_thread_limit(effective_workers, effective_device)
-        os.environ["MIMIR_OCR_THREADS"] = str(ocr_thread_limit)
-        _apply_thread_limits(ocr_thread_limit)
-
-        config = ProjectConfig(
-            project_id=str(project_id),
-            project_name=project_name,
-            input_pdf_path=source_pdf_path,
-            temp_dir=str(temp_dir),
-            output_dir=str(output_dir),
-            num_workers=effective_workers,
-            device=effective_device,
+        ctx = mp.get_context("spawn")
+        progress_queue = ctx.Queue()
+        worker = ctx.Process(
+            target=_run_pipeline_worker,
+            kwargs={
+                "job_id": job_id,
+                "project_id": project_id,
+                "project_name": project_name,
+                "source_pdf_path": source_pdf_path,
+                "request_config_data": request_config_data,
+                "temp_dir_str": str(temp_dir),
+                "output_dir_str": str(output_dir),
+                "progress_queue": progress_queue,
+                "result_path": str(result_path),
+            },
+            daemon=False,
         )
+        worker.start()
 
-        if request_config.dpi is not None:
-            config.ingestion.dpi = request_config.dpi
-        if request_config.binarization_threshold is not None:
-            config.ingestion.binarization_threshold = request_config.binarization_threshold
-        if request_config.ocr_model_path is not None:
-            config.ocr.model_path = request_config.ocr_model_path
-        if request_config.strict_top_to_bottom is not None:
-            config.segmentation.strict_top_to_bottom = request_config.strict_top_to_bottom
+        worker_error: Optional[str] = None
+        while worker.is_alive():
+            try:
+                event = progress_queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
 
-        project = Project(
-            id=str(project_id),
-            name=project_name,
-            source_path=source_pdf_path,
-            config=config.model_dump(),
-        )
+            if not isinstance(event, dict):
+                continue
 
-        def report_progress(phase: str, progress: int, message: str, details: Optional[dict] = None) -> None:
-            details = details or {}
-            job_store.update_job(
-                job_id,
-                status="running",
-                phase=phase,
-                progress=progress,
-                message=message,
-                total_pages=details.get("total_pages"),
-                rasterized_pages=details.get("rasterized_pages"),
-                segmented_pages=details.get("segmented_pages"),
-                ocr_pages=details.get("ocr_pages"),
-            )
+            if event.get("kind") == "progress":
+                details = event.get("details") or {}
+                job_store.update_job(
+                    job_id,
+                    status="running",
+                    phase=event.get("phase") or "running",
+                    progress=int(event.get("progress") or 0),
+                    message=str(event.get("message") or "Processing OCR job"),
+                    total_pages=details.get("total_pages"),
+                    rasterized_pages=details.get("rasterized_pages"),
+                    segmented_pages=details.get("segmented_pages"),
+                    ocr_pages=details.get("ocr_pages"),
+                )
+            elif event.get("kind") == "error":
+                worker_error = str(event.get("error") or "OCR worker failed")
 
-        runner = PipelineRunner(
-            config,
-            report_progress,
-        )
-        runner.process_project(project)
+        worker.join(timeout=10)
+
+        while True:
+            try:
+                event = progress_queue.get_nowait()
+            except queue.Empty:
+                break
+
+            if isinstance(event, dict) and event.get("kind") == "error":
+                worker_error = str(event.get("error") or "OCR worker failed")
+
+        if worker.exitcode not in (0, None):
+            if worker_error:
+                raise RuntimeError(worker_error)
+            if worker.exitcode < 0:
+                signal_code = -worker.exitcode
+                raise RuntimeError(
+                    "OCR worker process crashed with signal "
+                    f"{signal_code}. This is usually a native dependency conflict (TensorFlow/protobuf)."
+                )
+            raise RuntimeError(f"OCR worker process exited with code {worker.exitcode}")
+
+        if not result_path.exists():
+            raise RuntimeError("OCR worker finished without producing a result payload")
+
+        result_payload = json.loads(result_path.read_text(encoding="utf-8"))
+        if result_payload.get("status") != "succeeded":
+            raise RuntimeError(str(result_payload.get("error") or "OCR worker reported failure"))
+
+        project = Project.from_dict(result_payload["project"])
 
         persist_db = SessionLocal()
         try:
@@ -217,9 +338,8 @@ def _run_ocr_job(
         finally:
             persist_db.close()
 
-        output_root = Path(config.output_dir) / project.id
-        transcript_path = str(output_root / "transcript.txt")
-        project_json_path = str(output_root / "project.json")
+        transcript_path = str(result_payload.get("transcript_path") or "")
+        project_json_path = str(result_payload.get("project_json_path") or "")
 
         job_store.update_job(
             job_id,
@@ -230,9 +350,9 @@ def _run_ocr_job(
             finished_at=_utc_now(),
             transcript_path=transcript_path,
             project_json_path=project_json_path,
-            ocr_pages=len(project.pages),
+            ocr_pages=int(result_payload.get("ocr_pages") or len(project.pages)),
         )
-    except Exception as exc:  # noqa: BLE001
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
         details = traceback.format_exc()
         persist_db = SessionLocal()
         try:

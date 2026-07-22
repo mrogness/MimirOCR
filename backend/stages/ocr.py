@@ -14,6 +14,24 @@ from backend.models.project_config import ProjectConfig
 CALAMARI_LINE_SIDE_PADDING_PX = 16.0
 
 
+def _disable_optional_coremltools() -> None:
+    """
+    Prevent optional CoreML conversion stack from loading during OCR inference.
+
+    In some runtime combinations, importing coremltools alongside TensorFlow can
+    trigger protobuf descriptor collisions (e.g. replay_log.proto). OCR
+    inference does not require coremltools, so we treat it as disabled by
+    default unless explicitly re-enabled.
+    """
+    if os.getenv("MIMIR_ENABLE_COREMLTOOLS", "0") == "1":
+        return
+
+    # Ensure future import attempts fail with ModuleNotFoundError so optional
+    # dependency guards can skip CoreML conversion paths.
+    if "coremltools" not in sys.modules:
+        sys.modules["coremltools"] = None
+
+
 def _resolve_model_path(raw_path: str) -> str:
     candidate = Path(raw_path)
     if candidate.is_absolute() and candidate.exists():
@@ -40,6 +58,7 @@ def create_predictor(config: ProjectConfig):
     env_threads = os.getenv("MIMIR_OCR_THREADS")
     max_threads = _safe_worker_count(env_threads if env_threads is not None else config.num_workers)
     _configure_runtime_threads(max_threads)
+    _disable_optional_coremltools()
 
     # Canonical predictor import path for the current OCR stack.
     from calamari_ocr.ocr.predict.predictor import Predictor, PredictorParams

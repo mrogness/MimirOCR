@@ -241,16 +241,31 @@ jobs:
           - Windows may show SmartScreen warnings for unsigned binaries.
           EOF
 
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.txt
+
       - name: Publish macOS assets to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: release-notes.txt
-          fail_on_unmatched_files: true
-          overwrite_files: true
-          files: |
-            release-assets/macos/*.app.zip
-            release-assets/macos/*.dmg
-            release-assets/macos/*.command
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(
+            release-assets/macos/macos/*.app.zip
+            release-assets/macos/dmg/*.dmg
+            release-assets/macos/macos/*.command
+          )
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No macOS release files found to upload." >&2
+            exit 1
+          fi
+
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
 
   publish-release-windows:
     name: Publish Windows Release Assets
@@ -283,11 +298,24 @@ jobs:
           - Windows may show SmartScreen warnings for unsigned binaries.
           EOF
 
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.txt
+
       - name: Publish Windows assets to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: release-notes.txt
-          fail_on_unmatched_files: true
-          overwrite_files: true
-          files: |
-            release-assets/windows/*.exe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          files=(release-assets/windows/**/*.exe)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Windows release files found to upload." >&2
+            exit 1
+          fi
+
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
