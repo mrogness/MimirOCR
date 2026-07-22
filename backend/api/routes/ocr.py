@@ -232,7 +232,7 @@ def _run_ocr_job(
             project_json_path=project_json_path,
             ocr_pages=len(project.pages),
         )
-    except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as exc:
         details = traceback.format_exc()
         persist_db = SessionLocal()
         try:
