@@ -217,6 +217,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && needs.build-macos.result == 'success'
     permissions:
       contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
 
     steps:
       - name: Download macOS artifacts
@@ -274,6 +276,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && needs.build-windows.result == 'success'
     permissions:
       contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
 
     steps:
       - name: Download Windows artifacts
