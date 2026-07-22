@@ -9,12 +9,18 @@ const __dirname = path.dirname(__filename)
 const ROOT_DIR = path.resolve(__dirname, '..')
 
 function runGit(args, options = {}) {
-  return execFileSync('git', args, {
+  const result = execFileSync('git', args, {
     cwd: ROOT_DIR,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     ...options,
-  }).trim()
+  })
+
+  if (typeof result !== 'string') {
+    return ''
+  }
+
+  return result.trim()
 }
 
 function fail(message) {
@@ -100,7 +106,14 @@ function main() {
   updateCargoToml(cargoTomlPath, version)
 
   runGit(['add', 'package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml'])
-  runGit(['commit', '-m', `release: ${tag}`], { stdio: 'inherit' })
+
+  const stagedDiff = runGit(['diff', '--cached', '--name-only'])
+  if (stagedDiff) {
+    runGit(['commit', '-m', `release: ${tag}`], { stdio: 'inherit' })
+  } else {
+    console.log('release: version files already committed; skipping commit step.')
+  }
+
   runGit(['tag', '-a', tag, '-m', tag])
 
   if (shouldPush) {
