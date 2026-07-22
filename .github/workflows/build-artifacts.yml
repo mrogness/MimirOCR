@@ -118,7 +118,7 @@ jobs:
           if-no-files-found: error
 
   build-windows:
-    name: Build Windows (nsis + portable)
+    name: Build Windows (nsis)
     runs-on: windows-2022
     timeout-minutes: 120
 
@@ -205,38 +205,12 @@ jobs:
         run: |
           yarn tauri build --bundles nsis
 
-      - name: Create portable zip
-        shell: pwsh
-        run: |
-          $portable = "src-tauri/target/release/bundle/mimir-portable.zip"
-          $staging = "src-tauri/target/release/bundle/mimir-portable"
-
-          if (Test-Path $portable) {
-            Remove-Item $portable -Force
-          }
-          if (Test-Path $staging) {
-            Remove-Item $staging -Recurse -Force
-          }
-
-          New-Item -ItemType Directory -Path $staging | Out-Null
-          Copy-Item "src-tauri/target/release/mimir.exe" "$staging/mimir.exe" -Force
-
-          if (Test-Path "src-tauri/target/release/resources") {
-            Copy-Item "src-tauri/target/release/resources" "$staging/resources" -Recurse -Force
-          } else {
-            Write-Error "Expected resources directory was not found at src-tauri/target/release/resources"
-            exit 1
-          }
-
-          Compress-Archive -Path "$staging/*" -DestinationPath $portable
-
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v5
         with:
           name: mimir-windows-unsigned
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/mimir-portable.zip
           if-no-files-found: error
 
   publish-release:
@@ -281,4 +255,3 @@ jobs:
             release-assets/macos/*.dmg
             release-assets/macos/*.command
             release-assets/windows/*.exe
-            release-assets/windows/*.zip
