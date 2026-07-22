@@ -1,6 +1,6 @@
 [package]
 name = "mimir"
-version = "0.1.7-pre-release"
+version = "0.1.8-pre-release"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
