@@ -401,7 +401,10 @@ try {
     cleanPathIfExists(sentinelPath)
     console.log(`Built launcher sidecar ${launcherPath} using in-bundle runtime directory ${sidecarRootDir}`)
   } else {
-    throw new Error('Launcher sidecar packaging is currently supported on macOS/Linux only')
+    // Windows uses the onedir output directly; no POSIX launcher is required.
+    runSidecarSmokeTestWithPolicy(outPath)
+    cleanPathIfExists(sentinelPath)
+    console.log(`Built Windows onedir sidecar runtime at ${sidecarRootDir}`)
   }
 
   console.log(`Built onedir sidecar bundle in ${path.join(outDir, bundleName)} (launcher: ${launcherName}, profile: ${profile})`)
