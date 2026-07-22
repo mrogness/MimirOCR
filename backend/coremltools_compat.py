@@ -76,7 +76,7 @@ def install_coremltools_shim_if_needed() -> bool:
 
     coremltools_mod = types.ModuleType("coremltools")
     coremltools_mod.__path__ = [str(root)]
-    coremltools_mod.__mimir_coreml_shim__ = True
+    setattr(coremltools_mod, "__mimir_coreml_shim__", True)
 
     proto_mod = types.ModuleType("coremltools.proto")
     proto_mod.__path__ = [str(proto_root)]
@@ -115,10 +115,10 @@ def install_coremltools_shim_if_needed() -> bool:
                 "NeuralNetworkBuilder is unavailable in Mimir frozen-runtime shim"
             )
 
-    models_mod.MLModel = MLModel
-    models_mod.datatypes = _DataTypes()
-    neural_mod.NeuralNetworkBuilder = NeuralNetworkBuilder
-    models_mod.neural_network = neural_mod
+    setattr(models_mod, "MLModel", MLModel)
+    setattr(models_mod, "datatypes", _DataTypes())
+    setattr(neural_mod, "NeuralNetworkBuilder", NeuralNetworkBuilder)
+    setattr(models_mod, "neural_network", neural_mod)
 
     inserted = []
     try:
@@ -136,10 +136,10 @@ def install_coremltools_shim_if_needed() -> bool:
         model_pb2 = importlib.import_module("coremltools.proto.Model_pb2")
         nn_pb2 = importlib.import_module("coremltools.proto.NeuralNetwork_pb2")
 
-        proto_mod.Model_pb2 = model_pb2
-        proto_mod.NeuralNetwork_pb2 = nn_pb2
-        coremltools_mod.proto = proto_mod
-        coremltools_mod.models = models_mod
+        setattr(proto_mod, "Model_pb2", model_pb2)
+        setattr(proto_mod, "NeuralNetwork_pb2", nn_pb2)
+        setattr(coremltools_mod, "proto", proto_mod)
+        setattr(coremltools_mod, "models", models_mod)
     except Exception:
         for name in reversed(inserted):
             sys.modules.pop(name, None)
