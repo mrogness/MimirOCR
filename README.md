@@ -56,6 +56,21 @@ yarn tauri build
 
 Installer artifacts will be placed under `src-tauri/target/release/bundle/`.
 
+### macOS user-level install (no admin password)
+
+For arm64 macOS app bundles, use:
+
+```bash
+yarn package:mac:app
+```
+
+This creates:
+
+- `src-tauri/target/release/bundle/macos/Mimir.app.zip`
+- `src-tauri/target/release/bundle/macos/Install Mimir to Home Applications.command`
+
+Run the generated `.command` file to install into `~/Applications` (user-level), which avoids admin prompts from writing to `/Applications`.
+
 ### 4) Windows build machine setup (recommended)
 
 On a Windows machine, install these once:
@@ -211,7 +226,8 @@ yarn package
 
 ### Notes
 
-- `src-tauri/tauri.conf.json` includes `bundle.resources` for `binaries/backend-*` to package sidecar onedir bundles.
+- `src-tauri/tauri.conf.json` uses a reverse-DNS identifier (`io.mrogness.mimir`) and includes `bundle.resources` for `binaries/backend-*` to package sidecar onedir bundles.
 - At runtime, Tauri now tries the sidecar first, and falls back to Python+uvicorn if needed.
 - The sidecar build is cross-platform via `scripts/build_backend_sidecar.mjs`.
+- macOS sidecar launch no longer executes from cache extraction; it runs from the bundled onedir payload in app resources.
 - Preflight validation is available via `yarn sidecar:preflight`.

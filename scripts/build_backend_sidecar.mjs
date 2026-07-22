@@ -283,47 +283,8 @@ function sidecarExecutablePath(outDir, binName) {
   return path.join(outDir, binName, executableName)
 }
 
-function sidecarArchivePath(outDir, bundleName) {
-  return path.join(outDir, `${bundleName}.${resolveArchiveExtension()}`)
-}
-
-function legacySidecarArchivePath(outDir, bundleName) {
-  const currentExtension = resolveArchiveExtension()
-  if (currentExtension === 'tar') {
-    return path.join(outDir, `${bundleName}.tar.gz`)
-  }
-  return path.join(outDir, `${bundleName}.tar`)
-}
-
-function resolveArchiveCompressionMode() {
-  const raw = String(process.env.MIMIR_SIDECAR_ARCHIVE || '').trim().toLowerCase()
-  if (raw === 'gz' || raw === 'gzip' || raw === 'compressed') {
-    return 'gz'
-  }
-  return 'tar'
-}
-
-function resolveArchiveExtension() {
-  return resolveArchiveCompressionMode() === 'gz' ? 'tar.gz' : 'tar'
-}
-
-function createSidecarArchive(outDir, bundleName) {
-  const archivePath = sidecarArchivePath(outDir, bundleName)
-  const legacyArchivePath = legacySidecarArchivePath(outDir, bundleName)
-  cleanPathIfExists(archivePath)
-  cleanPathIfExists(legacyArchivePath)
-  const compressionMode = resolveArchiveCompressionMode()
-  const tarArgs = compressionMode === 'gz'
-    ? ['-czf', archivePath, '-C', outDir, bundleName]
-    : ['-cf', archivePath, '-C', outDir, bundleName]
-  run('tar', tarArgs)
-  return archivePath
-}
-
 function createPosixLauncherSidecar(outDir, launcherName, bundleName) {
   const launcherPath = path.join(outDir, launcherName)
-  const archiveName = `${bundleName}.${resolveArchiveExtension()}`
-  const archiveIsGzip = resolveArchiveCompressionMode() === 'gz'
 
   const script = [
     '#!/usr/bin/env bash',
@@ -331,35 +292,10 @@ function createPosixLauncherSidecar(outDir, launcherName, bundleName) {
     '',
     'SELF_DIR="$(cd "$(dirname "$0")" && pwd)"',
     `BUNDLE_NAME="${bundleName}"`,
-    `ARCHIVE_NAME="${archiveName}"`,
-    `ARCHIVE_IS_GZIP="${archiveIsGzip ? '1' : '0'}"`,
-    'ARCHIVE_PATH="$SELF_DIR/$ARCHIVE_NAME"',
-    'CACHE_BASE="${MIMIR_CACHE_DIR:-${TMPDIR:-/tmp}/mimir-sidecar-cache}"',
-    'RUNTIME_DIR="$CACHE_BASE/$BUNDLE_NAME"',
-    'EXECUTABLE_PATH="$RUNTIME_DIR/$BUNDLE_NAME"',
-    'STAMP_PATH="$RUNTIME_DIR/.archive-mtime"',
-    'ARCHIVE_MTIME="$(/usr/bin/stat -f %m "$ARCHIVE_PATH" 2>/dev/null || echo 0)"',
-    'NEEDS_EXTRACT=1',
-    'if [ -x "$EXECUTABLE_PATH" ] && [ -f "$STAMP_PATH" ]; then',
-    '  CURRENT_MTIME="$(cat "$STAMP_PATH" 2>/dev/null || echo -1)"',
-    '  if [ "$CURRENT_MTIME" = "$ARCHIVE_MTIME" ]; then',
-    '    NEEDS_EXTRACT=0',
-    '  fi',
-    'fi',
-    '',
-    'if [ "$NEEDS_EXTRACT" -eq 1 ]; then',
-    '  TMP_ROOT="$CACHE_BASE/.extract-$BUNDLE_NAME-$$"',
-    '  rm -rf "$TMP_ROOT"',
-    '  mkdir -p "$TMP_ROOT"',
-    '  if [ "$ARCHIVE_IS_GZIP" = "1" ]; then',
-    '    /usr/bin/tar -xzf "$ARCHIVE_PATH" -C "$TMP_ROOT"',
-    '  else',
-    '    /usr/bin/tar -xf "$ARCHIVE_PATH" -C "$TMP_ROOT"',
-    '  fi',
-    '  rm -rf "$RUNTIME_DIR"',
-    '  mv "$TMP_ROOT/$BUNDLE_NAME" "$RUNTIME_DIR"',
-    '  echo "$ARCHIVE_MTIME" > "$STAMP_PATH"',
-    '  rm -rf "$TMP_ROOT"',
+    'EXECUTABLE_PATH="$SELF_DIR/$BUNDLE_NAME/$BUNDLE_NAME"',
+    'if [ ! -x "$EXECUTABLE_PATH" ]; then',
+    '  echo "Mimir sidecar executable not found: $EXECUTABLE_PATH" >&2',
+    '  exit 1',
     'fi',
     '',
     'exec "$EXECUTABLE_PATH" "$@"',
@@ -410,8 +346,6 @@ try {
   cleanPathIfExists(path.join(outDir, `${bundleName}.exe`))
   cleanPathIfExists(path.join(outDir, launcherName))
   cleanPathIfExists(path.join(outDir, `${launcherName}.exe`))
-  cleanPathIfExists(sidecarArchivePath(outDir, bundleName))
-  cleanPathIfExists(legacySidecarArchivePath(outDir, bundleName))
 
   const pyinstallerArgs = [
     '--noconfirm',
@@ -459,11 +393,9 @@ try {
     chmodSync(outPath, 0o755)
     runSidecarSmokeTestWithPolicy(outPath)
     signSidecarIfNeeded(outPath)
-    const archivePath = createSidecarArchive(outDir, bundleName)
     const launcherPath = createPosixLauncherSidecar(outDir, launcherName, bundleName)
     runSidecarSmokeTestWithPolicy(launcherPath)
-    cleanPathIfExists(sidecarRootDir)
-    console.log(`Built launcher sidecar ${launcherPath} with bundle archive ${archivePath} (${resolveArchiveCompressionMode()})`)
+    console.log(`Built launcher sidecar ${launcherPath} using in-bundle runtime directory ${sidecarRootDir}`)
   } else {
     throw new Error('Launcher sidecar packaging is currently supported on macOS/Linux only')
   }

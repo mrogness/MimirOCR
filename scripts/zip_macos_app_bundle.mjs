@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { chmodSync, existsSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -53,6 +53,9 @@ if (appCandidates.length === 0) {
 
 for (const appPath of appCandidates) {
   const appZipPath = `${appPath}.zip`
+  const appName = path.basename(appPath)
+  const appBaseName = appName.replace(/\.app$/i, '')
+  const installScriptPath = path.join(macosBundleDir, `Install ${appBaseName} to Home Applications.command`)
   try {
     run(dittoCommand, ['-c', '-k', '--sequesterRsrc', '--keepParent', appPath, appZipPath])
   } catch (error) {
@@ -64,5 +67,39 @@ for (const appPath of appCandidates) {
 
     throw error
   }
+
+  const installScript = [
+    '#!/usr/bin/env bash',
+    'set -euo pipefail',
+    '',
+    'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"',
+    `APP_NAME="${appName}"`,
+    `APP_ZIP_NAME="${path.basename(appZipPath)}"`,
+    'APP_DIR="$SCRIPT_DIR/$APP_NAME"',
+    'APP_ZIP="$SCRIPT_DIR/$APP_ZIP_NAME"',
+    'HOME_APPS_DIR="$HOME/Applications"',
+    'TARGET_APP="$HOME_APPS_DIR/$APP_NAME"',
+    '',
+    'mkdir -p "$HOME_APPS_DIR"',
+    '',
+    'if [ ! -d "$APP_DIR" ]; then',
+    '  if [ ! -f "$APP_ZIP" ]; then',
+    '    echo "Missing app archive: $APP_ZIP" >&2',
+    '    exit 1',
+    '  fi',
+    '  /usr/bin/ditto -x -k "$APP_ZIP" "$SCRIPT_DIR"',
+    'fi',
+    '',
+    'rm -rf "$TARGET_APP"',
+    '/usr/bin/ditto "$APP_DIR" "$TARGET_APP"',
+    '/usr/bin/xattr -dr com.apple.quarantine "$TARGET_APP" >/dev/null 2>&1 || true',
+    '/usr/bin/open "$TARGET_APP"',
+    'echo "Installed $APP_NAME to $TARGET_APP"',
+    '',
+  ].join('\n')
+
+  writeFileSync(installScriptPath, installScript, 'utf8')
+  chmodSync(installScriptPath, 0o755)
   console.log(`Created ${appZipPath}`)
+  console.log(`Created ${installScriptPath}`)
 }

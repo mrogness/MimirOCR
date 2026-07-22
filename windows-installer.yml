@@ -1,0 +1,88 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    env:
+      NODE_VERSION: "22.19.0"
+      PYTHON_VERSION: "3.8"
+      RUST_TOOLCHAIN: "1.96.0"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Enable Corepack and pin Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn --version
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> src-tauri/target
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Create venv and install backend sidecar dependencies
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r backend\requirements-sidecar.txt
+
+      - name: Run sidecar preflight with venv Python
+        shell: pwsh
+        run: |
+          $env:MIMIR_PYTHON = "$pwd\.venv\Scripts\python.exe"
+          yarn sidecar:preflight
+
+      - name: Build sidecar with venv Python
+        shell: pwsh
+        run: |
+          $env:Path = "$pwd\.venv\Scripts;$env:Path"
+          yarn build:sidecar
+
+      - name: Build Tauri bundle (Windows)
+        shell: pwsh
+        run: yarn tauri build
+
+      - name: Upload Windows bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mimir-windows-bundle
+          path: |
+            src-tauri/target/release/bundle/nsis/*
+            src-tauri/target/release/bundle/msi/*
+          if-no-files-found: warn
