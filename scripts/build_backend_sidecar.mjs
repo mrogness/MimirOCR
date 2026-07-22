@@ -381,6 +381,8 @@ try {
     'kraken',
     '--collect-all',
     'calamari_ocr',
+    '--exclude-module',
+    'coremltools',
     '--hidden-import',
     'kraken.blla',
     '--hidden-import',
