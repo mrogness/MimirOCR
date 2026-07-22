@@ -247,7 +247,9 @@ function runSidecarSmokeTest(binaryPath) {
 
 function runSidecarSmokeTestWithPolicy(binaryPath) {
   const skipSmoke = process.env.MIMIR_SIDECAR_SKIP_SMOKE_TEST === '1'
-  const strictSmoke = process.env.MIMIR_SIDECAR_STRICT_SMOKE_TEST === '1'
+  const strictSmoke =
+    process.env.MIMIR_SIDECAR_STRICT_SMOKE_TEST === '1' ||
+    (process.env.CI || '').toLowerCase() === 'true'
 
   if (skipSmoke) {
     console.warn('Skipping sidecar smoke test (MIMIR_SIDECAR_SKIP_SMOKE_TEST=1).')

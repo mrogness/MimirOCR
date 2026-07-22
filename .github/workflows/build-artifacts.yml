@@ -112,7 +112,7 @@ jobs:
         with:
           name: mimir-macos-unsigned
           path: |
-            src-tauri/target/release/bundle/macos/*.dmg
+            src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/macos/*.app.zip
             src-tauri/target/release/bundle/macos/*.command
           if-no-files-found: error
@@ -209,10 +209,26 @@ jobs:
         shell: pwsh
         run: |
           $portable = "src-tauri/target/release/bundle/mimir-portable.zip"
+          $staging = "src-tauri/target/release/bundle/mimir-portable"
+
           if (Test-Path $portable) {
             Remove-Item $portable -Force
           }
-          Compress-Archive -Path "src-tauri/target/release/mimir.exe" -DestinationPath $portable
+          if (Test-Path $staging) {
+            Remove-Item $staging -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $staging | Out-Null
+          Copy-Item "src-tauri/target/release/mimir.exe" "$staging/mimir.exe" -Force
+
+          if (Test-Path "src-tauri/target/release/resources") {
+            Copy-Item "src-tauri/target/release/resources" "$staging/resources" -Recurse -Force
+          } else {
+            Write-Error "Expected resources directory was not found at src-tauri/target/release/resources"
+            exit 1
+          }
+
+          Compress-Archive -Path "$staging/*" -DestinationPath $portable
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

@@ -60,7 +60,8 @@ pub fn try_spawn_backend_sidecar(
 
     let log_file = OpenOptions::new()
         .create(true)
-        .append(true)
+        .write(true)
+        .truncate(true)
         .open(sidecar_log_path)?;
     let log_file_err = log_file.try_clone()?;
 
