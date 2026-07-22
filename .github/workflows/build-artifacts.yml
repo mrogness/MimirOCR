@@ -1,10 +1,7 @@
 name: Build Unsigned Desktop Artifacts
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
