@@ -36,6 +36,10 @@ Before running it on a new machine, install backend dependencies:
 python -m pip install -r requirements.txt
 ```
 
+For sidecar packaging workflows (local/CI), dependencies are installed from:
+
+`requirements-sidecar.txt`
+
 ### Build only the backend sidecar (optional)
 
 Install PyInstaller in your active Python environment:
@@ -103,5 +107,6 @@ Installer artifacts will be placed under `src-tauri/target/release/bundle/`.
 - `src-tauri/tauri.conf.json` uses a reverse-DNS identifier (`io.mrogness.mimir`) and includes `bundle.resources` for `binaries/backend-*` to package sidecar onedir bundles.
 - At runtime, Tauri now tries the sidecar first, and falls back to Python+uvicorn if needed.
 - The sidecar build is cross-platform via `scripts/build_backend_sidecar.mjs`.
+- CI packaging uses `requirements-sidecar.txt` (not full `requirements.txt`) to avoid platform-specific dependency resolution issues during sidecar builds.
 - macOS sidecar launch no longer executes from cache extraction; it runs from the bundled onedir payload in app resources.
 - Preflight validation is available via `yarn sidecar:preflight`.

@@ -335,6 +335,7 @@ try {
   const outDir = path.join('src-tauri', 'binaries')
   const launcherName = `backend-${targetTriple}`
   const bundleName = `${launcherName}-bundle`
+  const sentinelPath = path.join(outDir, 'backend-sentinel')
   const dataSeparator = process.platform === 'win32' ? ';' : ':'
   const calamariModelsSrc = path.join(ROOT_DIR, 'backend', 'ml', 'calamari')
   const calamariModelsDest = path.join('backend', 'ml', 'calamari')
@@ -395,6 +396,9 @@ try {
     signSidecarIfNeeded(outPath)
     const launcherPath = createPosixLauncherSidecar(outDir, launcherName, bundleName)
     runSidecarSmokeTestWithPolicy(launcherPath)
+    // Sentinel is only to keep resources globs valid before sidecar builds.
+    // Remove it once a real sidecar runtime is successfully produced.
+    cleanPathIfExists(sentinelPath)
     console.log(`Built launcher sidecar ${launcherPath} using in-bundle runtime directory ${sidecarRootDir}`)
   } else {
     throw new Error('Launcher sidecar packaging is currently supported on macOS/Linux only')
