@@ -76,7 +76,7 @@ Run the generated `.command` file to install into `~/Applications` (user-level),
 
 CI builds are defined in `.github/workflows/build-artifacts.yml` and produce:
 
-- macOS: `.app`, `.app.zip`, and `.dmg`
+- macOS: `.app.zip` and `.dmg`
 - Windows: NSIS installer (`.exe`)
 
 Trigger modes:
@@ -93,6 +93,8 @@ This project currently does not use paid code signing certificates.
 - Windows: users should expect SmartScreen warnings for unsigned installers.
 
 These warnings are expected until signing/notarization is added.
+
+When downloading macOS artifacts from CI, use the `.app.zip` or `.dmg`. Do not run a raw `.app` copied out of an artifact browser/download flow, because hidden sidecar files can be dropped and macOS will report the app as damaged.
 
 ### Minimal manual Tauri build (optional)
 

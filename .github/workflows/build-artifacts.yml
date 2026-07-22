@@ -112,7 +112,6 @@ jobs:
         with:
           name: mimir-macos-unsigned
           path: |
-            src-tauri/target/release/bundle/macos/*.app
             src-tauri/target/release/bundle/macos/*.dmg
             src-tauri/target/release/bundle/macos/*.app.zip
             src-tauri/target/release/bundle/macos/*.command

@@ -11,12 +11,6 @@ if __package__ is None or __package__ == "":
     if repo_root not in sys.path:
         sys.path.insert(0, repo_root)
 
-from backend.stages.prepare import prepare_pages
-from backend.stages.ingest import ingest
-from backend.stages.segment import segment
-from backend.stages.ocr import ocr_pages
-from backend.stages.export import export
-
 from backend.models.project_config import ProjectConfig
 from backend.models.project import Project
 from backend.models.page import Page
@@ -24,6 +18,9 @@ from backend.runtime_paths import get_output_dir, get_temp_dir
 
 
 def _process_page_task(args):
+    from backend.stages.ingest import ingest
+    from backend.stages.segment import segment
+
     page, stage_config = args
     page = ingest(page, stage_config)
     page = segment(page, stage_config)
@@ -75,6 +72,10 @@ class PipelineRunner:
         return max(0, min(99, scaled))
 
     def process_project(self, project: Project):
+        from backend.stages.export import export
+        from backend.stages.ocr import ocr_pages
+        from backend.stages.prepare import prepare_pages
+
         self._report_progress(
             "preparing",
             0,
@@ -261,6 +262,9 @@ class PipelineRunner:
         self._report_progress("completed", 100, "OCR complete")
     
     def process_page(self, page: Page, stage_config: ProjectConfig):
+        from backend.stages.ingest import ingest
+        from backend.stages.segment import segment
+
         page = ingest(page, stage_config)
         page = segment(page, stage_config)
         return page

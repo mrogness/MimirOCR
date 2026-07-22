@@ -8,7 +8,6 @@ const BINARIES_DIR = path.join(ROOT_DIR, 'src-tauri', 'binaries')
 
 const KEEP_NAMES = new Set([
   '.gitkeep',
-  'backend-empty',
   'backend-sentinel',
 ])
 

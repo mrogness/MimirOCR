@@ -2,8 +2,6 @@
 import os
 from typing import Any, Iterable
 from PIL import Image, ImageOps
-from kraken.blla import segment as segment_blla
-from kraken.lib.segmentation import extract_polygons
 
 from backend.models.line import Line
 from backend.models.page import Page
@@ -45,6 +43,9 @@ def _configure_segmentation_threads(config: ProjectConfig) -> None:
 
 def segment(page: Page, config: ProjectConfig) -> Page:
     """Run BLLA segmentation and filter lines via dynamically scaled GUI coordinates."""
+    from kraken.blla import segment as segment_blla
+    from kraken.lib.segmentation import extract_polygons
+
     _configure_segmentation_threads(config)
     image = Image.open(page.image_path)
     
