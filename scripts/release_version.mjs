@@ -60,6 +60,20 @@ function updateCargoToml(filePath, version) {
   writeFileSync(filePath, next, 'utf8')
 }
 
+function updateCargoLock(filePath, version) {
+  const raw = readFileSync(filePath, 'utf8')
+  const next = raw.replace(
+    /(\[\[package\]\][\s\S]*?\nname\s*=\s*"mimir"\s*\nversion\s*=\s*")([^"]+)(")/,
+    `$1${version}$3`,
+  )
+
+  if (next === raw) {
+    fail(`could not update mimir package version in ${path.relative(ROOT_DIR, filePath)}`)
+  }
+
+  writeFileSync(filePath, next, 'utf8')
+}
+
 function main() {
   const args = process.argv.slice(2)
   const version = args[0]
@@ -100,12 +114,14 @@ function main() {
   const packageJsonPath = path.join(ROOT_DIR, 'package.json')
   const tauriConfigPath = path.join(ROOT_DIR, 'src-tauri', 'tauri.conf.json')
   const cargoTomlPath = path.join(ROOT_DIR, 'src-tauri', 'Cargo.toml')
+  const cargoLockPath = path.join(ROOT_DIR, 'src-tauri', 'Cargo.lock')
 
   updatePackageJson(packageJsonPath, version)
   updateTauriConfig(tauriConfigPath, version)
   updateCargoToml(cargoTomlPath, version)
+  updateCargoLock(cargoLockPath, version)
 
-  runGit(['add', 'package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml'])
+  runGit(['add', 'package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock'])
 
   const stagedDiff = runGit(['diff', '--cached', '--name-only'])
   if (stagedDiff) {
