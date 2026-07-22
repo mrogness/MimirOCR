@@ -8,6 +8,10 @@ import threading
 import time
 import uvicorn
 
+# Mitigate TensorFlow/coremltools protobuf descriptor collisions in packaged runtimes.
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION", "2")
+
 from backend.main import app
 
 

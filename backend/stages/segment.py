@@ -1,11 +1,64 @@
 # segment.py
 import os
+import sys
+import types
 from typing import Any, Iterable
 from PIL import Image, ImageOps
 
 from backend.models.line import Line
 from backend.models.page import Page
 from backend.models.project_config import ProjectConfig
+
+
+def _install_coremltools_proto_stub() -> None:
+    """
+    Provide a lightweight coremltools proto stub for Kraken inference paths.
+
+    Kraken imports `coremltools.proto.NeuralNetwork_pb2` from `kraken.lib.layers`
+    even when only running segmentation/inference. In packaged runtime scenarios,
+    importing full coremltools can trigger protobuf descriptor collisions with
+    TensorFlow. The inference path only needs these symbols to exist, not full
+    CoreML conversion functionality.
+    """
+    if os.getenv("MIMIR_USE_REAL_COREMLTOOLS", "0") == "1":
+        return
+
+    if "coremltools" in sys.modules:
+        return
+
+    coremltools_mod = types.ModuleType("coremltools")
+    coremltools_mod.__path__ = []
+
+    proto_mod = types.ModuleType("coremltools.proto")
+    proto_mod.__path__ = []
+
+    pb2_mod = types.ModuleType("coremltools.proto.NeuralNetwork_pb2")
+
+    class _ProtoParamValue:
+        def __init__(self) -> None:
+            self.intValue = 0
+            self.doubleValue = 0.0
+            self.stringValue = ""
+
+    class _ProtoParamMap(dict):
+        def __missing__(self, key):
+            value = _ProtoParamValue()
+            self[key] = value
+            return value
+
+    class CustomLayerParams:
+        def __init__(self) -> None:
+            self.className = ""
+            self.description = ""
+            self.parameters = _ProtoParamMap()
+
+    pb2_mod.CustomLayerParams = CustomLayerParams
+    proto_mod.NeuralNetwork_pb2 = pb2_mod
+    coremltools_mod.proto = proto_mod
+
+    sys.modules["coremltools"] = coremltools_mod
+    sys.modules["coremltools.proto"] = proto_mod
+    sys.modules["coremltools.proto.NeuralNetwork_pb2"] = pb2_mod
 
 
 def _safe_thread_count(value: object, fallback: int = 1) -> int:
@@ -43,6 +96,7 @@ def _configure_segmentation_threads(config: ProjectConfig) -> None:
 
 def segment(page: Page, config: ProjectConfig) -> Page:
     """Run BLLA segmentation and filter lines via dynamically scaled GUI coordinates."""
+    _install_coremltools_proto_stub()
     from kraken.blla import segment as segment_blla
     from kraken.lib.segmentation import extract_polygons
 
