@@ -37,8 +37,7 @@
       "signingIdentity": "-"
     },
     "resources": [
-      "binaries/backend-*",
-      "binaries/backend-*/**"
+      "binaries"
     ]
   }
 }

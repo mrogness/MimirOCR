@@ -58,10 +58,24 @@ jobs:
           python -m pip install -r requirements-sidecar.txt
           python -m pip install pyinstaller
 
-      - name: Build unsigned macOS artifacts
+      - name: Build macOS sidecar
         run: |
           export MIMIR_PYTHON="$pythonLocation/bin/python"
-          yarn package:mac
+          yarn sidecar:preflight
+          yarn build:sidecar
+
+      - name: Inspect macOS sidecar artifacts before Tauri build
+        run: |
+          set -euo pipefail
+          echo "Listing src-tauri/binaries:"
+          ls -la src-tauri/binaries
+          echo "Listing top-level sidecar bundle payload:"
+          find src-tauri/binaries -maxdepth 2 -type f | sort
+
+      - name: Build unsigned macOS artifacts
+        run: |
+          yarn tauri build --bundles app,dmg
+          node scripts/zip_macos_app_bundle.mjs
 
       - name: Verify macOS sidecar bundled assets
         run: |
@@ -171,12 +185,26 @@ jobs:
         run: |
           .\.venv\Scripts\python.exe -c "import kraken, calamari_ocr, uvicorn; print('python sidecar deps ok')"
 
-      - name: Build unsigned Windows installer
+      - name: Build Windows sidecar
         shell: pwsh
         run: |
           $env:MIMIR_PYTHON = "$pwd\.venv\Scripts\python.exe"
           $env:PYTHON = "$pwd\.venv\Scripts\python.exe"
-          yarn package:windows
+          yarn sidecar:preflight
+          yarn build:sidecar
+
+      - name: Inspect Windows sidecar artifacts before Tauri build
+        shell: pwsh
+        run: |
+          Write-Host "Listing src-tauri/binaries"
+          Get-ChildItem -Path "src-tauri/binaries" -Force
+          Write-Host "Listing nested sidecar payload files"
+          Get-ChildItem -Path "src-tauri/binaries" -Recurse -File | Select-Object -ExpandProperty FullName
+
+      - name: Build unsigned Windows installer
+        shell: pwsh
+        run: |
+          yarn tauri build --bundles nsis
 
       - name: Create portable zip
         shell: pwsh
