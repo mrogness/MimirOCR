@@ -54,6 +54,7 @@ backend/tmp/
 backend/output/
 backend/data/uploads/
 backend/data/**/*.tmp
+backend/data/app_data.db
 
 # ------------------------------
 # Tauri / Rust

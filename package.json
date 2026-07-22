@@ -12,6 +12,7 @@
     "sidecar:clean": "node scripts/clean_sidecar_artifacts.mjs",
     "sidecar:preflight": "node scripts/check_backend_sidecar_env.mjs",
     "build:sidecar": "yarn sidecar:clean && node scripts/build_backend_sidecar.mjs",
+    "release:tag": "node scripts/release_version.mjs",
     "package": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build",
     "package:mac": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles app,dmg && node scripts/zip_macos_app_bundle.mjs",
     "package:windows": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles nsis"

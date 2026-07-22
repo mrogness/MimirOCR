@@ -1,3 +1,4 @@
+Copyright (C) 2026 Matthew Rogness
 # Tauri + Vue 3
 
 This template should help get you started developing with Tauri + Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
@@ -84,6 +85,28 @@ Trigger modes:
 - push to `main`
 - tags like `v1.2.3`
 - manual dispatch
+
+### Create and publish a release tag
+
+Use one command to bump versions in app manifests, commit, create an annotated tag, and push:
+
+```bash
+yarn release:tag 0.1.1
+```
+
+This updates:
+
+- `package.json`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/Cargo.toml`
+
+and then creates/pushes tag `v0.1.1`, which triggers CI release upload.
+
+Optional dry-run style (no push):
+
+```bash
+yarn release:tag 0.1.1 --no-push
+```
 
 ### Unsigned distribution behavior (important)
 
