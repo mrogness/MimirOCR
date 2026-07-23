@@ -48,10 +48,7 @@ if [[ ! -x "$REPO_ROOT/.venv/bin/python" ]]; then
   "$PY_BOOTSTRAP" -m venv "$REPO_ROOT/.venv"
 fi
 
-export MIMIR_PYTHON="$REPO_ROOT/.venv/bin/python"
-export PYTHON="$REPO_ROOT/.venv/bin/python"
-export MIMIR_SIDECAR_STRICT_SMOKE_TEST="${MIMIR_SIDECAR_STRICT_SMOKE_TEST:-1}"
-export MIMIR_SIDECAR_PROFILE="${MIMIR_SIDECAR_PROFILE:-lean}"
+PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 
 ensure_sidecar_deps() {
   if yarn sidecar:preflight; then
@@ -59,8 +56,8 @@ ensure_sidecar_deps() {
   fi
 
   echo "Installing sidecar dependencies into .venv..."
-  "$MIMIR_PYTHON" -m pip install --upgrade pip
-  "$MIMIR_PYTHON" -m pip install -r requirements-sidecar-macos.txt
+  "$PYTHON_BIN" -m pip install --upgrade pip
+  "$PYTHON_BIN" -m pip install -r requirements-sidecar-macos.txt
   yarn sidecar:preflight
 }
 
@@ -74,11 +71,11 @@ sidecar_artifact_exists() {
 
 ensure_sidecar_deps
 
-if [[ "${MIMIR_FORCE_SIDECAR_REBUILD:-0}" == "1" ]] || ! sidecar_artifact_exists; then
-  echo "Building sidecar (profile=$MIMIR_SIDECAR_PROFILE)..."
+if ! sidecar_artifact_exists; then
+  echo "Building sidecar..."
   yarn build:sidecar
 else
-  echo "Using existing sidecar artifacts (set MIMIR_FORCE_SIDECAR_REBUILD=1 to rebuild)."
+  echo "Using existing sidecar artifacts."
 fi
 
 echo "Starting Tauri dev with auto-configured sidecar env..."

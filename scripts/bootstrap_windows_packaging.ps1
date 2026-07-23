@@ -782,7 +782,6 @@ if (-not $SkipYarnInstall) {
 
 if (-not $SkipPreflight) {
   Write-Section 'Running sidecar preflight checks'
-  $env:MIMIR_PYTHON = $venvPython
   $env:PYTHON = $venvPython
   yarn sidecar:preflight
 } else {

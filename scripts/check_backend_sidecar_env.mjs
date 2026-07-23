@@ -24,21 +24,6 @@ function tryRun(command, args) {
 function findPythonCommand() {
   const candidates = []
 
-  if (process.env.MIMIR_PYTHON) {
-    candidates.push({ cmd: process.env.MIMIR_PYTHON, args: ['--version'], source: 'MIMIR_PYTHON' })
-  }
-
-  if (process.env.PYTHON) {
-    candidates.push({ cmd: process.env.PYTHON, args: ['--version'], source: 'PYTHON' })
-  }
-
-  if (process.env.VIRTUAL_ENV) {
-    const venvPython = process.platform === 'win32'
-      ? path.join(process.env.VIRTUAL_ENV, 'Scripts', 'python.exe')
-      : path.join(process.env.VIRTUAL_ENV, 'bin', 'python')
-    candidates.push({ cmd: venvPython, args: ['--version'], source: 'VIRTUAL_ENV' })
-  }
-
   const localVenvCandidates = process.platform === 'win32'
     ? [
       path.join(ROOT_DIR, '.venv', 'Scripts', 'python.exe'),
@@ -51,13 +36,6 @@ function findPythonCommand() {
 
   for (const venvPython of localVenvCandidates) {
     candidates.push({ cmd: venvPython, args: ['--version'], source: 'local-venv' })
-  }
-
-  if (process.env.CONDA_PREFIX) {
-    const condaPython = process.platform === 'win32'
-      ? path.join(process.env.CONDA_PREFIX, 'python.exe')
-      : path.join(process.env.CONDA_PREFIX, 'bin', 'python')
-    candidates.push({ cmd: condaPython, args: ['--version'], source: 'CONDA_PREFIX' })
   }
 
   candidates.push(

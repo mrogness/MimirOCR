@@ -50,20 +50,6 @@ function tryCommand(command, args = []) {
 }
 
 function resolvePythonCommand() {
-  const envPython = (process.env.MIMIR_PYTHON || process.env.PYTHON || '').trim()
-  if (envPython && commandExists(envPython, ['--version'])) {
-    return { cmd: envPython, argsPrefix: [] }
-  }
-
-  if (process.env.VIRTUAL_ENV) {
-    const venvPython = process.platform === 'win32'
-      ? path.join(process.env.VIRTUAL_ENV, 'Scripts', 'python.exe')
-      : path.join(process.env.VIRTUAL_ENV, 'bin', 'python')
-    if (commandExists(venvPython, ['--version'])) {
-      return { cmd: venvPython, argsPrefix: [] }
-    }
-  }
-
   const localVenvCandidates = process.platform === 'win32'
     ? [
       path.join(ROOT_DIR, '.venv', 'Scripts', 'python.exe'),
@@ -137,34 +123,13 @@ function resolvePyInstallerRunner() {
   }
 }
 
-function resolveCodesignCommand() {
-  if (commandExists('codesign', ['-h'])) {
-    return { cmd: 'codesign', argsPrefix: [] }
-  }
-  if (commandExists('xcrun', ['-f', 'codesign'])) {
-    return { cmd: 'xcrun', argsPrefix: ['codesign'] }
-  }
-  return null
-}
-
-function parseProfileArg() {
-  const argv = process.argv.slice(2)
-  const byFlag = argv.findIndex((token) => token === '--profile')
-  if (byFlag >= 0 && argv[byFlag + 1]) {
-    return String(argv[byFlag + 1]).trim().toLowerCase()
-  }
-
-  const byEq = argv.find((token) => token.startsWith('--profile='))
-  if (byEq) {
-    return String(byEq.split('=')[1] || '').trim().toLowerCase()
-  }
-
-  const fromEnv = (process.env.MIMIR_SIDECAR_PROFILE || '').trim().toLowerCase()
-  return fromEnv || 'standard'
+function defaultProfile() {
+  // Keep Windows behavior unchanged and keep macOS/Linux on lean collection.
+  return process.platform === 'win32' ? 'standard' : 'lean'
 }
 
 function profileOptions(profile) {
-  if (profile !== 'lean' && profile !== 'aggressive') {
+  if (profile !== 'lean') {
     return []
   }
 
@@ -193,25 +158,6 @@ function profileOptions(profile) {
     'tensorflow.python.data.experimental.service',
   ]
 
-  if (profile === 'aggressive') {
-    excludes.push(
-      'torchmetrics',
-      'pytorch_lightning',
-      // Estimator is retained in lean and removed only in aggressive mode.
-      'tensorflow_estimator',
-    )
-  }
-
-  // Optional local override for fast A/B trimming experiments.
-  const extraExcludes = (process.env.MIMIR_SIDECAR_EXCLUDE_MODULES || '')
-    .split(',')
-    .map((name) => name.trim())
-    .filter(Boolean)
-
-  for (const mod of extraExcludes) {
-    excludes.push(mod)
-  }
-
   const args = ['--strip']
   for (const mod of new Set(excludes)) {
     args.push('--exclude-module', mod)
@@ -220,9 +166,7 @@ function profileOptions(profile) {
 }
 
 function packageCollectionArgs(profile) {
-  const mode = (process.env.MIMIR_SIDECAR_COLLECT_MODE || '').trim().toLowerCase()
-  const useSubmodules = mode === 'submodules' || (mode === '' && profile === 'lean')
-  const useCalamariSubmodules = mode === 'calamari-submodules'
+  const useSubmodules = profile === 'lean'
 
   const args = [
     '--collect-submodules',
@@ -230,17 +174,9 @@ function packageCollectionArgs(profile) {
   ]
 
   if (useSubmodules) {
-    // Lean default: narrower package collection for both OCR engines.
+    // Lean behavior: narrower package collection for both OCR engines.
     args.push(
       '--collect-submodules',
-      'kraken',
-      '--collect-submodules',
-      'calamari_ocr',
-    )
-  } else if (useCalamariSubmodules) {
-    // Optional experiment mode: keep Kraken broad and narrow Calamari only.
-    args.push(
-      '--collect-all',
       'kraken',
       '--collect-submodules',
       'calamari_ocr',
@@ -258,36 +194,8 @@ function packageCollectionArgs(profile) {
 }
 
 function signSidecarIfNeeded(binaryPath) {
-  if (process.platform !== 'darwin') {
-    return
-  }
-
-  // PyInstaller already re-signs onefile binaries on macOS. Re-signing again
-  // here can corrupt the appended PKG archive for large TensorFlow payloads.
-  // Opt in explicitly only when needed.
-  if (process.env.MIMIR_FORCE_CODESIGN_SIDECAR !== '1') {
-    return
-  }
-
-  const codesign = resolveCodesignCommand()
-  if (!codesign) {
-    throw new Error('codesign is required on macOS to sign the sidecar binary')
-  }
-
-  run(codesign.cmd, [...codesign.argsPrefix,
-    '--force',
-    '--sign',
-    '-',
-    '--timestamp=none',
-    '--verbose',
-    binaryPath,
-  ], { stdio: 'inherit' })
-
-  run(codesign.cmd, [...codesign.argsPrefix,
-    '--verify',
-    '--verbose',
-    binaryPath,
-  ], { stdio: 'inherit' })
+  // Intentionally disabled: default behavior does not re-sign sidecar binaries.
+  void binaryPath
 }
 
 function runSidecarSmokeTest(binaryPath) {
@@ -297,15 +205,7 @@ function runSidecarSmokeTest(binaryPath) {
 }
 
 function runSidecarSmokeTestWithPolicy(binaryPath) {
-  const skipSmoke = process.env.MIMIR_SIDECAR_SKIP_SMOKE_TEST === '1'
-  const strictSmoke =
-    process.env.MIMIR_SIDECAR_STRICT_SMOKE_TEST === '1' ||
-    (process.env.CI || '').toLowerCase() === 'true'
-
-  if (skipSmoke) {
-    console.warn('Skipping sidecar smoke test (MIMIR_SIDECAR_SKIP_SMOKE_TEST=1).')
-    return
-  }
+  const strictSmoke = (process.env.CI || '').toLowerCase() === 'true'
 
   try {
     runSidecarSmokeTest(binaryPath)
@@ -316,7 +216,7 @@ function runSidecarSmokeTestWithPolicy(binaryPath) {
       message.includes('GeneratedDatabase()->Add(encoded_file_descriptor, size)')
 
     if (protobufDescriptorCollision && !strictSmoke) {
-      console.warn('Sidecar smoke test hit known TensorFlow/protobuf descriptor collision; continuing build. Set MIMIR_SIDECAR_STRICT_SMOKE_TEST=1 to fail hard.')
+      console.warn('Sidecar smoke test hit known TensorFlow/protobuf descriptor collision; continuing build outside CI.')
       return
     }
 
@@ -379,9 +279,9 @@ function createPosixLauncherSidecar(outDir, launcherName, bundleName) {
 }
 
 try {
-  const profile = parseProfileArg()
-  if (!['standard', 'lean', 'aggressive'].includes(profile)) {
-    throw new Error(`Unsupported sidecar profile '${profile}'. Use 'standard', 'lean', or 'aggressive'.`)
+  const profile = defaultProfile()
+  if (!['standard', 'lean'].includes(profile)) {
+    throw new Error(`Unsupported sidecar profile '${profile}'. Use 'standard' or 'lean'.`)
   }
 
   if (!commandExists('rustc')) {

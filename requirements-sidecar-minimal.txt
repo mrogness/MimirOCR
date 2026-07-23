@@ -1,0 +1,33 @@
+# Minimal top-level requirements for sidecar runtime:
+# - Backend API/runtime imports
+# - Kraken blla segmentation + extract_polygons
+# - Calamari predictor
+#
+# Note: pip will still install many transitive dependencies.
+
+# Backend runtime imports
+fastapi==0.139.2
+uvicorn==0.51.0
+SQLAlchemy==2.0.51
+pydantic==2.13.4
+python-multipart==0.0.32
+typing_extensions==4.16.0
+
+# Backend stage imports
+numpy==1.23.5
+pillow==12.3.0
+pymupdf==1.28.0
+reportlab==5.0.0
+
+# OCR engines
+kraken==4.3.13
+calamari_ocr==2.3.1
+
+# TensorFlow stack required by calamari_ocr/tfaip
+tensorflow==2.15.1
+tensorflow-estimator==2.15.0
+keras==2.15.0
+protobuf==3.20.3
+
+# Required in your current lock-step setup for kraken model handling on macOS
+coremltools==6.3.0
