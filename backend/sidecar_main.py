@@ -2,16 +2,11 @@
 
 import argparse
 import ctypes
-import multiprocessing as mp
 import os
 import sys
 import threading
 import time
 import uvicorn
-
-# Mitigate TensorFlow/coremltools protobuf descriptor collisions in packaged runtimes.
-os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
-os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION", "2")
 
 from backend.main import app
 
@@ -21,11 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--parent-pid", type=int, default=0)
-    # In frozen multiprocessing child boots, Python may append internal flags
-    # (for example spawn/fork bootstrap args). Ignore unknown args so child
-    # startup cannot fail with argparse exit code 2.
-    args, _unknown = parser.parse_known_args()
-    return args
+    return parser.parse_args()
 
 
 def _read_parent_pid(cli_parent_pid: int) -> int:
@@ -104,11 +95,6 @@ def _start_parent_watchdog(parent_pid: int) -> None:
 
 
 def main() -> None:
-    # Required for multiprocessing spawn in frozen/PyInstaller executables.
-    # Without this, child bootstrap args (e.g. --multiprocessing-fork) are
-    # treated as app CLI args and the worker exits with argparse code 2.
-    mp.freeze_support()
-
     args = parse_args()
     parent_pid = _read_parent_pid(args.parent_pid)
     _start_parent_watchdog(parent_pid)

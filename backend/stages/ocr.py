@@ -14,10 +14,6 @@ from backend.models.project_config import ProjectConfig
 CALAMARI_LINE_SIDE_PADDING_PX = 16.0
 
 
-def _is_macos_frozen_runtime() -> bool:
-    return sys.platform == "darwin" and bool(getattr(sys, "frozen", False))
-
-
 def _resolve_model_path(raw_path: str) -> str:
     candidate = Path(raw_path)
     if candidate.is_absolute() and candidate.exists():
@@ -49,12 +45,10 @@ def create_predictor(config: ProjectConfig):
     from calamari_ocr.ocr.predict.predictor import Predictor, PredictorParams
 
     resolved_model_path = _resolve_model_path(config.ocr.model_path)
-    params = PredictorParams()
-    _configure_predictor_params(params, max_threads)
 
     try:
         predictor = Predictor.from_checkpoint(
-            params=params,
+            params=PredictorParams(),
             checkpoint=resolved_model_path,
         )
     except Exception as exc:  # noqa: BLE001
@@ -521,11 +515,6 @@ def _configure_runtime_threads(max_threads: int) -> None:
     except ImportError:
         pass
 
-    # In frozen macOS sidecar builds, defer TensorFlow import to Calamari's
-    # canonical load path. Early imports can increase native init-order risk.
-    if _is_macos_frozen_runtime():
-        return
-
     # If TensorFlow is already imported, apply limits programmatically too.
     try:
         import tensorflow as tf  # type: ignore
@@ -538,13 +527,4 @@ def _configure_runtime_threads(max_threads: int) -> None:
             pass
     except ImportError:
         pass
-
-
-def _configure_predictor_params(params: Any, max_threads: int) -> None:
-    pipeline = getattr(params, "pipeline", None)
-    if pipeline is not None:
-        if hasattr(pipeline, "num_processes"):
-            pipeline.num_processes = 1
-        if hasattr(pipeline, "prefetch"):
-            pipeline.prefetch = min(2, max_threads)
             

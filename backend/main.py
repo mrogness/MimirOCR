@@ -5,16 +5,10 @@ sets up routes, and configures middleware and other necessary components.
 Author: Matthew Rogness
 '''
 
-import os
-
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
 import uvicorn
-
-# Mitigate TensorFlow/coremltools protobuf descriptor collisions in runtime imports.
-os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
-os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION", "2")
 
 from backend.api.routes import router as api_router
 from fastapi.middleware.cors import CORSMiddleware

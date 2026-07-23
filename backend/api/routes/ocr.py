@@ -1,14 +1,11 @@
 from datetime import datetime, timezone
-import multiprocessing as mp
 import os
 from pathlib import Path
-import queue
 import shutil
-import sys
 from threading import Thread
 import traceback
 import time
-from typing import Any, Callable, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -24,275 +21,6 @@ from backend.pipeline.runner import PipelineRunner
 from backend.runtime_paths import get_output_dir, get_temp_dir
 
 router = APIRouter(prefix="/ocr", tags=["ocr"])
-
-
-def _is_macos_frozen_runtime() -> bool:
-    return sys.platform == "darwin" and bool(getattr(sys, "frozen", False))
-
-
-def _should_isolate_pipeline_runtime() -> bool:
-    env = (os.getenv("MIMIR_ISOLATE_PIPELINE_PROCESS") or "").strip().lower()
-    if env in {"0", "false", "no", "off"}:
-        return False
-    if env in {"1", "true", "yes", "on"}:
-        return True
-    return _is_macos_frozen_runtime()
-
-
-def _pipeline_worker_main(
-    project_payload: dict,
-    config_payload: dict,
-    progress_queue: Any,
-    result_queue: Any,
-) -> None:
-    """Run full OCR pipeline in child process to contain native aborts."""
-    project = Project.from_dict(project_payload)
-    config = ProjectConfig(**config_payload)
-
-    def report_progress(phase: str, progress: int, message: str, details: Optional[dict] = None) -> None:
-        details = details or {}
-        progress_queue.put((phase, progress, message, details))
-
-    try:
-        runner = PipelineRunner(config, report_progress)
-        runner.process_project(project)
-        result_queue.put(("ok", project.to_dict()))
-    except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as exc:
-        result_queue.put(("error", f"{type(exc).__name__}: {exc}", traceback.format_exc()))
-
-
-def _segment_worker_main(
-    project_payload: dict,
-    config_payload: dict,
-    progress_queue: Any,
-    result_queue: Any,
-) -> None:
-    from backend.stages.ingest import ingest
-    from backend.stages.prepare import prepare_pages
-    from backend.stages.segment import segment
-
-    project = Project.from_dict(project_payload)
-    config = ProjectConfig(**config_payload)
-
-    try:
-        last_total = 0
-
-        def on_page_rasterized(completed: int, total: int) -> None:
-            nonlocal last_total
-            last_total = total
-            progress = min(33, int((completed / max(1, total)) * 33))
-            progress_queue.put(
-                (
-                    "preparing",
-                    progress,
-                    f"Rasterizing PDF pages ({completed}/{total})",
-                    {
-                        "total_pages": total,
-                        "rasterized_pages": completed,
-                        "segmented_pages": 0,
-                        "ocr_pages": 0,
-                    },
-                )
-            )
-
-        pages = prepare_pages(project, config, on_page_rasterized=on_page_rasterized)
-        total_pages = len(pages)
-        if last_total == 0:
-            last_total = total_pages
-
-        if total_pages == 0:
-            project.pages = []
-            result_queue.put(("ok", project.to_dict()))
-            return
-
-        progress_queue.put(
-            (
-                "segmenting",
-                34,
-                f"Segmenting pages (0/{total_pages})",
-                {
-                    "total_pages": total_pages,
-                    "rasterized_pages": total_pages,
-                    "segmented_pages": 0,
-                    "ocr_pages": 0,
-                },
-            )
-        )
-
-        segmented_pages = []
-        for idx, page in enumerate(pages, start=1):
-            processed = ingest(page, config)
-            processed = segment(processed, config)
-            segmented_pages.append(processed)
-
-            progress = 34 + int((idx / total_pages) * 32)
-            progress_queue.put(
-                (
-                    "segmenting",
-                    min(66, progress),
-                    f"Segmenting pages ({idx}/{total_pages})",
-                    {
-                        "total_pages": total_pages,
-                        "rasterized_pages": total_pages,
-                        "segmented_pages": idx,
-                        "ocr_pages": 0,
-                    },
-                )
-            )
-
-        segmented_pages.sort(key=lambda p: p.page_number)
-        project.pages = segmented_pages
-        result_queue.put(("ok", project.to_dict()))
-    except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as exc:
-        result_queue.put(("error", f"{type(exc).__name__}: {exc}", traceback.format_exc()))
-
-
-def _ocr_worker_main(
-    project_payload: dict,
-    config_payload: dict,
-    progress_queue: Any,
-    result_queue: Any,
-) -> None:
-    from backend.stages.export import export
-    from backend.stages.ocr import ocr_pages
-
-    project = Project.from_dict(project_payload)
-    config = ProjectConfig(**config_payload)
-
-    try:
-        total_pages = len(project.pages)
-        progress_queue.put(
-            (
-                "ocr",
-                67,
-                f"Running OCR model (0/{total_pages} pages)",
-                {
-                    "total_pages": total_pages,
-                    "rasterized_pages": total_pages,
-                    "segmented_pages": total_pages,
-                    "ocr_pages": 0,
-                },
-            )
-        )
-
-        def on_page_done(completed: int, total: int) -> None:
-            progress = 67 + int((completed / max(1, total)) * 27)
-            progress_queue.put(
-                (
-                    "ocr",
-                    min(94, progress),
-                    f"Running OCR model ({completed}/{total} pages)",
-                    {
-                        "total_pages": total,
-                        "rasterized_pages": total,
-                        "segmented_pages": total,
-                        "ocr_pages": completed,
-                    },
-                )
-            )
-
-        project.pages = ocr_pages(project.pages, config, on_page_done=on_page_done)
-        progress_queue.put(("exporting", 95, "Exporting OCR artifacts", None))
-        export(project, config)
-        progress_queue.put(("completed", 100, "OCR complete", None))
-        result_queue.put(("ok", project.to_dict()))
-    except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as exc:
-        result_queue.put(("error", f"{type(exc).__name__}: {exc}", traceback.format_exc()))
-
-
-def _drain_progress_queue(progress_queue: Any, report_progress: Callable[[str, int, str, Optional[dict]], None]) -> None:
-    while True:
-        try:
-            phase, progress, message, details = progress_queue.get_nowait()
-        except queue.Empty:
-            break
-        report_progress(phase, progress, message, details)
-
-
-def _run_isolated_worker(
-    *,
-    target: Callable[..., None],
-    project_payload: dict,
-    config_payload: dict,
-    report_progress: Callable[[str, int, str, Optional[dict]], None],
-    crash_label: str,
-) -> dict:
-    ctx = mp.get_context("spawn")
-    progress_queue = ctx.Queue()
-    result_queue = ctx.Queue()
-    process = ctx.Process(
-        target=target,
-        args=(project_payload, config_payload, progress_queue, result_queue),
-        daemon=True,
-    )
-    process.start()
-
-    result: tuple | None = None
-    while result is None:
-        _drain_progress_queue(progress_queue, report_progress)
-
-        try:
-            result = result_queue.get(timeout=0.25)
-            break
-        except queue.Empty:
-            pass
-
-        if not process.is_alive():
-            _drain_progress_queue(progress_queue, report_progress)
-            try:
-                result = result_queue.get_nowait()
-            except queue.Empty:
-                result = None
-            break
-
-    process.join(timeout=2)
-    if process.is_alive():
-        process.terminate()
-        process.join(timeout=2)
-
-    if result is None:
-        exit_code = process.exitcode
-        raise RuntimeError(f"{crash_label} crashed (exit code {exit_code})")
-
-    status = result[0]
-    if status == "ok":
-        payload = result[1]
-        return payload
-
-    if status == "error":
-        message = result[1]
-        details = result[2]
-        raise RuntimeError(f"{message}\n{details}")
-
-    raise RuntimeError(f"Unexpected worker result: {result}")
-
-
-def _run_pipeline_with_optional_isolation(
-    project: Project,
-    config: ProjectConfig,
-    report_progress: Callable[[str, int, str, Optional[dict]], None],
-) -> Project:
-    if not _should_isolate_pipeline_runtime():
-        runner = PipelineRunner(config, report_progress)
-        runner.process_project(project)
-        return project
-
-    config_payload = config.model_dump()
-    segmented_payload = _run_isolated_worker(
-        target=_segment_worker_main,
-        project_payload=project.to_dict(),
-        config_payload=config_payload,
-        report_progress=report_progress,
-        crash_label="Segmentation worker",
-    )
-    ocr_payload = _run_isolated_worker(
-        target=_ocr_worker_main,
-        project_payload=segmented_payload,
-        config_payload=config_payload,
-        report_progress=report_progress,
-        crash_label="OCR worker",
-    )
-    return Project.from_dict(ocr_payload)
 
 
 def _apply_thread_limits(max_threads: int) -> None:
@@ -420,11 +148,6 @@ def _run_ocr_job(
         effective_device = request_config.device or "cpu"
         segmentation_workers = _resolve_segmentation_worker_limit(effective_workers, effective_device)
         segmentation_threads = _resolve_segmentation_thread_limit(segmentation_workers, effective_device)
-        if _is_macos_frozen_runtime():
-            segmentation_workers = 1
-            segmentation_threads = 1
-            os.environ.setdefault("MIMIR_FORCE_COREMLTOOLS_SHIM", "1")
-            os.environ.setdefault("MIMIR_ISOLATE_PIPELINE_PROCESS", "1")
         os.environ["MIMIR_SEGMENTATION_WORKERS"] = str(segmentation_workers)
         os.environ["MIMIR_SEGMENTATION_THREADS"] = str(segmentation_threads)
 
@@ -472,7 +195,11 @@ def _run_ocr_job(
                 ocr_pages=details.get("ocr_pages"),
             )
 
-        project = _run_pipeline_with_optional_isolation(project, config, report_progress)
+        runner = PipelineRunner(
+            config,
+            report_progress,
+        )
+        runner.process_project(project)
 
         persist_db = SessionLocal()
         try:
@@ -505,7 +232,7 @@ def _run_ocr_job(
             project_json_path=project_json_path,
             ocr_pages=len(project.pages),
         )
-    except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as exc:
+    except Exception as exc:  # noqa: BLE001
         details = traceback.format_exc()
         persist_db = SessionLocal()
         try:
