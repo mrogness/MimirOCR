@@ -66,6 +66,7 @@ jobs:
           export PYTHON="$PWD/.venv/bin/python"
           export MIMIR_SIDECAR_STRICT_SMOKE_TEST=1
           export MIMIR_SIDECAR_PROFILE=lean
+          export MIMIR_SIDECAR_COLLECT_MODE=calamari-submodules
           yarn sidecar:preflight
           yarn build:sidecar
 

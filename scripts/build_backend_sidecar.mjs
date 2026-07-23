@@ -219,6 +219,45 @@ function profileOptions(profile) {
   return args
 }
 
+function packageCollectionArgs(profile) {
+  const mode = (process.env.MIMIR_SIDECAR_COLLECT_MODE || '').trim().toLowerCase()
+  const useSubmodules = mode === 'submodules'
+  const useCalamariSubmodules =
+    mode === 'calamari-submodules' || (mode === '' && profile === 'lean')
+
+  const args = [
+    '--collect-submodules',
+    'backend',
+  ]
+
+  if (useSubmodules) {
+    // Optional experiment mode: narrower package collection.
+    args.push(
+      '--collect-submodules',
+      'kraken',
+      '--collect-submodules',
+      'calamari_ocr',
+    )
+  } else if (useCalamariSubmodules) {
+    // Lean default: keep Kraken broad for segmentation assets; narrow Calamari.
+    args.push(
+      '--collect-all',
+      'kraken',
+      '--collect-submodules',
+      'calamari_ocr',
+    )
+  } else {
+    args.push(
+      '--collect-all',
+      'kraken',
+      '--collect-all',
+      'calamari_ocr',
+    )
+  }
+
+  return args
+}
+
 function signSidecarIfNeeded(binaryPath) {
   if (process.platform !== 'darwin') {
     return
@@ -388,12 +427,7 @@ try {
     ...(process.platform === 'win32' ? ['--noconsole'] : []),
     '--paths',
     ROOT_DIR,
-    '--collect-submodules',
-    'backend',
-    '--collect-all',
-    'kraken',
-    '--collect-all',
-    'calamari_ocr',
+    ...packageCollectionArgs(profile),
     '--hidden-import',
     'kraken.blla',
     '--hidden-import',
