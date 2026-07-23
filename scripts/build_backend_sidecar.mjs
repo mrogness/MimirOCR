@@ -182,25 +182,38 @@ function profileOptions(profile) {
     'openpyxl',
     'xlsxwriter',
     'tkinter',
+    // TensorBoard and related tooling are not required for OCR inference.
+    'tensorboard',
+    'tensorboard_data_server',
+    'tensorboard_plugin_wit',
+    // Keep TensorFlow runtime, trim optional branches commonly pulled by hooks.
+    'tensorflow.compiler.tf2tensorrt',
+    'tensorflow.lite',
+    'tensorflow.python.profiler',
+    'tensorflow.python.data.experimental.service',
   ]
 
   if (profile === 'aggressive') {
     excludes.push(
       'torchmetrics',
       'pytorch_lightning',
-      'tensorboard',
-      'tensorboard_data_server',
-      'tensorboard_plugin_wit',
+      // Estimator is retained in lean and removed only in aggressive mode.
       'tensorflow_estimator',
-      'tensorflow.compiler.tf2tensorrt',
-      'tensorflow.lite',
-      'tensorflow.python.profiler',
-      'tensorflow.python.data.experimental.service',
     )
   }
 
+  // Optional local override for fast A/B trimming experiments.
+  const extraExcludes = (process.env.MIMIR_SIDECAR_EXCLUDE_MODULES || '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean)
+
+  for (const mod of extraExcludes) {
+    excludes.push(mod)
+  }
+
   const args = ['--strip']
-  for (const mod of excludes) {
+  for (const mod of new Set(excludes)) {
     args.push('--exclude-module', mod)
   }
   return args
