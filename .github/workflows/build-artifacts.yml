@@ -53,7 +53,7 @@ jobs:
         run: |
           python -m venv .venv
           ./.venv/bin/python -m pip install --upgrade pip
-          ./.venv/bin/python -m pip install -r requirements-sidecar-macos.txt
+          ./.venv/bin/python -m pip install -r requirements.txt
           ./.venv/bin/python -m pip install pyinstaller
 
       - name: Verify sidecar Python imports
@@ -65,6 +65,7 @@ jobs:
           export MIMIR_PYTHON="$PWD/.venv/bin/python"
           export PYTHON="$PWD/.venv/bin/python"
           export MIMIR_SIDECAR_STRICT_SMOKE_TEST=1
+          export MIMIR_SIDECAR_PROFILE=lean
           yarn sidecar:preflight
           yarn build:sidecar
 
