@@ -69,7 +69,15 @@ def install_coremltools_shim_if_needed() -> bool:
 
     existing = sys.modules.get("coremltools")
     if existing is not None:
-        return bool(getattr(existing, "__mimir_coreml_shim__", False))
+        if bool(getattr(existing, "__mimir_coreml_shim__", False)):
+            return True
+
+        # In frozen macOS runtime we must avoid real coremltools imports.
+        # If something imported it early, evict those modules and replace with
+        # shimmed modules before Kraken import paths run.
+        for name in list(sys.modules.keys()):
+            if name == "coremltools" or name.startswith("coremltools."):
+                sys.modules.pop(name, None)
 
     root = _coremltools_root()
     proto_root = root / "proto"
