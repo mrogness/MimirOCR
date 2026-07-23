@@ -1,7 +1,7 @@
 {
   "name": "Mimir",
   "private": true,
-  "version": "0.1.16-pre-release",
+  "version": "0.1.17-pre-release",
   "type": "module",
   "scripts": {
     "dev": "vite",
