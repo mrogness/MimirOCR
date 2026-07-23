@@ -49,15 +49,21 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Install backend packaging dependencies
+      - name: Create venv and install backend packaging dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-sidecar-macos.txt
-          python -m pip install pyinstaller
+          python -m venv .venv
+          ./.venv/bin/python -m pip install --upgrade pip
+          ./.venv/bin/python -m pip install -r requirements-sidecar-macos.txt
+          ./.venv/bin/python -m pip install pyinstaller
+
+      - name: Verify sidecar Python imports
+        run: |
+          ./.venv/bin/python -c "import kraken, calamari_ocr, uvicorn; print('python sidecar deps ok')"
 
       - name: Build macOS sidecar
         run: |
-          export MIMIR_PYTHON="$pythonLocation/bin/python"
+          export MIMIR_PYTHON="$PWD/.venv/bin/python"
+          export PYTHON="$PWD/.venv/bin/python"
           export MIMIR_SIDECAR_STRICT_SMOKE_TEST=1
           yarn sidecar:preflight
           yarn build:sidecar
