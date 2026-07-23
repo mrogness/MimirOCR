@@ -82,6 +82,10 @@ def install_coremltools_shim_if_needed() -> bool:
     root = _coremltools_root()
     proto_root = root / "proto"
 
+    # Force pure-Python protobuf implementation in frozen macOS runtime to
+    # avoid native descriptor double-registration aborts.
+    os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
+
     coremltools_mod = types.ModuleType("coremltools")
     coremltools_mod.__path__ = [str(root)]
     setattr(coremltools_mod, "__mimir_coreml_shim__", True)
@@ -142,10 +146,8 @@ def install_coremltools_shim_if_needed() -> bool:
         # Load protobuf-backed modules from coremltools/proto without importing
         # coremltools.__init__ (which pulls optional converter dependencies).
         model_pb2 = importlib.import_module("coremltools.proto.Model_pb2")
-        nn_pb2 = importlib.import_module("coremltools.proto.NeuralNetwork_pb2")
 
         setattr(proto_mod, "Model_pb2", model_pb2)
-        setattr(proto_mod, "NeuralNetwork_pb2", nn_pb2)
         setattr(coremltools_mod, "proto", proto_mod)
         setattr(coremltools_mod, "models", models_mod)
     except Exception:
