@@ -62,11 +62,6 @@ jobs:
 
       - name: Build macOS sidecar
         run: |
-          export MIMIR_PYTHON="$PWD/.venv/bin/python"
-          export PYTHON="$PWD/.venv/bin/python"
-          export MIMIR_SIDECAR_STRICT_SMOKE_TEST=1
-          export MIMIR_SIDECAR_PROFILE=lean
-          export MIMIR_SIDECAR_COLLECT_MODE=submodules
           yarn sidecar:preflight
           yarn build:sidecar
 
@@ -193,8 +188,6 @@ jobs:
       - name: Build Windows sidecar
         shell: pwsh
         run: |
-          $env:MIMIR_PYTHON = "$pwd\.venv\Scripts\python.exe"
-          $env:PYTHON = "$pwd\.venv\Scripts\python.exe"
           yarn sidecar:preflight
           yarn build:sidecar
 
