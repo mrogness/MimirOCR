@@ -9,7 +9,7 @@ pillow==12.3.0
 pymupdf==1.28.0
 kraken==4.3.13
 calamari_ocr==2.3.1
-tensorflow==2.13.1
+tensorflow==2.15.1
 coremltools==6.3.0
 protobuf==3.20.3
 scikit-learn==1.2.2
