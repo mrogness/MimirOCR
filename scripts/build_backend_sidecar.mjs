@@ -221,9 +221,8 @@ function profileOptions(profile) {
 
 function packageCollectionArgs(profile) {
   const mode = (process.env.MIMIR_SIDECAR_COLLECT_MODE || '').trim().toLowerCase()
-  const useSubmodules = mode === 'submodules'
-  const useCalamariSubmodules =
-    mode === 'calamari-submodules' || (mode === '' && profile === 'lean')
+  const useSubmodules = mode === 'submodules' || (mode === '' && profile === 'lean')
+  const useCalamariSubmodules = mode === 'calamari-submodules'
 
   const args = [
     '--collect-submodules',
@@ -231,7 +230,7 @@ function packageCollectionArgs(profile) {
   ]
 
   if (useSubmodules) {
-    // Optional experiment mode: narrower package collection.
+    // Lean default: narrower package collection for both OCR engines.
     args.push(
       '--collect-submodules',
       'kraken',
@@ -239,7 +238,7 @@ function packageCollectionArgs(profile) {
       'calamari_ocr',
     )
   } else if (useCalamariSubmodules) {
-    // Lean default: keep Kraken broad for segmentation assets; narrow Calamari.
+    // Optional experiment mode: keep Kraken broad and narrow Calamari only.
     args.push(
       '--collect-all',
       'kraken',
