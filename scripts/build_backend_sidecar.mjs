@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -197,6 +197,69 @@ function packageCollectionArgs(profile) {
   return args
 }
 
+
+function lstatExists(targetPath) {
+  try {
+    lstatSync(targetPath)
+    return true
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return false
+    }
+    throw error
+  }
+}
+
+function replaceDuplicateWithSymlink({ internalDir, duplicateRelativePath, canonicalRelativePath }) {
+  const duplicatePath = path.join(internalDir, duplicateRelativePath)
+  const canonicalPath = path.join(internalDir, canonicalRelativePath)
+
+  if (!existsSync(canonicalPath)) {
+    throw new Error(`Canonical PyInstaller binary is missing: ${canonicalPath}`)
+  }
+
+  if (lstatExists(duplicatePath)) {
+    rmSync(duplicatePath, { force: true })
+  }
+
+  const relativeTarget = path.relative(path.dirname(duplicatePath), canonicalPath)
+  symlinkSync(relativeTarget, duplicatePath)
+
+  if (!lstatSync(duplicatePath).isSymbolicLink()) {
+    throw new Error(`Expected symbolic link after deduplication: ${duplicatePath}`)
+  }
+
+  const actualTarget = readlinkSync(duplicatePath)
+  if (actualTarget !== relativeTarget) {
+    throw new Error(
+      `Incorrect TensorFlow symlink target for ${duplicatePath}: expected ${relativeTarget}, got ${actualTarget}`,
+    )
+  }
+
+  if (!existsSync(duplicatePath)) {
+    throw new Error(`TensorFlow symlink does not resolve: ${duplicatePath}`)
+  }
+
+  console.log(`Symlinked ${duplicateRelativePath} -> ${relativeTarget}`)
+}
+
+function deduplicateTensorFlowBinary(bundleDir) {
+  if (process.platform !== 'darwin') {
+    return
+  }
+
+  const internalDir = path.join(bundleDir, '_internal')
+  if (!existsSync(internalDir)) {
+    throw new Error(`PyInstaller internal directory is missing: ${internalDir}`)
+  }
+
+  replaceDuplicateWithSymlink({
+    internalDir,
+    duplicateRelativePath: '_pywrap_tensorflow_internal.so',
+    canonicalRelativePath: 'tensorflow/python/_pywrap_tensorflow_internal.so',
+  })
+}
+
 function signSidecarIfNeeded(binaryPath) {
   // Intentionally disabled: default behavior does not re-sign sidecar binaries.
   void binaryPath
@@ -359,6 +422,8 @@ try {
   const sidecarRootDir = path.join(outDir, bundleName)
 
   const outPath = sidecarExecutablePath(outDir, bundleName)
+
+  deduplicateTensorFlowBinary(sidecarRootDir)
 
   if (process.platform !== 'win32') {
     chmodSync(outPath, 0o755)
