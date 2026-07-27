@@ -400,29 +400,38 @@ try {
     'kraken.lib.segmentation',
 
     '--hidden-import',
-    'tensorflow.python.profiler',
-
-    '--hidden-import',
     'tensorflow.python.profiler.trace',
 
+    '--hidden-import',
+    'tensorflow.compiler.tf2tensorrt._pywrap_py_utils',
+
     '--collect-submodules',
-    'tensorflow.python.profiler',
+    'tensorflow.compiler.tf2tensorrt',
 
     '--add-data',
-    `${calamariModelsSrc}${dataSeparator}${calamariModelsDest}`,
+    `${calamariModelsSrc}:${calamariModelsDest}`,
 
     ...(krakenBllaModelSrc
-      ? ['--add-data', `${krakenBllaModelSrc}${dataSeparator}${krakenBllaModelDest}`]
+      ? [
+          '--add-data',
+          `${krakenBllaModelSrc}:${krakenBllaModelDest}`,
+        ]
       : []),
+
     '--name',
     bundleName,
+
     '--distpath',
     outDir,
+
     '--workpath',
     path.join('.pyinstaller', 'build'),
+
     '--specpath',
     path.join('.pyinstaller', 'spec'),
+
     ...profileOptions(profile),
+
     path.join('backend', 'sidecar_main.py'),
   ]
 
