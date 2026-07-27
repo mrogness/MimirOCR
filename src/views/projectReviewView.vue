@@ -586,7 +586,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+  <div class="flex h-full min-h-0 flex-col gap-4  overflow-y-auto ">
     <section class="flex shrink-0 items-start justify-between">
       <div>
         <h1 class="text-2xl font-bold">Output Review</h1>

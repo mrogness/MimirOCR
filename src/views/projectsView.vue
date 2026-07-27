@@ -354,7 +354,7 @@ onMounted(() => {
     <template v-else>
       <div class="flex min-h-0 flex-1 flex-col gap-4">
       <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:items-stretch" :style="topCardsGridStyle">
-        <section class="min-h-0 rounded border border-brand-200 bg-white p-5">
+        <section class="min-h-0 rounded border overflow-y-auto border-brand-200 bg-white p-5">
           <h2 class="text-lg font-semibold">Project Details</h2>
 
           <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
