@@ -187,6 +187,10 @@ function packageCollectionArgs(profile) {
       'kraken',
       '--collect-all',
       'calamari_ocr',
+      '--collect-all',
+      'tensorflow',
+      '--collect-all',
+      'coremltools',
     )
   }
 
