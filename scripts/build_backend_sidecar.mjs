@@ -401,6 +401,7 @@ try {
 
     '--collect-submodules',
     'tensorflow.python.profiler',
+    '--add-data',
     `${calamariModelsSrc}${dataSeparator}${calamariModelsDest}`,
     ...(krakenBllaModelSrc
       ? ['--add-data', `${krakenBllaModelSrc}${dataSeparator}${krakenBllaModelDest}`]
