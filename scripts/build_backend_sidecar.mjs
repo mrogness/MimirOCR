@@ -398,8 +398,7 @@ try {
     'kraken.blla',
     '--hidden-import',
     'kraken.lib.segmentation',
-    '--hidden-import',
-    
+
     '--collect-submodules',
     'tensorflow.python.profiler',
     `${calamariModelsSrc}${dataSeparator}${calamariModelsDest}`,
