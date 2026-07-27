@@ -78,6 +78,32 @@ jobs:
           yarn tauri build --bundles app,dmg
           node scripts/zip_macos_app_bundle.mjs
 
+      - name: Replace duplicate TensorFlow library with symlink
+        run: |
+          set -euo pipefail
+
+          APP_DIR="$(find src-tauri/target/release/bundle/macos \
+            -maxdepth 1 \
+            -type d \
+            -name '*.app' \
+            | head -n 1)"
+
+          INTERNAL="$APP_DIR/Contents/Resources/binaries/backend-aarch64-apple-darwin-bundle/_internal"
+
+          rm -f "$INTERNAL/_pywrap_tensorflow_internal.so"
+
+          ln -s \
+            "tensorflow/python/_pywrap_tensorflow_internal.so" \
+            "$INTERNAL/_pywrap_tensorflow_internal.so"
+
+          echo "Created:"
+          ls -l "$INTERNAL/_pywrap_tensorflow_internal.so"
+
+          echo "Target:"
+          readlink "$INTERNAL/_pywrap_tensorflow_internal.so"
+
+          test -e "$INTERNAL/_pywrap_tensorflow_internal.so"
+
       - name: Verify macOS sidecar bundled assets
         run: |
           set -euo pipefail

@@ -154,7 +154,6 @@ function profileOptions(profile) {
     // Keep TensorFlow runtime, trim optional branches commonly pulled by hooks.
     'tensorflow.compiler.tf2tensorrt',
     'tensorflow.lite',
-    'tensorflow.python.profiler',
     'tensorflow.python.data.experimental.service',
   ]
 
@@ -188,9 +187,6 @@ function packageCollectionArgs(profile) {
       '--collect-all',
       'calamari_ocr',
       '--collect-all',
-      'tensorflow',
-      '--collect-all',
-      'coremltools',
     )
   }
 
@@ -391,18 +387,30 @@ try {
     '--clean',
     '--onedir',
     ...(process.platform === 'win32' ? ['--noconsole'] : []),
+
     '--paths',
     ROOT_DIR,
+
     ...packageCollectionArgs(profile),
+
     '--hidden-import',
     'kraken.blla',
+
     '--hidden-import',
     'kraken.lib.segmentation',
 
+    '--hidden-import',
+    'tensorflow.python.profiler',
+
+    '--hidden-import',
+    'tensorflow.python.profiler.trace',
+
     '--collect-submodules',
     'tensorflow.python.profiler',
+
     '--add-data',
     `${calamariModelsSrc}${dataSeparator}${calamariModelsDest}`,
+
     ...(krakenBllaModelSrc
       ? ['--add-data', `${krakenBllaModelSrc}${dataSeparator}${krakenBllaModelDest}`]
       : []),
