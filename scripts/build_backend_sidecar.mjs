@@ -125,7 +125,7 @@ function resolvePyInstallerRunner() {
 
 function defaultProfile() {
   // Keep Windows behavior unchanged and keep macOS/Linux on lean collection.
-  return process.platform === 'win32' ? 'standard' : 'lean'
+  return process.platform === 'win32' ? 'standard' : 'standard'
 }
 
 function profileOptions(profile) {
@@ -186,7 +186,6 @@ function packageCollectionArgs(profile) {
       'kraken',
       '--collect-all',
       'calamari_ocr',
-      '--collect-all',
     )
   }
 

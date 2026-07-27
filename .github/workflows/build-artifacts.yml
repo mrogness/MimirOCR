@@ -97,6 +97,33 @@ jobs:
 
           ls -l "$INTERNAL/_pywrap_tensorflow_internal.so"
 
+      - name: Re-sign patched macOS app
+        run: |
+          set -euo pipefail
+
+          APP_DIR="$(find src-tauri/target/release/bundle/macos \
+            -maxdepth 1 \
+            -type d \
+            -name '*.app' \
+            | head -n 1)"
+
+          if [ -z "$APP_DIR" ]; then
+            echo "No app bundle found" >&2
+            exit 1
+          fi
+
+          # Remove extended attributes that can interfere with signing.
+          xattr -cr "$APP_DIR"
+
+          # Apply a fresh ad-hoc signature to the modified bundle.
+          codesign \
+            --force \
+            --deep \
+            --sign - \
+            "$APP_DIR"
+
+          codesign --verify --deep --strict --verbose=4 "$APP_DIR"
+
       - name: Zip patched macOS app
         run: |
           node scripts/zip_macos_app_bundle.mjs
