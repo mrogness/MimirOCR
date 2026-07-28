@@ -17,6 +17,7 @@ const {
   workerCountInput,
   brandThemeInput,
   brandThemeOptions,
+  appVersion,
   settingsMessage,
   settingsError,
   isLoadingSystem,
@@ -64,11 +65,12 @@ const {
       <p class="text-sm text-brand-500">Global application settings for OCR performance and defaults.</p>
     </section>
 
-    <section class="rounded border border-brand-200 bg-white p-5 space-y-4">
-      <h2 class="text-lg font-semibold">Processing Workers</h2>
+    <section class="rounded border border-brand-200 bg-white p-5 space-y-2">
+      <h2 class="text-lg font-bold">Performance Settings</h2>
       <p class="text-sm text-brand-500">
-        Worker count is shared across projects. Start with one and scale as capable.
+        Performance settings are applied to all projects.
       </p>
+      <h3 class="text-md font-semibold">Worker Configuration</h3>
 
       <div v-if="isLoadingSystem" class="text-sm text-brand-600">Loading CPU info...</div>
 
@@ -85,32 +87,27 @@ const {
             min="1"
             class="w-full sm:w-40 rounded border border-brand-300 px-3 py-2 text-sm"
           />
-          <button
-            class="rounded border border-brand-300 px-3 py-2 text-sm text-brand-700 hover:bg-brand-100"
-            @click="useRecommendedValue"
-          >
-            Use Recommended
-          </button>
-          <span class="text-xs text-brand-600">{{ isSaving ? 'Saving...' : 'Saved automatically on change' }}</span>
+          <span v-if="isSaving">Saving</span>
+          <span v-else="isSaving" class="text-xs text-brand-600">{{ isSaving ? 'Saving...' : 'Saved' }}</span>
         </div>
 
         <p v-if="settingsError" class="text-sm text-red-700">{{ settingsError }}</p>
       </div>
     </section>
 
-    <section class="rounded border border-brand-200 bg-white p-5 space-y-4">
+    <section class="rounded border border-brand-200 bg-white p-5 space-y-2">
       <h2 class="text-lg font-semibold">Appearance</h2>
       <p class="text-sm text-brand-500">
-        Choose a global app theme using Tailwind's default color palettes.
+        Choose a global app theme.
       </p>
 
       <div class="space-y-3">
-        <label class="block text-sm font-medium text-brand-700" for="brand-theme-input">Brand Theme</label>
+        <label class="block text-sm font-medium text-brand-700" for="brand-theme-input">Theme</label>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
           <select
             id="brand-theme-input"
             v-model="brandThemeInput"
-            class="w-full sm:w-56 rounded border border-brand-300 px-3 py-2 text-sm"
+            class="w-full sm:w-56 rounded border border-brand-300 px-2 py-2 text-sm"
             @change="previewBrandTheme"
           >
             <option v-for="option in brandThemeOptions" :key="option.value" :value="option.value">
@@ -122,9 +119,9 @@ const {
       </div>
     </section>
 
-    <section class="rounded border border-brand-200 bg-white p-5">
+    <section class="bg-white p-3 rounded border border-brand-200 space-y-4">
       <details class="group" :open="isDiagnosticsOpen" @toggle="setDiagnosticsOpen($event.target.open)">
-        <summary class="list-none cursor-pointer rounded border border-brand-300 bg-brand-50 px-3 py-2 hover:bg-brand-100">
+        <summary class="list-none cursor-pointer p-3 hover:bg-brand-100">
           <div class="flex items-center justify-between gap-3">
             <div>
               <h2 class="text-sm font-semibold text-brand-900">Connectivity Diagnostics</h2>
@@ -171,6 +168,13 @@ const {
         </div>
         </div>
       </details>
+    </section>
+      <section class="px-3">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-zinc-600 dark:text-zinc-400">
+            v{{ appVersion || '' }}
+          </span>
+        </div>
     </section>
   </div>
 </template>

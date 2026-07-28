@@ -1,4 +1,5 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { getVersion } from '@tauri-apps/api/app'
 
 export function useSettingsView({
   backendFetch,
@@ -17,6 +18,8 @@ export function useSettingsView({
   const brandThemeInput = ref('slate')
   const settingsMessage = ref('')
   const settingsError = ref('')
+
+  const appVersion = ref('unknown')
 
   const isLoadingSystem = ref(true)
   const isSaving = ref(false)
@@ -172,6 +175,9 @@ export function useSettingsView({
       lastSavedWorkerCount = saved
       brandThemeInput.value = getSavedBrandTheme()
       applyBrandTheme(brandThemeInput.value)
+
+      appVersion.value = await getVersion()
+
     } catch (error) {
       const fallbackCores = navigator.hardwareConcurrency || 1
       totalCores.value = fallbackCores
@@ -271,6 +277,7 @@ export function useSettingsView({
     workerCountInput,
     brandThemeInput,
     brandThemeOptions,
+    appVersion,
     settingsMessage,
     settingsError,
     isLoadingSystem,
