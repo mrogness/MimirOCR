@@ -101,7 +101,7 @@ python-bidi==0.4.2
 python-dateutil==2.9.0.post0
 python-Levenshtein==0.27.3
 python-multipart==0.0.32
-pytorch-lightning==2.0.9.post0
+pytorch-lightning==2.6.1
 pytz==2026.2
 PyWavelets==1.8.0
 PyYAML==6.0.3
