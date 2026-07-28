@@ -1,4 +1,8 @@
 <script setup>
+import ConnectivityDiagnostics from '../components/settings/ConnectivityDiagnostics.vue'
+import SettingRow from '../components/settings/SettingRow.vue'
+import SettingsHelp from '../components/settings/SettingsHelp.vue'
+import SettingsSection from '../components/settings/SettingsSection.vue'
 import { useSettingsView } from '../composables/views/useSettingsView'
 import { backendFetch, getBackendConnectionDiagnostics } from '../services/backend'
 import {
@@ -18,7 +22,6 @@ const {
   brandThemeInput,
   brandThemeOptions,
   appVersion,
-  settingsMessage,
   settingsError,
   isLoadingSystem,
   isSaving,
@@ -56,125 +59,159 @@ const {
   saveBrandTheme,
   applyBrandTheme,
 })
+
+import { ref } from 'vue';
+const value = ref(50);
+defineProps({ min: { type: Number, default: 0 }, max: { type: Number, default: 100 } });
 </script>
 
 <template>
-  <div class="settings-page h-full min-h-0 overflow-y-auto space-y-6 pr-1">
-    <section>
+  <div class="settings-page h-full min-h-0 space-y-6 overflow-y-auto pr-1">
+    <header>
       <h1 class="text-2xl font-bold">Settings</h1>
-      <p class="text-sm text-brand-500">Global application settings for OCR performance and defaults.</p>
-    </section>
-
-    <section class="rounded border border-brand-200 bg-white p-5 space-y-2">
-      <h2 class="text-lg font-bold">Performance Settings</h2>
       <p class="text-sm text-brand-500">
-        Performance settings are applied to all projects.
+        Global application settings for OCR performance and defaults.
       </p>
-      <h3 class="text-md font-semibold">Worker Configuration</h3>
-
-      <div v-if="isLoadingSystem" class="text-sm text-brand-600">Loading CPU info...</div>
-
-      <div v-else class="space-y-3">
-        <p class="text-sm text-brand-700">Detected CPU cores: <strong>{{ totalCores }}</strong></p>
-        <p class="text-sm text-brand-700">Recommended workers: <strong>{{ recommendedWorkers }}</strong></p>
-
-        <label class="block text-sm font-medium text-brand-700" for="worker-count-input">Worker Count</label>
-        <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <input
-            id="worker-count-input"
-            v-model="workerCountInput"
-            type="number"
-            min="1"
-            class="w-full sm:w-40 rounded border border-brand-300 px-3 py-2 text-sm"
-          />
-          <span v-if="isSaving">Saving</span>
-          <span v-else="isSaving" class="text-xs text-brand-600">{{ isSaving ? 'Saving...' : 'Saved' }}</span>
+    </header>
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <SettingsSection
+        title="Performance Settings"
+        description="Performance settings are applied to all projects."
+      >
+        <div v-if="isLoadingSystem" class="text-sm text-brand-600">
+          Loading CPU info...
         </div>
 
-        <p v-if="settingsError" class="text-sm text-red-700">{{ settingsError }}</p>
-      </div>
-    </section>
+        <template v-else>
+          <div class="rounded bg-brand-50 p-3 text-sm text-brand-700">
+            Detected CPU cores: <strong>{{ totalCores }}</strong>
+            <span class="mx-2 text-brand-300">•</span>
+            Recommended workers: <strong>{{ recommendedWorkers }}</strong>
+          </div>
 
-    <section class="rounded border border-brand-200 bg-white p-5 space-y-2">
-      <h2 class="text-lg font-semibold">Appearance</h2>
-      <p class="text-sm text-brand-500">
-        Choose a global app theme.
-      </p>
+            <SettingRow
+              label="Worker Count"
+              input-id="worker-count-input"
+              description="Controls how many OCR tasks may run concurrently."
+            >
+              <template #help>
+                <SettingsHelp label="About OCR worker count">
+                  More workers can improve speed of processing, but increase memory and
+                  CPU use as well as CPU temperature. The recommended value is <strong>{{ recommendedWorkers }}</strong>.
+                </SettingsHelp>
+              </template>
 
-      <div class="space-y-3">
-        <label class="block text-sm font-medium text-brand-700" for="brand-theme-input">Theme</label>
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div class="space-y-3">
+                <div class="flex items-center justify-between gap-4">
+                  <span class="text-sm text-brand-600">
+                    1
+                  </span>
+
+                  <output
+                    for="worker-count-input"
+                    class="min-w-12 rounded border border-brand-200 bg-brand-100 px-2 py-1 text-center text-sm font-semibold text-brand-800"
+                  >
+                    {{ workerCountInput }}
+                  </output>
+
+                  <span class="text-sm text-brand-600">
+                    {{ totalCores }}
+                  </span>
+                </div>
+
+                <input
+                  id="worker-count-input"
+                  v-model="workerCountInput"
+                  type="range"
+                  min="1"
+                  :max="totalCores"
+                  step="1"
+                  :aria-describedby="'worker-count-input-description'"
+                  class="w-full cursor-pointer accent-brand-600"
+                  @change="persistWorkerCount"
+                />
+
+                <div class="flex items-center justify-between text-xs text-brand-600">
+                  <span>
+                    Recommended: {{ recommendedWorkers }}
+                  </span>
+
+                  <span>
+                    {{ isSaving ? 'Saving...' : 'Saved' }}
+                  </span>
+                </div>
+              </div>
+            </SettingRow>
+        </template>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Appearance"
+        description="Choose a global application theme."
+      >
+        <SettingRow
+          label="Theme"
+          input-id="brand-theme-input"
+          description="Changes the colors used throughout the application."
+        >
           <select
             id="brand-theme-input"
             v-model="brandThemeInput"
-            class="w-full sm:w-56 rounded border border-brand-300 px-2 py-2 text-sm"
+            :aria-describedby="'brand-theme-input-description'"
+            class="w-full rounded border border-brand-300 px-2 py-2 text-sm sm:w-56"
             @change="previewBrandTheme"
           >
-            <option v-for="option in brandThemeOptions" :key="option.value" :value="option.value">
+            <option
+              v-for="option in brandThemeOptions"
+              :key="option.value"
+              :value="option.value"
+            >
               {{ option.label }}
             </option>
           </select>
-          <span class="text-xs text-brand-600"></span>
-        </div>
-      </div>
-    </section>
+        </SettingRow>
+      </SettingsSection>
 
-    <section class="bg-white p-3 rounded border border-brand-200 space-y-4">
-      <details class="group" :open="isDiagnosticsOpen" @toggle="setDiagnosticsOpen($event.target.open)">
-        <summary class="list-none cursor-pointer p-3 hover:bg-brand-100">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-semibold text-brand-900">Connectivity Diagnostics</h2>
-              <p class="text-xs text-brand-600">Auto-refreshes while expanded.</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-brand-600">{{ isRefreshingDiagnostics ? 'Refreshing...' : (isDiagnosticsOpen ? 'Open' : 'Closed') }}</span>
-              <svg
-                class="h-4 w-4 text-brand-700 transition-transform group-open:rotate-180"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </div>
-          </div>
-        </summary>
+      <SettingsSection
+        title="Storage"
+        description="Manage application and output locations."
+      >
+        <!-- Future storage settings -->
+      </SettingsSection>
 
-        <div class="mt-3 rounded border border-brand-200 bg-white p-3">
-          <div class="grid grid-cols-1 gap-2 text-sm text-brand-700">
-          <p><strong>Backend mode:</strong> {{ backendMode || 'unknown' }}</p>
-          <p><strong>Backend runtime:</strong> {{ backendRuntime || 'unknown' }}</p>
-          <p><strong>Selected sidecar path:</strong> {{ sidecarSelectedPath || 'none' }}</p>
-          <p><strong>Sidecar candidates checked:</strong> {{ sidecarCheckedPaths.length > 0 ? sidecarCheckedPaths.join(', ') : 'none' }}</p>
-          <p><strong>Frontend origin:</strong> {{ frontendOrigin || 'unknown' }}</p>
-          <p><strong>Frontend port:</strong> {{ frontendPort || 'none (non-http origin)' }}</p>
-          <p><strong>Backend URL from backend_status:</strong> {{ backendStatusUrl || 'none' }}</p>
-          <p><strong>Backend URL used by fetch:</strong> {{ backendBaseUrl || backendStatusUrl || 'none' }}</p>
-          <p><strong>Backend port expected by frontend:</strong> {{ backendPort || 'unknown' }}</p>
-          <p><strong>App data dir:</strong> {{ appDataDir || 'unknown' }}</p>
-          <p><strong>Cache dir:</strong> {{ cacheDir || 'unknown' }}</p>
-          <p><strong>Temp dir:</strong> {{ tempDir || 'unknown' }}</p>
-          <p><strong>DB path:</strong> {{ dbPath || 'unknown' }}</p>
-          <p><strong>Uploads dir:</strong> {{ uploadsDir || 'unknown' }}</p>
-          <p><strong>Output dir:</strong> {{ outputDir || 'unknown' }}</p>
-          <p><strong>/health probe:</strong> {{ healthProbeSummary || 'not checked' }}</p>
-          <p><strong>/projects/ probe:</strong> {{ projectsProbeSummary || 'not checked' }}</p>
-          <p v-if="backendStartupIssue" class="text-amber-700"><strong>Backend startup issue:</strong> {{ backendStartupIssue }}</p>
-        </div>
-        </div>
-      </details>
-    </section>
-      <section class="px-3">
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-zinc-600 dark:text-zinc-400">
-            v{{ appVersion || '' }}
-          </span>
-        </div>
-    </section>
+      <p v-if="settingsError" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        {{ settingsError }}
+      </p>
+
+      <ConnectivityDiagnostics
+        :is-open="isDiagnosticsOpen"
+        :is-refreshing="isRefreshingDiagnostics"
+        :backend-mode="backendMode"
+        :backend-runtime="backendRuntime"
+        :sidecar-selected-path="sidecarSelectedPath"
+        :sidecar-checked-paths="sidecarCheckedPaths"
+        :frontend-origin="frontendOrigin"
+        :frontend-port="frontendPort"
+        :backend-status-url="backendStatusUrl"
+        :backend-base-url="backendBaseUrl"
+        :backend-port="backendPort"
+        :app-data-dir="appDataDir"
+        :cache-dir="cacheDir"
+        :temp-dir="tempDir"
+        :db-path="dbPath"
+        :uploads-dir="uploadsDir"
+        :output-dir="outputDir"
+        :health-probe-summary="healthProbeSummary"
+        :projects-probe-summary="projectsProbeSummary"
+        :backend-startup-issue="backendStartupIssue"
+        @toggle="setDiagnosticsOpen"
+      />
+    </div>
+
+    <footer class="px-3 pb-3">
+      <span class="text-sm text-zinc-600 dark:text-zinc-400">
+        v{{ appVersion }}
+      </span>
+    </footer>
   </div>
 </template>
