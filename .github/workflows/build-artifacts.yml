@@ -54,7 +54,7 @@ jobs:
           python -m venv .venv
           ./.venv/bin/python -m pip install --upgrade pip
           ./.venv/bin/python -m pip install -r requirements-sidecar.txt
-          ./.venv/bin/python -m pip install pyinstaller
+          ./.venv/bin/python -m pip install pyinstaller==6.21.0
 
       - name: Verify sidecar Python imports
         run: |
@@ -65,17 +65,9 @@ jobs:
           yarn sidecar:preflight
           yarn build:sidecar
 
-      - name: Inspect macOS sidecar artifacts before Tauri build
-        run: |
-          set -euo pipefail
-          echo "Listing src-tauri/binaries:"
-          ls -la src-tauri/binaries
-          echo "Listing top-level sidecar bundle payload:"
-          find src-tauri/binaries -maxdepth 2 -type f | sort
-
       - name: Build unsigned macOS artifacts
         run: |
-          yarn tauri build --bundles app,dmg
+          yarn tauri build --bundles app
 
       - name: Replace duplicate TensorFlow library with symlink
         run: |
@@ -127,36 +119,52 @@ jobs:
       - name: Zip patched macOS app
         run: |
           node scripts/zip_macos_app_bundle.mjs
-
-      - name: Verify macOS sidecar bundled assets
+        
+      - name: Create DMG from patched app
         run: |
           set -euo pipefail
-          APP_DIR="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -type d -name '*.app' | head -n 1)"
+
+          APP_DIR="$(find src-tauri/target/release/bundle/macos \
+            -maxdepth 1 \
+            -type d \
+            -name '*.app' \
+            | head -n 1)"
+
           if [ -z "$APP_DIR" ]; then
-            echo "No .app bundle found in macOS output directory" >&2
+            echo "No .app bundle found" >&2
             exit 1
           fi
 
-          BINARY_DIR="$APP_DIR/Contents/Resources/binaries"
-          if [ ! -d "$BINARY_DIR" ]; then
-            echo "Missing bundled binaries directory: $BINARY_DIR" >&2
-            exit 1
-          fi
+          APP_NAME="$(basename "$APP_DIR")"
+          DMG_DIR="src-tauri/target/release/bundle/dmg"
+          DMG_PATH="$DMG_DIR/MimirOCR.dmg"
 
-          echo "Bundled binaries:"
-          ls -la "$BINARY_DIR"
+          rm -rf "$DMG_DIR"
+          mkdir -p "$DMG_DIR"
 
-          NON_SENTINEL_COUNT="$(find "$BINARY_DIR" -type f ! -name 'backend-sentinel' | wc -l | tr -d ' ')"
-          if [ "$NON_SENTINEL_COUNT" -eq 0 ]; then
-            echo "Only sentinel artifact was bundled; sidecar runtime is missing." >&2
-            exit 1
-          fi
+          STAGING_DIR="$(mktemp -d)"
 
-          BUNDLED_RUNTIME_COUNT="$(find "$BINARY_DIR" -type f -name 'backend-*-bundle*' | wc -l | tr -d ' ')"
-          if [ "$BUNDLED_RUNTIME_COUNT" -eq 0 ]; then
-            echo "No onedir sidecar runtime payload detected inside app bundle." >&2
-            exit 1
-          fi
+          cleanup() {
+            rm -rf "$STAGING_DIR"
+          }
+
+          trap cleanup EXIT
+
+          # Preserve the symlink inside the app bundle.
+          ditto "$APP_DIR" "$STAGING_DIR/$APP_NAME"
+
+          # Add the standard Applications shortcut.
+          ln -s /Applications "$STAGING_DIR/Applications"
+
+          hdiutil create \
+            -volname "MimirOCR" \
+            -srcfolder "$STAGING_DIR" \
+            -format UDZO \
+            -ov \
+            "$DMG_PATH"
+
+          echo "Created DMG:"
+          ls -lh "$DMG_PATH"
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v5
@@ -165,7 +173,6 @@ jobs:
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/macos/*.app.zip
-            src-tauri/target/release/bundle/macos/*.command
           if-no-files-found: error
 
   build-windows:
@@ -219,7 +226,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\.venv\Scripts\python.exe -m pip install kraken==4.3.13
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m pip install pyinstaller
+          .\.venv\Scripts\python.exe -m pip install pyinstaller==6.21.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Debug installed sidecar packages
@@ -229,11 +236,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\.venv\Scripts\python.exe -m pip show calamari-ocr
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Verify sidecar Python imports
-        shell: pwsh
-        run: |
-          .\.venv\Scripts\python.exe -c "import kraken, calamari_ocr, uvicorn; print('python sidecar deps ok')"
 
       - name: Build Windows sidecar
         shell: pwsh
@@ -315,7 +317,6 @@ jobs:
           files=(
             release-assets/macos/macos/*.app.zip
             release-assets/macos/dmg/*.dmg
-            release-assets/macos/macos/*.command
           )
 
           if [ "${#files[@]}" -eq 0 ]; then
