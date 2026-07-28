@@ -4,14 +4,14 @@ const PROJECT_SETTINGS_PREFIX = 'mimir.projectSettings.'
 
 export const BRAND_THEME_OPTIONS = [
   { value: 'slate', label: 'Slate' },
-  { value: 'gray', label: 'Gray' },
   { value: 'zinc', label: 'Zinc' },
-  { value: 'neutral', label: 'Neutral' },
   { value: 'stone', label: 'Stone' },
-  { value: 'mauve', label: 'Mauve' },
-  { value: 'olive', label: 'Olive' },
-  { value: 'mist', label: 'Mist' },
-  { value: 'taupe', label: 'Taupe' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'teal', label: 'Teal' },
+  { value: 'sage', label: 'Sage' },
+  { value: 'plum', label: 'Plum' },
+  { value: 'rose', label: 'Rose' },
+  { value: 'amber', label: 'Amber' },
 ]
 
 function toPositiveInt(value, fallback) {

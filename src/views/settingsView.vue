@@ -19,6 +19,8 @@ const {
   totalCores,
   recommendedWorkers,
   workerCountInput,
+  showSavedConfirmation,
+  persistWorkerCount,
   brandThemeInput,
   brandThemeOptions,
   appVersion,
@@ -136,8 +138,18 @@ defineProps({ min: { type: Number, default: 0 }, max: { type: Number, default: 1
                     Recommended: {{ recommendedWorkers }}
                   </span>
 
-                  <span>
-                    {{ isSaving ? 'Saving...' : 'Saved' }}
+                  <span
+                    class="min-h-4"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
+                    <span v-if="isSaving">
+                      Saving...
+                    </span>
+
+                    <span v-else-if="showSavedConfirmation" class="text-green-800">
+                      Saved
+                    </span>
                   </span>
                 </div>
               </div>
@@ -169,6 +181,24 @@ defineProps({ min: { type: Number, default: 0 }, max: { type: Number, default: 1
               {{ option.label }}
             </option>
           </select>
+          <div
+            class="mt-3 overflow-hidden rounded border border-brand-200"
+            aria-label="Selected theme color scale"
+          >
+            <div class="grid h-8 grid-cols-11">
+              <div class="bg-brand-50" title="50"></div>
+              <div class="bg-brand-100" title="100"></div>
+              <div class="bg-brand-200" title="200"></div>
+              <div class="bg-brand-300" title="300"></div>
+              <div class="bg-brand-400" title="400"></div>
+              <div class="bg-brand-500" title="500"></div>
+              <div class="bg-brand-600" title="600"></div>
+              <div class="bg-brand-700" title="700"></div>
+              <div class="bg-brand-800" title="800"></div>
+              <div class="bg-brand-900" title="900"></div>
+              <div class="bg-brand-950" title="950"></div>
+            </div>
+          </div>
         </SettingRow>
       </SettingsSection>
 

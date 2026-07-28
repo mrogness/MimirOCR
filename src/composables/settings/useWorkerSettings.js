@@ -1,6 +1,6 @@
-import { onUnmounted, ref, watch } from 'vue'
+import { onUnmounted, ref } from 'vue'
 
-const AUTOSAVE_DELAY_MS = 250
+const SAVED_CONFIRMATION_MS = 1500
 
 export function useWorkerSettings({
   backendFetch,
@@ -14,13 +14,15 @@ export function useWorkerSettings({
   const workerSettingsError = ref('')
   const isLoadingSystem = ref(true)
   const isSaving = ref(false)
+  const showSavedConfirmation = ref(false)
 
-  let autosaveTimeout = null
+  let savedConfirmationTimeout = null
   let lastSavedWorkerCount = null
 
   function applyWorkerDefaults(coreCount) {
     const normalizedCores =
       Number.isFinite(coreCount) && coreCount > 0 ? coreCount : 1
+
     const recommended = getDefaultWorkerCount(normalizedCores)
     const saved = getSavedWorkerCount(recommended)
 
@@ -36,6 +38,7 @@ export function useWorkerSettings({
 
     try {
       const response = await backendFetch('/system/cpu')
+
       if (!response.ok) {
         throw new Error(`Unable to load CPU info (${response.status})`)
       }
@@ -50,14 +53,39 @@ export function useWorkerSettings({
     }
   }
 
+  function showSavedMessage() {
+    showSavedConfirmation.value = true
+
+    if (savedConfirmationTimeout) {
+      clearTimeout(savedConfirmationTimeout)
+    }
+
+    savedConfirmationTimeout = setTimeout(() => {
+      showSavedConfirmation.value = false
+      savedConfirmationTimeout = null
+    }, SAVED_CONFIRMATION_MS)
+  }
+
   async function persistWorkerCount() {
+    const parsed = Number.parseInt(workerCountInput.value, 10)
+
+    if (
+      !Number.isFinite(parsed) ||
+      parsed < 1 ||
+      parsed === lastSavedWorkerCount
+    ) {
+      return
+    }
+
     isSaving.value = true
+    showSavedConfirmation.value = false
     workerSettingsError.value = ''
 
     try {
       const saved = saveWorkerCount(workerCountInput.value)
       workerCountInput.value = String(saved)
       lastSavedWorkerCount = saved
+      showSavedMessage()
     } catch (error) {
       workerSettingsError.value = String(error)
     } finally {
@@ -65,35 +93,10 @@ export function useWorkerSettings({
     }
   }
 
-  function scheduleWorkerCountSave() {
-    if (isLoadingSystem.value) {
-      return
-    }
-
-    const parsed = Number.parseInt(workerCountInput.value, 10)
-    if (!Number.isFinite(parsed) || parsed < 1 || parsed === lastSavedWorkerCount) {
-      return
-    }
-
-    if (autosaveTimeout) {
-      clearTimeout(autosaveTimeout)
-    }
-
-    autosaveTimeout = setTimeout(() => {
-      void persistWorkerCount()
-    }, AUTOSAVE_DELAY_MS)
-  }
-
-  function useRecommendedValue() {
-    workerCountInput.value = String(recommendedWorkers.value)
-  }
-
-  watch(workerCountInput, scheduleWorkerCountSave)
-
   onUnmounted(() => {
-    if (autosaveTimeout) {
-      clearTimeout(autosaveTimeout)
-      autosaveTimeout = null
+    if (savedConfirmationTimeout) {
+      clearTimeout(savedConfirmationTimeout)
+      savedConfirmationTimeout = null
     }
   })
 
@@ -104,8 +107,8 @@ export function useWorkerSettings({
     workerSettingsError,
     isLoadingSystem,
     isSaving,
+    showSavedConfirmation,
     loadWorkerSettings,
     persistWorkerCount,
-    useRecommendedValue,
   }
 }
