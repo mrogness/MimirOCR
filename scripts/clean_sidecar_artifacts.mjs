@@ -1,22 +1,15 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+import { scriptProjectRootFrom } from './lib/projectPaths.mjs'
+
+const ROOT_DIR = scriptProjectRootFrom(import.meta.url)
 const BINARIES_DIR = path.join(ROOT_DIR, 'src-tauri', 'binaries')
-
-const KEEP_NAMES = new Set([
-  '.gitkeep',
-  'backend-sentinel',
-])
+const KEEP_NAMES = new Set(['.gitkeep', 'backend-sentinel'])
 
 function shouldRemove(name) {
-  if (KEEP_NAMES.has(name)) {
-    return false
-  }
-
-  return name.startsWith('backend-')
+  return !KEEP_NAMES.has(name) && name.startsWith('backend-')
 }
 
 function main() {
@@ -25,16 +18,17 @@ function main() {
     return
   }
 
-  const entries = readdirSync(BINARIES_DIR)
   const removed = []
 
-  for (const name of entries) {
+  for (const name of readdirSync(BINARIES_DIR)) {
     if (!shouldRemove(name)) {
       continue
     }
 
-    const targetPath = path.join(BINARIES_DIR, name)
-    rmSync(targetPath, { recursive: true, force: true })
+    rmSync(path.join(BINARIES_DIR, name), {
+      recursive: true,
+      force: true,
+    })
     removed.push(name)
   }
 

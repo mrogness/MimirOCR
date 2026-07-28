@@ -1,88 +1,34 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
-const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+import { commandExists, runCommand } from './lib/commands.mjs'
+import {
+  createPyInstallerArgs,
+  defaultSidecarProfile,
+  validateSidecarProfile,
+} from './lib/pyinstallerConfig.mjs'
+import {
+  getPythonExecutable,
+  resolvePyInstaller,
+  resolvePython,
+  runPython,
+} from './lib/python.mjs'
+import { scriptProjectRootFrom } from './lib/projectPaths.mjs'
+import {
+  cleanPathIfExists,
+  createPosixLauncherSidecar,
+  deduplicateTensorFlowBinary,
+  runSidecarSmokeTestWithPolicy,
+  sidecarExecutablePath,
+  signSidecarIfNeeded,
+} from './lib/sidecarBundle.mjs'
+
+const ROOT_DIR = scriptProjectRootFrom(import.meta.url)
 process.chdir(ROOT_DIR)
 
-function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    stdio: 'pipe',
-    encoding: 'utf8',
-    shell: false,
-    ...options,
-  })
-
-  if (result.error) {
-    throw result.error
-  }
-
-  if (result.status !== 0) {
-    const stderr = result.stderr?.trim() || ''
-    const stdout = result.stdout?.trim() || ''
-    const detail = stderr || stdout || `exit code ${result.status}`
-    throw new Error(`${command} failed: ${detail}`)
-  }
-
-  return result.stdout || ''
-}
-
-function commandExists(command, args = ['--version']) {
-  const result = spawnSync(command, args, { stdio: 'ignore', shell: false })
-  return result.status === 0
-}
-
-function tryCommand(command, args = []) {
-  const result = spawnSync(command, args, {
-    stdio: 'pipe',
-    encoding: 'utf8',
-    shell: false,
-  })
-
-  if (result.error || result.status !== 0) {
-    return null
-  }
-
-  return result
-}
-
-function resolvePythonCommand() {
-  const localVenvCandidates = process.platform === 'win32'
-    ? [
-      path.join(ROOT_DIR, '.venv', 'Scripts', 'python.exe'),
-      path.join(ROOT_DIR, 'venv', 'Scripts', 'python.exe'),
-    ]
-    : [
-      path.join(ROOT_DIR, '.venv', 'bin', 'python'),
-      path.join(ROOT_DIR, 'venv', 'bin', 'python'),
-    ]
-
-  for (const candidate of localVenvCandidates) {
-    if (commandExists(candidate, ['--version'])) {
-      return { cmd: candidate, argsPrefix: [] }
-    }
-  }
-
-  if (commandExists('python', ['--version'])) {
-    return { cmd: 'python', argsPrefix: [] }
-  }
-
-  if (commandExists('python3', ['--version'])) {
-    return { cmd: 'python3', argsPrefix: [] }
-  }
-
-  if (commandExists('py', ['-3', '--version'])) {
-    return { cmd: 'py', argsPrefix: ['-3'] }
-  }
-
-  return null
-}
-
-function resolveKrakenBllaModelPath() {
-  const python = resolvePythonCommand()
+function resolveKrakenBllaModelPath(python) {
   if (!python) {
     return ''
   }
@@ -94,268 +40,16 @@ function resolveKrakenBllaModelPath() {
     'print(str(p) if p.exists() else "")',
   ].join('; ')
 
-  const result = tryCommand(python.cmd, [...python.argsPrefix, '-c', code])
-  if (!result) {
-    return ''
-  }
-
-  return String(result.stdout || '').trim()
+  const result = runPython(python, ['-c', code])
+  return result ? String(result.stdout || '').trim() : ''
 }
 
-function resolvePyInstallerRunner() {
-  if (commandExists('pyinstaller', ['--version'])) {
-    return { cmd: 'pyinstaller', argsPrefix: [] }
-  }
-
-  const python = resolvePythonCommand()
-  if (!python) {
-    return null
-  }
-
-  const check = tryCommand(python.cmd, [...python.argsPrefix, '-m', 'PyInstaller', '--version'])
-  if (!check) {
-    return null
-  }
-
-  return {
-    cmd: python.cmd,
-    argsPrefix: [...python.argsPrefix, '-m', 'PyInstaller'],
-  }
-}
-
-function defaultProfile() {
-  // Keep Windows behavior unchanged and keep macOS/Linux on lean collection.
-  return process.platform === 'win32' ? 'standard' : 'standard'
-}
-
-function profileOptions(profile) {
-  if (profile !== 'lean') {
-    return []
-  }
-
-  // Keep runtime OCR path intact while trimming optional heavy stacks that are
-  // not imported by this backend at runtime.
-  const excludes = [
-    'matplotlib',
-    'matplotlib.pyplot',
-    'IPython',
-    'ipykernel',
-    'jupyter_client',
-    'jupyter_core',
-    'debugpy',
-    'pandas',
-    'openpyxl',
-    'xlsxwriter',
-    'tkinter',
-    // TensorBoard and related tooling are not required for OCR inference.
-    'tensorboard',
-    'tensorboard_data_server',
-    'tensorboard_plugin_wit',
-    // Keep TensorFlow runtime, trim optional branches commonly pulled by hooks.
-    'tensorflow.compiler.tf2tensorrt',
-    'tensorflow.lite',
-    'tensorflow.python.data.experimental.service',
-  ]
-
-  const args = ['--strip']
-  for (const mod of new Set(excludes)) {
-    args.push('--exclude-module', mod)
-  }
-  return args
-}
-
-function packageCollectionArgs(profile) {
-  const useSubmodules = profile === 'lean'
-
-  const args = [
-    '--collect-submodules',
-    'backend',
-  ]
-
-  if (useSubmodules) {
-    // Lean behavior: narrower package collection for both OCR engines.
-    args.push(
-      '--collect-submodules',
-      'kraken',
-      '--collect-submodules',
-      'calamari_ocr',
-    )
-  } else {
-    args.push(
-      '--collect-all',
-      'kraken',
-      '--collect-all',
-      'calamari_ocr',
-    )
-  }
-
-  return args
-}
-
-
-function lstatExists(targetPath) {
-  try {
-    lstatSync(targetPath)
-    return true
-  } catch (error) {
-    if (error?.code === 'ENOENT') {
-      return false
-    }
-    throw error
-  }
-}
-
-function replaceDuplicateWithSymlink({ internalDir, duplicateRelativePath, canonicalRelativePath }) {
-  const duplicatePath = path.join(internalDir, duplicateRelativePath)
-  const canonicalPath = path.join(internalDir, canonicalRelativePath)
-
-  if (!existsSync(canonicalPath)) {
-    throw new Error(`Canonical PyInstaller binary is missing: ${canonicalPath}`)
-  }
-
-  if (lstatExists(duplicatePath)) {
-    rmSync(duplicatePath, { force: true })
-  }
-
-  const relativeTarget = path.relative(path.dirname(duplicatePath), canonicalPath)
-  symlinkSync(relativeTarget, duplicatePath)
-
-  if (!lstatSync(duplicatePath).isSymbolicLink()) {
-    throw new Error(`Expected symbolic link after deduplication: ${duplicatePath}`)
-  }
-
-  const actualTarget = readlinkSync(duplicatePath)
-  if (actualTarget !== relativeTarget) {
-    throw new Error(
-      `Incorrect TensorFlow symlink target for ${duplicatePath}: expected ${relativeTarget}, got ${actualTarget}`,
-    )
-  }
-
-  if (!existsSync(duplicatePath)) {
-    throw new Error(`TensorFlow symlink does not resolve: ${duplicatePath}`)
-  }
-
-  console.log(`Symlinked ${duplicateRelativePath} -> ${relativeTarget}`)
-}
-
-function deduplicateTensorFlowBinary(bundleDir) {
-  if (process.platform !== 'darwin') {
-    return
-  }
-
-  const internalDir = path.join(bundleDir, '_internal')
-  if (!existsSync(internalDir)) {
-    throw new Error(`PyInstaller internal directory is missing: ${internalDir}`)
-  }
-
-  replaceDuplicateWithSymlink({
-    internalDir,
-    duplicateRelativePath: '_pywrap_tensorflow_internal.so',
-    canonicalRelativePath: 'tensorflow/python/_pywrap_tensorflow_internal.so',
-  })
-}
-
-function signSidecarIfNeeded(binaryPath) {
-  // Intentionally disabled: default behavior does not re-sign sidecar binaries.
-  void binaryPath
-}
-
-function runSidecarSmokeTest(binaryPath) {
-  // The sidecar imports backend modules at process startup, so a --help run
-  // catches missing bundled imports before we ship an installer.
-  run(binaryPath, ['--help'], { stdio: 'pipe' })
-}
-
-function runSidecarSmokeTestWithPolicy(binaryPath) {
-  const strictSmoke = (process.env.CI || '').toLowerCase() === 'true'
-
-  try {
-    runSidecarSmokeTest(binaryPath)
-  } catch (error) {
-    const message = String(error?.message || error)
-    const protobufDescriptorCollision =
-      message.includes('File already exists in database: tensorflow/core/protobuf/replay_log.proto') ||
-      message.includes('GeneratedDatabase()->Add(encoded_file_descriptor, size)')
-
-    if (protobufDescriptorCollision && !strictSmoke) {
-      console.warn('Sidecar smoke test hit known TensorFlow/protobuf descriptor collision; continuing build outside CI.')
-      return
-    }
-
-    throw error
-  }
-}
-
-function cleanPathIfExists(targetPath) {
-  if (!existsSync(targetPath)) {
-    return
-  }
-  rmSync(targetPath, { recursive: true, force: true })
-}
-
-function sidecarExecutablePath(outDir, binName) {
-  const executableName = process.platform === 'win32' ? `${binName}.exe` : binName
-  return path.join(outDir, binName, executableName)
-}
-
-function createPosixLauncherSidecar(outDir, launcherName, bundleName) {
-  const launcherPath = path.join(outDir, launcherName)
-
-  const script = [
-    '#!/usr/bin/env bash',
-    'set -euo pipefail',
-    '',
-    'SELF_DIR="$(cd "$(dirname "$0")" && pwd)"',
-    `BUNDLE_NAME="${bundleName}"`,
-    `LAUNCHER_NAME="${launcherName}"`,
-    'CANDIDATES=(',
-    '  "$SELF_DIR/$BUNDLE_NAME/$BUNDLE_NAME"',
-    '  "$SELF_DIR/$BUNDLE_NAME/$LAUNCHER_NAME"',
-    '  "$SELF_DIR/$BUNDLE_NAME/backend"',
-    ')',
-    'EXECUTABLE_PATH=""',
-    'for candidate in "${CANDIDATES[@]}"; do',
-    '  if [ -f "$candidate" ] && [ ! -x "$candidate" ]; then',
-    '    chmod +x "$candidate" 2>/dev/null || true',
-    '  fi',
-    '  if [ -x "$candidate" ]; then',
-    '    EXECUTABLE_PATH="$candidate"',
-    '    break',
-    '  fi',
-    'done',
-    'if [ -z "$EXECUTABLE_PATH" ]; then',
-    '  echo "Mimir sidecar executable not found. Checked:" >&2',
-    '  for candidate in "${CANDIDATES[@]}"; do',
-    '    echo "  - $candidate" >&2',
-    '  done',
-    '  exit 1',
-    'fi',
-    '',
-    'exec "$EXECUTABLE_PATH" "$@"',
-    '',
-  ].join('\n')
-
-  writeFileSync(launcherPath, script, 'utf8')
-  chmodSync(launcherPath, 0o755)
-  return launcherPath
-}
-
-try {
-  const profile = defaultProfile()
-  if (!['standard', 'lean'].includes(profile)) {
-    throw new Error(`Unsupported sidecar profile '${profile}'. Use 'standard' or 'lean'.`)
-  }
-
+function detectRustTargetTriple() {
   if (!commandExists('rustc')) {
     throw new Error('rustc is required to detect target triple')
   }
 
-  const pyInstallerRunner = resolvePyInstallerRunner()
-  if (!pyInstallerRunner) {
-    throw new Error('pyinstaller is required. Install with: pip install pyinstaller')
-  }
-
-  const rustInfo = run('rustc', ['-vV'])
+  const rustInfo = runCommand('rustc', ['-vV']).stdout || ''
   const hostLine = rustInfo
     .split(/\r?\n/)
     .find((line) => line.toLowerCase().startsWith('host:'))
@@ -365,103 +59,126 @@ try {
     throw new Error('Unable to detect Rust host target triple')
   }
 
-  const outDir = path.join('src-tauri', 'binaries')
-  const launcherName = `backend-${targetTriple}`
-  const bundleName = `${launcherName}-bundle`
-  const sentinelPath = path.join(outDir, 'backend-sentinel')
-  const dataSeparator = process.platform === 'win32' ? ';' : ':'
-  const calamariModelsSrc = path.join(ROOT_DIR, 'backend', 'ml', 'calamari')
-  const calamariModelsDest = path.join('backend', 'ml', 'calamari')
-  const krakenBllaModelSrc = resolveKrakenBllaModelPath()
-  const krakenBllaModelDest = 'kraken'
+  return targetTriple
+}
 
+function cleanPreviousOutputs({ outDir, launcherName, bundleName, sentinelPath }) {
   mkdirSync(outDir, { recursive: true })
   cleanPathIfExists(path.join(outDir, bundleName))
   cleanPathIfExists(path.join(outDir, `${bundleName}.exe`))
   cleanPathIfExists(path.join(outDir, launcherName))
   cleanPathIfExists(path.join(outDir, `${launcherName}.exe`))
 
-  const pyinstallerArgs = [
-    '--noconfirm',
-    '--clean',
-    '--onedir',
-    ...(process.platform === 'win32' ? ['--noconsole'] : []),
+  // The sentinel remains until a real sidecar has been produced successfully.
+  void sentinelPath
+}
 
-    '--paths',
-    ROOT_DIR,
-
-    ...packageCollectionArgs(profile),
-
-    '--hidden-import',
-    'kraken.blla',
-
-    '--hidden-import',
-    'kraken.lib.segmentation',
-
-    '--hidden-import',
-    'tensorflow.python.profiler.trace',
-
-    '--hidden-import',
-    'tensorflow.compiler.tf2tensorrt._pywrap_py_utils',
-
-    '--collect-submodules',
-    'tensorflow.compiler.tf2tensorrt',
-
-    '--add-data',
-    `${calamariModelsSrc}:${calamariModelsDest}`,
-
-    ...(krakenBllaModelSrc
-      ? [
-          '--add-data',
-          `${krakenBllaModelSrc}:${krakenBllaModelDest}`,
-        ]
-      : []),
-
-    '--name',
-    bundleName,
-
-    '--distpath',
-    outDir,
-
-    '--workpath',
-    path.join('.pyinstaller', 'build'),
-
-    '--specpath',
-    path.join('.pyinstaller', 'spec'),
-
-    ...profileOptions(profile),
-
-    path.join('backend', 'sidecar_main.py'),
-  ]
-
-  console.log(`Building sidecar with profile: ${profile}`)
-
-  run(pyInstallerRunner.cmd, [...pyInstallerRunner.argsPrefix, ...pyinstallerArgs], { stdio: 'inherit' })
-
+function finalizeSidecar({
+  outDir,
+  launcherName,
+  bundleName,
+  sentinelPath,
+}) {
   const sidecarRootDir = path.join(outDir, bundleName)
-
-  const outPath = sidecarExecutablePath(outDir, bundleName)
+  const executablePath = sidecarExecutablePath(outDir, bundleName)
 
   deduplicateTensorFlowBinary(sidecarRootDir)
 
-  if (process.platform !== 'win32') {
-    chmodSync(outPath, 0o755)
-    runSidecarSmokeTestWithPolicy(outPath)
-    signSidecarIfNeeded(outPath)
-    const launcherPath = createPosixLauncherSidecar(outDir, launcherName, bundleName)
-    runSidecarSmokeTestWithPolicy(launcherPath)
-    // Sentinel is only to keep resources globs valid before sidecar builds.
-    // Remove it once a real sidecar runtime is successfully produced.
-    cleanPathIfExists(sentinelPath)
-    console.log(`Built launcher sidecar ${launcherPath} using in-bundle runtime directory ${sidecarRootDir}`)
-  } else {
-    // Windows uses the onedir output directly; no POSIX launcher is required.
-    runSidecarSmokeTestWithPolicy(outPath)
+  if (process.platform === 'win32') {
+    runSidecarSmokeTestWithPolicy(executablePath)
     cleanPathIfExists(sentinelPath)
     console.log(`Built Windows onedir sidecar runtime at ${sidecarRootDir}`)
+    return
   }
 
-  console.log(`Built onedir sidecar bundle in ${path.join(outDir, bundleName)} (launcher: ${launcherName}, profile: ${profile})`)
+  chmodSync(executablePath, 0o755)
+  runSidecarSmokeTestWithPolicy(executablePath)
+  signSidecarIfNeeded(executablePath)
+
+  const launcherPath = createPosixLauncherSidecar(
+    outDir,
+    launcherName,
+    bundleName,
+  )
+  runSidecarSmokeTestWithPolicy(launcherPath)
+  cleanPathIfExists(sentinelPath)
+
+  console.log(
+    `Built launcher sidecar ${launcherPath} using in-bundle runtime directory ${sidecarRootDir}`,
+  )
+}
+
+function main() {
+  const profile = defaultSidecarProfile()
+  validateSidecarProfile(profile)
+
+  const python = resolvePython(ROOT_DIR)
+  const pyInstaller = resolvePyInstaller(python)
+  if (!pyInstaller) {
+    throw new Error(
+      'pyinstaller is required. Install with: pip install pyinstaller',
+    )
+  }
+
+  const pythonExecutable = python ? getPythonExecutable(python) : null
+  if (pythonExecutable) {
+    console.log(`Using Python interpreter: ${pythonExecutable}`)
+  }
+
+  const targetTriple = detectRustTargetTriple()
+  const outDir = path.join('src-tauri', 'binaries')
+  const launcherName = `backend-${targetTriple}`
+  const bundleName = `${launcherName}-bundle`
+  const sentinelPath = path.join(outDir, 'backend-sentinel')
+
+  const calamariModelsSrc = path.join(
+    ROOT_DIR,
+    'backend',
+    'ml',
+    'calamari',
+  )
+  const krakenBllaModelSrc = resolveKrakenBllaModelPath(python)
+
+  cleanPreviousOutputs({
+    outDir,
+    launcherName,
+    bundleName,
+    sentinelPath,
+  })
+
+  const pyinstallerArgs = createPyInstallerArgs({
+    profile,
+    rootDir: ROOT_DIR,
+    outDir,
+    bundleName,
+    calamariModelsSrc,
+    calamariModelsDest: path.join('backend', 'ml', 'calamari'),
+    krakenBllaModelSrc,
+    krakenBllaModelDest: 'kraken',
+  })
+
+  console.log(`Building sidecar with profile: ${profile}`)
+  runCommand(
+    pyInstaller.command,
+    [...pyInstaller.prefixArgs, ...pyinstallerArgs],
+    { stdio: 'inherit' },
+  )
+
+  finalizeSidecar({
+    outDir,
+    launcherName,
+    bundleName,
+    sentinelPath,
+  })
+
+  console.log(
+    `Built onedir sidecar bundle in ${path.join(outDir, bundleName)} ` +
+      `(launcher: ${launcherName}, profile: ${profile})`,
+  )
+}
+
+try {
+  main()
 } catch (error) {
   console.error(String(error?.message || error))
   process.exit(1)

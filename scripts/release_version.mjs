@@ -2,11 +2,10 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const ROOT_DIR = path.resolve(__dirname, '..')
+import { scriptProjectRootFrom } from './lib/projectPaths.mjs'
+
+const ROOT_DIR = scriptProjectRootFrom(import.meta.url)
 
 function runGit(args, options = {}) {
   const result = execFileSync('git', args, {
@@ -16,11 +15,7 @@ function runGit(args, options = {}) {
     ...options,
   })
 
-  if (typeof result !== 'string') {
-    return ''
-  }
-
-  return result.trim()
+  return typeof result === 'string' ? result.trim() : ''
 }
 
 function fail(message) {
@@ -29,19 +24,13 @@ function fail(message) {
 }
 
 function isSemverLike(value) {
-  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(value)
+  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
+    value,
+  )
 }
 
-function updatePackageJson(filePath, version) {
-  const raw = readFileSync(filePath, 'utf8')
-  const json = JSON.parse(raw)
-  json.version = version
-  writeFileSync(filePath, `${JSON.stringify(json, null, 2)}\n`, 'utf8')
-}
-
-function updateTauriConfig(filePath, version) {
-  const raw = readFileSync(filePath, 'utf8')
-  const json = JSON.parse(raw)
+function updateJsonVersion(filePath, version) {
+  const json = JSON.parse(readFileSync(filePath, 'utf8'))
   json.version = version
   writeFileSync(filePath, `${JSON.stringify(json, null, 2)}\n`, 'utf8')
 }
@@ -68,10 +57,25 @@ function updateCargoLock(filePath, version) {
   )
 
   if (next === raw) {
-    fail(`could not update mimir package version in ${path.relative(ROOT_DIR, filePath)}`)
+    fail(
+      `could not update mimir package version in ${path.relative(ROOT_DIR, filePath)}`,
+    )
   }
 
   writeFileSync(filePath, next, 'utf8')
+}
+
+function assertTagDoesNotExist(tag) {
+  try {
+    runGit(['rev-parse', '--verify', `refs/tags/${tag}`])
+    fail(`tag ${tag} already exists locally`)
+  } catch {
+    // Expected when the tag does not exist.
+  }
+
+  if (runGit(['ls-remote', '--tags', 'origin', tag])) {
+    fail(`tag ${tag} already exists on origin`)
+  }
 }
 
 function main() {
@@ -84,27 +88,17 @@ function main() {
   }
 
   if (!isSemverLike(version)) {
-    fail(`invalid version '${version}', expected semver like 0.1.1 or 1.2.0-rc.1`)
+    fail(
+      `invalid version '${version}', expected semver like 0.1.1 or 1.2.0-rc.1`,
+    )
   }
 
-  const tag = `v${version}`
-
-  const status = runGit(['status', '--porcelain'])
-  if (status) {
+  if (runGit(['status', '--porcelain'])) {
     fail('working tree is not clean; commit or stash changes first')
   }
 
-  try {
-    runGit(['rev-parse', '--verify', `refs/tags/${tag}`])
-    fail(`tag ${tag} already exists locally`)
-  } catch {
-    // expected when tag does not exist
-  }
-
-  const remoteTag = runGit(['ls-remote', '--tags', 'origin', tag])
-  if (remoteTag) {
-    fail(`tag ${tag} already exists on origin`)
-  }
+  const tag = `v${version}`
+  assertTagDoesNotExist(tag)
 
   const currentBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'])
   if (!currentBranch || currentBranch === 'HEAD') {
@@ -116,18 +110,25 @@ function main() {
   const cargoTomlPath = path.join(ROOT_DIR, 'src-tauri', 'Cargo.toml')
   const cargoLockPath = path.join(ROOT_DIR, 'src-tauri', 'Cargo.lock')
 
-  updatePackageJson(packageJsonPath, version)
-  updateTauriConfig(tauriConfigPath, version)
+  updateJsonVersion(packageJsonPath, version)
+  updateJsonVersion(tauriConfigPath, version)
   updateCargoToml(cargoTomlPath, version)
   updateCargoLock(cargoLockPath, version)
 
-  runGit(['add', 'package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock'])
+  runGit([
+    'add',
+    'package.json',
+    'src-tauri/tauri.conf.json',
+    'src-tauri/Cargo.toml',
+    'src-tauri/Cargo.lock',
+  ])
 
-  const stagedDiff = runGit(['diff', '--cached', '--name-only'])
-  if (stagedDiff) {
+  if (runGit(['diff', '--cached', '--name-only'])) {
     runGit(['commit', '-m', `release: ${tag}`], { stdio: 'inherit' })
   } else {
-    console.log('release: version files already committed; skipping commit step.')
+    console.log(
+      'release: version files already committed; skipping commit step.',
+    )
   }
 
   runGit(['tag', '-a', tag, '-m', tag])
@@ -135,11 +136,16 @@ function main() {
   if (shouldPush) {
     runGit(['push', 'origin', currentBranch], { stdio: 'inherit' })
     runGit(['push', 'origin', tag], { stdio: 'inherit' })
-    console.log(`release: pushed ${tag}; GitHub Actions should publish release assets.`)
-  } else {
-    console.log(`release: created commit and tag ${tag} locally (no push).`)
-    console.log(`release: run 'git push origin ${currentBranch}' and 'git push origin ${tag}' when ready.`)
+    console.log(
+      `release: pushed ${tag}; GitHub Actions should publish release assets.`,
+    )
+    return
   }
+
+  console.log(`release: created commit and tag ${tag} locally (no push).`)
+  console.log(
+    `release: run 'git push origin ${currentBranch}' and 'git push origin ${tag}' when ready.`,
+  )
 }
 
 main()
