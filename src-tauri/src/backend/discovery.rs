@@ -319,10 +319,17 @@ where
 }
 
 pub fn sidecar_candidates(project_root: &PathBuf, app: &tauri::App) -> Vec<PathBuf> {
+    if let Ok(custom_path) = env::var("MIMIR_SIDECAR_PATH") {
+        let custom_path = custom_path.trim();
+
+        if !custom_path.is_empty() {
+            return with_executable_variants(PathBuf::from(custom_path));
+        }
+    }
+
     let mut out = Vec::new();
     let mut seen: HashSet<PathBuf> = HashSet::new();
     let binary_name = sidecar_binary_name();
-
     let mut push_candidate = |path: PathBuf| {
         if seen.insert(path.clone()) {
             out.push(path);
