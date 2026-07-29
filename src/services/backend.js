@@ -349,3 +349,59 @@ export async function getBackendConnectionDiagnostics() {
     projects,
   }
 }
+
+// MIMIR_PERFORMANCE_PROFILE_REFACTOR
+export function invalidateBackendConnection() {
+  cachedBackendUrl = ''
+}
+
+export function isTauriRuntime() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  return Boolean(window.__TAURI_INTERNALS__) || window.location.protocol === 'tauri:'
+}
+
+export async function restartBackend(profile, restartToken) {
+  if (!isTauriRuntime()) {
+    throw new Error('Automatic backend restart is available only inside the Tauri application.')
+  }
+  return invokeWithTimeout('restart_backend', { profile, restartToken }, 20000)
+}
+
+export async function waitForBackendRuntime({
+  expectedProfile,
+  previousInstanceId = '',
+  attempts = 80,
+  delayMs = 250,
+}) {
+  invalidateBackendConnection()
+  let lastError = null
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const baseUrl = await getBackendBaseUrl({
+        allowUnhealthyUrl: false,
+        healthAttempts: 2,
+        healthDelayMs: 100,
+      })
+      const response = await fetch(`${baseUrl}/system/runtime`)
+      if (!response.ok) {
+        throw new Error(`Backend runtime check failed (${response.status})`)
+      }
+      const runtime = await response.json()
+      const instanceChanged = !previousInstanceId || runtime.backend_instance_id !== previousInstanceId
+      const profileMatches = runtime.performance?.profile === expectedProfile
+      if (instanceChanged && profileMatches) {
+        return runtime
+      }
+    } catch (error) {
+      lastError = error
+      invalidateBackendConnection()
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  }
+
+  const detail = lastError ? ` Last error: ${lastError}` : ''
+  throw new Error(`The backend did not reconnect with the ${expectedProfile} profile.${detail}`)
+}

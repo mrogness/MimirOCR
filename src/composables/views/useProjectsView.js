@@ -1,12 +1,13 @@
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { useBackendRuntime } from '../runtime/useBackendRuntime'
 import { useProjectsProjectActions } from './projects/useProjectsProjectActions'
 import { useProjectsRuntime } from './projects/useProjectsRuntime'
 import { useProjectsUploadActions } from './projects/useProjectsUploadActions'
 
-export function useProjectsView({ route, router, backendFetch, getDefaultWorkerCount, getSavedWorkerCount }) {
+export function useProjectsView({ route, router, backendFetch }) {
   const project = ref(null)
-  const workerCount = ref(1)
+  const backendRuntime = useBackendRuntime()
 
   let loadProjectRef = async () => {}
   const runtime = useProjectsRuntime({
@@ -14,6 +15,7 @@ export function useProjectsView({ route, router, backendFetch, getDefaultWorkerC
     project,
     reloadProject: async () => {
       await loadProjectRef()
+      await backendRuntime.refreshBackendRuntime().catch(() => {})
     },
   })
 
@@ -29,8 +31,6 @@ export function useProjectsView({ route, router, backendFetch, getDefaultWorkerC
 
   const uploadActions = useProjectsUploadActions({
     backendFetch,
-    getDefaultWorkerCount,
-    getSavedWorkerCount,
     project,
     selectedPdf: runtime.selectedPdf,
     uploadError: runtime.uploadError,
@@ -45,7 +45,8 @@ export function useProjectsView({ route, router, backendFetch, getDefaultWorkerC
     persistedElapsedSeconds: runtime.persistedElapsedSeconds,
     processingStartMs: runtime.processingStartMs,
     processingEndMs: runtime.processingEndMs,
-    workerCount,
+    activeJob: backendRuntime.activeJob,
+    refreshBackendRuntime: backendRuntime.refreshBackendRuntime,
     startElapsedTimer: runtime.startElapsedTimer,
     stopElapsedTimer: runtime.stopElapsedTimer,
     persistActiveJob: runtime.persistActiveJob,
@@ -60,19 +61,33 @@ export function useProjectsView({ route, router, backendFetch, getDefaultWorkerC
     async () => {
       runtime.resetWorkspaceState()
       await projectActions.loadProject()
-    }
+      await backendRuntime.refreshBackendRuntime().catch(() => {})
+    },
   )
+
+  const activeJobMessage = computed(() => {
+    if (backendRuntime.backendConnection.value === 'restarting') {
+      return 'Processing is unavailable while the backend restarts.'
+    }
+    const active = backendRuntime.activeJob.value
+    if (!active) return ''
+    if (Number(active.project_id) === Number(project.value?.id)) {
+      return 'OCR processing is already running for this project.'
+    }
+    return `Project ${active.project_id} is currently being processed. Only one OCR run can run at a time.`
+  })
 
   onMounted(async () => {
     document.addEventListener('visibilitychange', runtime.refreshRunStateOnVisibility)
     window.addEventListener('focus', runtime.refreshRunStateOnVisibility)
-    await uploadActions.loadWorkerSettings()
+    backendRuntime.startBackendRuntimePolling()
     await projectActions.loadProject()
   })
 
   onBeforeUnmount(() => {
     document.removeEventListener('visibilitychange', runtime.refreshRunStateOnVisibility)
     window.removeEventListener('focus', runtime.refreshRunStateOnVisibility)
+    backendRuntime.stopBackendRuntimePolling()
     runtime.cleanupRuntime()
   })
 
@@ -102,7 +117,9 @@ export function useProjectsView({ route, router, backendFetch, getDefaultWorkerC
     rasterizedPagesCounter: runtime.rasterizedPagesCounter,
     segmentedPagesCounter: runtime.segmentedPagesCounter,
     ocrPagesCounter: runtime.ocrPagesCounter,
-    workerCount,
+    hasActiveOcrJob: backendRuntime.hasActiveOcrJob,
+    backendConnection: backendRuntime.backendConnection,
+    activeJobMessage,
     isProjectRoute: projectActions.isProjectRoute,
     canOpenReview: projectActions.canOpenReview,
     elapsedDisplay: runtime.elapsedDisplay,

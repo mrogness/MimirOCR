@@ -6,7 +6,6 @@ import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 import { useProjectsView } from '../composables/views/useProjectsView'
 import { backendFetch } from '../services/backend'
-import { getDefaultWorkerCount, getSavedWorkerCount } from '../services/appSettings'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +34,9 @@ const {
   rasterizedPagesCounter,
   segmentedPagesCounter,
   ocrPagesCounter,
-  workerCount,
+  hasActiveOcrJob,
+  backendConnection,
+  activeJobMessage,
   isProjectRoute,
   canOpenReview,
   elapsedDisplay,
@@ -47,8 +48,6 @@ const {
   route,
   router,
   backendFetch,
-  getDefaultWorkerCount,
-  getSavedWorkerCount,
 })
 
 const selectedPdfPreviewUrl = ref('')
@@ -462,11 +461,14 @@ onMounted(() => {
             <div ref="previewActionsRef" class="mt-auto flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="isUploading || !selectedPdf"
+                :disabled="isUploading || !selectedPdf || hasActiveOcrJob || backendConnection !== 'connected'"
                 @click="uploadPdfAndStartOcr"
               >
                 {{ isUploading ? 'Submitting...' : 'Submit and Process' }}
               </button>
+              <p v-if="activeJobMessage" class="text-xs text-amber-700">
+                {{ activeJobMessage }}
+              </p>
             </div>
           </div>
 

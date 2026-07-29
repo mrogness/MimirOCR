@@ -1,5 +1,4 @@
-use std::fs;
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::thread;
@@ -10,6 +9,7 @@ use std::os::unix::process::CommandExt;
 
 use tauri::Manager;
 
+use super::profile::PerformanceProfile;
 use super::state::{BackendRuntimePaths, BackendState};
 
 pub fn backend_runtime_paths(app: &tauri::App, project_root: &PathBuf) -> BackendRuntimePaths {
@@ -17,33 +17,17 @@ pub fn backend_runtime_paths(app: &tauri::App, project_root: &PathBuf) -> Backen
     let backend_default_cache = project_root.join("backend").join("output");
     let backend_default_temp = project_root.join("backend").join("tmp");
 
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .unwrap_or(backend_default_data)
-        .join("backend");
-    let cache_dir = app
-        .path()
-        .app_cache_dir()
-        .unwrap_or(backend_default_cache)
-        .join("backend");
-    let temp_dir = app
-        .path()
-        .temp_dir()
-        .unwrap_or(backend_default_temp)
-        .join("backend");
-
-    for path in [&app_data_dir, &cache_dir, &temp_dir] {
-        if let Err(err) = fs::create_dir_all(path) {
-            eprintln!("Failed to create backend runtime directory {}: {err}", path.display());
+    let paths = BackendRuntimePaths {
+        app_data_dir: app.path().app_data_dir().unwrap_or(backend_default_data).join("backend"),
+        cache_dir: app.path().app_cache_dir().unwrap_or(backend_default_cache).join("backend"),
+        temp_dir: app.path().temp_dir().unwrap_or(backend_default_temp).join("backend"),
+    };
+    for path in [&paths.app_data_dir, &paths.cache_dir, &paths.temp_dir] {
+        if let Err(error) = fs::create_dir_all(path) {
+            eprintln!("Failed to create backend runtime directory {}: {error}", path.display());
         }
     }
-
-    BackendRuntimePaths {
-        app_data_dir,
-        cache_dir,
-        temp_dir,
-    }
+    paths
 }
 
 pub fn try_spawn_backend_sidecar(
@@ -51,18 +35,13 @@ pub fn try_spawn_backend_sidecar(
     port: u16,
     runtime_paths: &BackendRuntimePaths,
     sidecar_log_path: &PathBuf,
+    profile: PerformanceProfile,
 ) -> std::io::Result<Child> {
     let parent_pid = std::process::id().to_string();
-
     if let Some(parent_dir) = sidecar_log_path.parent() {
         fs::create_dir_all(parent_dir)?;
     }
-
-    let log_file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(sidecar_log_path)?;
+    let log_file = OpenOptions::new().create(true).write(true).truncate(true).open(sidecar_log_path)?;
     let log_file_err = log_file.try_clone()?;
 
     let mut cmd = Command::new(path);
@@ -75,15 +54,12 @@ pub fn try_spawn_backend_sidecar(
         .env("MIMIR_CACHE_DIR", &runtime_paths.cache_dir)
         .env("MIMIR_TEMP_DIR", &runtime_paths.temp_dir)
         .env("MIMIR_SIDECAR_LOG_PATH", sidecar_log_path)
+        .env("MIMIR_PERFORMANCE_PROFILE", profile.as_str())
         .stdin(Stdio::null())
         .stdout(Stdio::from(log_file))
         .stderr(Stdio::from(log_file_err));
-
     #[cfg(unix)]
-    {
-        cmd.process_group(0);
-    }
-
+    cmd.process_group(0);
     cmd.spawn()
 }
 
@@ -93,6 +69,7 @@ pub fn try_spawn_backend(
     port: u16,
     with_reload: bool,
     runtime_paths: &BackendRuntimePaths,
+    profile: PerformanceProfile,
 ) -> std::io::Result<Child> {
     let parent_pid = std::process::id().to_string();
     let mut cmd = Command::new(python_bin);
@@ -107,22 +84,18 @@ pub fn try_spawn_backend(
         .env("MIMIR_APP_DATA_DIR", &runtime_paths.app_data_dir)
         .env("MIMIR_CACHE_DIR", &runtime_paths.cache_dir)
         .env("MIMIR_TEMP_DIR", &runtime_paths.temp_dir)
+        .env("MIMIR_PERFORMANCE_PROFILE", profile.as_str())
         .current_dir(project_root)
         .stdin(Stdio::null());
 
     if with_reload {
-        let reload_dir = project_root.join("backend");
-        cmd.arg("--reload").arg("--reload-dir").arg(reload_dir);
+        cmd.arg("--reload").arg("--reload-dir").arg(project_root.join("backend"));
         cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     } else {
         cmd.stdout(Stdio::null()).stderr(Stdio::null());
     }
-
     #[cfg(unix)]
-    {
-        cmd.process_group(0);
-    }
-
+    cmd.process_group(0);
     cmd.spawn()
 }
 
@@ -140,63 +113,33 @@ pub fn ensure_child_is_running(mut child: Child, context: &str) -> std::io::Resu
 fn terminate_child_process(child: &mut Child) {
     #[cfg(target_os = "windows")]
     {
-        let pid = child.id().to_string();
         let _ = Command::new("taskkill")
-            .args(["/PID", &pid, "/T", "/F"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+            .args(["/PID", &child.id().to_string(), "/T", "/F"])
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
     }
-
     #[cfg(not(target_os = "windows"))]
     {
-        let pid = child.id();
-        let pgid = format!("-{pid}");
-
+        let pgid = format!("-{}", child.id());
         let _ = Command::new("kill")
             .args(["-TERM", &pgid])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
         thread::sleep(Duration::from_millis(250));
-
         if matches!(child.try_wait(), Ok(None)) {
             let _ = Command::new("kill")
                 .args(["-KILL", &pgid])
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-
+                .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
             let _ = child.kill();
         }
     }
-
     let _ = child.wait();
 }
 
 pub fn shutdown_backend(state: &BackendState) {
-    let mut child_slot = match state.child.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
+    let mut child_slot = state.child.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(mut child) = child_slot.take() {
         terminate_child_process(&mut child);
     }
-
-    let mut port_slot = match state.port.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-    *port_slot = None;
-
-    let mut started_at_slot = match state.started_at.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-    *started_at_slot = None;
+    drop(child_slot);
+    *state.port.lock().unwrap_or_else(|p| p.into_inner()) = None;
+    *state.started_at.lock().unwrap_or_else(|p| p.into_inner()) = None;
 }

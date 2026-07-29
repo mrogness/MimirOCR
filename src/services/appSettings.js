@@ -1,6 +1,23 @@
-const OCR_WORKER_COUNT_KEY = 'mimir.ocr.workerCount'
 const BRAND_THEME_KEY = 'mimir.ui.brandTheme'
 const PROJECT_SETTINGS_PREFIX = 'mimir.projectSettings.'
+
+export const PERFORMANCE_PROFILE_OPTIONS = [
+  {
+    value: 'cool',
+    label: 'Cool',
+    description: 'Lowest sustained CPU use and heat. Uses one segmentation worker and one OCR thread.',
+  },
+  {
+    value: 'balanced',
+    label: 'Balanced',
+    description: 'Recommended default with moderate parallelism and controlled native thread counts.',
+  },
+  {
+    value: 'fast',
+    label: 'Fast',
+    description: 'Uses more CPU on systems with stronger processors and cooling.',
+  },
+]
 
 export const BRAND_THEME_OPTIONS = [
   { value: 'slate', label: 'Slate' },
@@ -16,25 +33,7 @@ export const BRAND_THEME_OPTIONS = [
 
 function toPositiveInt(value, fallback) {
   const n = Number.parseInt(value, 10)
-  if (!Number.isFinite(n) || n < 1) {
-    return fallback
-  }
-  return n
-}
-
-export function getDefaultWorkerCount(totalCores) {
-  return 1
-}
-
-export function getSavedWorkerCount(fallback) {
-  const raw = localStorage.getItem(OCR_WORKER_COUNT_KEY)
-  return toPositiveInt(raw, fallback)
-}
-
-export function saveWorkerCount(value) {
-  const safe = toPositiveInt(value, 1)
-  localStorage.setItem(OCR_WORKER_COUNT_KEY, String(safe))
-  return safe
+  return Number.isFinite(n) && n >= 1 ? n : fallback
 }
 
 function normalizeBrandTheme(value) {
@@ -80,29 +79,24 @@ function defaultProjectSettings() {
 export function getProjectSettings(projectId) {
   const key = projectSettingsKey(projectId)
   const defaults = defaultProjectSettings()
-  if (!key) {
-    return defaults
-  }
+  if (!key) return defaults
 
   const raw = localStorage.getItem(key)
-  if (!raw) {
-    return defaults
-  }
+  if (!raw) return defaults
 
   try {
     const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') {
-      return defaults
-    }
-
-    const spreadMode = parsed.spreadMode === 'single' ? 'single' : 'split-spread'
+    if (!parsed || typeof parsed !== 'object') return defaults
     return {
       dpi: toPositiveInt(parsed.dpi, defaults.dpi),
-      binarizationThreshold: toPositiveInt(parsed.binarizationThreshold, defaults.binarizationThreshold),
-      spreadMode,
+      binarizationThreshold: toPositiveInt(
+        parsed.binarizationThreshold,
+        defaults.binarizationThreshold,
+      ),
+      spreadMode: parsed.spreadMode === 'single' ? 'single' : 'split-spread',
       strictTopToBottom: parsed.strictTopToBottom === true,
     }
-  } catch (_err) {
+  } catch (_error) {
     return defaults
   }
 }
@@ -114,14 +108,10 @@ export function saveProjectSettings(projectId, nextSettings) {
     ...getProjectSettings(projectId),
     ...(nextSettings || {}),
   }
-
   safe.dpi = toPositiveInt(safe.dpi, 300)
   safe.binarizationThreshold = toPositiveInt(safe.binarizationThreshold, 170)
   safe.spreadMode = safe.spreadMode === 'single' ? 'single' : 'split-spread'
   safe.strictTopToBottom = safe.strictTopToBottom === true
-
-  if (key) {
-    localStorage.setItem(key, JSON.stringify(safe))
-  }
+  if (key) localStorage.setItem(key, JSON.stringify(safe))
   return safe
 }

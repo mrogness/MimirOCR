@@ -11,6 +11,10 @@ pub struct BackendState {
     pub startup_error: Mutex<Option<String>>,
     pub backend_mode: Mutex<String>,
     pub backend_runtime: Mutex<String>,
+    pub lifecycle_status: Mutex<String>,
+    pub active_profile: Mutex<String>,
+    pub restart_generation: Mutex<u64>,
+    pub lifecycle_lock: Mutex<()>,
     pub sidecar_selected_path: Mutex<Option<String>>,
     pub sidecar_checked_paths: Mutex<Vec<String>>,
     pub sidecar_log_path: Mutex<Option<String>>,
@@ -22,6 +26,48 @@ pub struct BackendState {
     pub db_path: Mutex<Option<String>>,
     pub uploads_dir: Mutex<Option<String>>,
     pub output_dir: Mutex<Option<String>>,
+    pub runtime_paths: Mutex<Option<BackendRuntimePaths>>,
+    pub project_root: PathBuf,
+    pub use_reload: bool,
+}
+
+impl BackendState {
+    pub fn new(project_root: PathBuf) -> Self {
+        Self {
+            child: Mutex::new(None),
+            port: Mutex::new(None),
+            started_at: Mutex::new(None),
+            startup_error: Mutex::new(None),
+            backend_mode: Mutex::new("unknown".to_string()),
+            backend_runtime: Mutex::new("none".to_string()),
+            lifecycle_status: Mutex::new("starting".to_string()),
+            active_profile: Mutex::new("balanced".to_string()),
+            restart_generation: Mutex::new(0),
+            lifecycle_lock: Mutex::new(()),
+            sidecar_selected_path: Mutex::new(None),
+            sidecar_checked_paths: Mutex::new(Vec::new()),
+            sidecar_log_path: Mutex::new(None),
+            python_selected_path: Mutex::new(None),
+            python_checked_candidates: Mutex::new(Vec::new()),
+            app_data_dir: Mutex::new(None),
+            cache_dir: Mutex::new(None),
+            temp_dir: Mutex::new(None),
+            db_path: Mutex::new(None),
+            uploads_dir: Mutex::new(None),
+            output_dir: Mutex::new(None),
+            runtime_paths: Mutex::new(None),
+            project_root,
+            use_reload: cfg!(debug_assertions),
+        }
+    }
+
+    pub fn runtime_paths(&self) -> Result<BackendRuntimePaths, String> {
+        self.runtime_paths
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+            .ok_or_else(|| "Backend runtime paths are not initialized".to_string())
+    }
 }
 
 #[derive(Clone)]
@@ -38,6 +84,9 @@ pub struct BackendStatus {
     pub startup_error: Option<String>,
     pub backend_mode: String,
     pub backend_runtime: String,
+    pub lifecycle_status: String,
+    pub active_profile: String,
+    pub restart_generation: u64,
     pub sidecar_selected_path: Option<String>,
     pub sidecar_checked_paths: Vec<String>,
     pub sidecar_log_path: Option<String>,
@@ -51,16 +100,20 @@ pub struct BackendStatus {
     pub output_dir: Option<String>,
 }
 
+#[derive(serde::Serialize)]
+pub struct BackendRestartResult {
+    pub url: String,
+    pub active_profile: String,
+    pub restart_generation: u64,
+}
+
 pub fn tail_log(path: &str, max_lines: usize) -> Option<String> {
     let content = fs::read_to_string(path).ok()?;
     let mut lines: Vec<&str> = content.lines().collect();
     if lines.len() > max_lines {
         lines = lines.split_off(lines.len() - max_lines);
     }
-    if lines.is_empty() {
-        return None;
-    }
-    Some(lines.join("\n"))
+    (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
 pub fn frontend_backend_url(port: u16) -> String {
@@ -68,7 +121,6 @@ pub fn frontend_backend_url(port: u16) -> String {
     {
         return format!("http://localhost:{port}");
     }
-
     #[cfg(not(target_os = "windows"))]
     {
         format!("http://127.0.0.1:{port}")
@@ -76,11 +128,7 @@ pub fn frontend_backend_url(port: u16) -> String {
 }
 
 pub fn reconcile_backend_child_state(state: &BackendState) {
-    let mut child_slot = match state.child.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
+    let mut child_slot = state.child.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let Some(child) = child_slot.as_mut() else {
         return;
     };
@@ -88,85 +136,33 @@ pub fn reconcile_backend_child_state(state: &BackendState) {
     let exited = match child.try_wait() {
         Ok(Some(status)) => Some(status.to_string()),
         Ok(None) => None,
-        Err(err) => Some(format!("unable to poll process status: {err}")),
+        Err(error) => Some(format!("unable to poll process status: {error}")),
     };
-
     let Some(exit_detail) = exited else {
         return;
     };
-
     *child_slot = None;
+    drop(child_slot);
 
-    {
-        let mut port_slot = match state.port.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        *port_slot = None;
-    }
+    *state.port.lock().unwrap_or_else(|p| p.into_inner()) = None;
+    *state.started_at.lock().unwrap_or_else(|p| p.into_inner()) = None;
+    *state.backend_runtime.lock().unwrap_or_else(|p| p.into_inner()) = "none".to_string();
+    *state.lifecycle_status.lock().unwrap_or_else(|p| p.into_inner()) = "failed".to_string();
 
-    {
-        let mut runtime_slot = match state.backend_runtime.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        *runtime_slot = "none".to_string();
-    }
-
-    {
-        let mut started_at_slot = match state.started_at.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        *started_at_slot = None;
-    }
-
-    let selected_sidecar = {
-        let slot = match state.sidecar_selected_path.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        slot.clone()
-    };
-
-    let selected_python = {
-        let slot = match state.python_selected_path.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        slot.clone()
-    };
-
-    let sidecar_log_path = {
-        let slot = match state.sidecar_log_path.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        slot.clone()
-    };
-
+    let selected_sidecar = state.sidecar_selected_path.lock().unwrap_or_else(|p| p.into_inner()).clone();
+    let selected_python = state.python_selected_path.lock().unwrap_or_else(|p| p.into_inner()).clone();
+    let log_path = state.sidecar_log_path.lock().unwrap_or_else(|p| p.into_inner()).clone();
     let process_label = selected_sidecar
-        .map(|p| format!("sidecar at {p}"))
-        .or_else(|| selected_python.map(|p| format!("python backend via {p}")))
+        .map(|path| format!("sidecar at {path}"))
+        .or_else(|| selected_python.map(|path| format!("python backend via {path}")))
         .unwrap_or_else(|| "backend process".to_string());
 
-    let mut startup_error_slot = match state.startup_error.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let mut message = format!(
-        "Backend process exited after startup ({process_label}): {exit_detail}"
-    );
-
-    if let Some(log_path) = sidecar_log_path {
-        if let Some(tail) = tail_log(&log_path, 80) {
+    let mut message = format!("Backend process exited after startup ({process_label}): {exit_detail}");
+    if let Some(path) = log_path {
+        if let Some(tail) = tail_log(&path, 80) {
             message.push_str(". Sidecar log tail:\n");
             message.push_str(&tail);
-        } else {
-            message.push_str(&format!(". Sidecar log file: {log_path}"));
         }
     }
-
-    *startup_error_slot = Some(message);
+    *state.startup_error.lock().unwrap_or_else(|p| p.into_inner()) = Some(message);
 }

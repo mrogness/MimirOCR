@@ -1,20 +1,15 @@
 '''
-The entry point for the backend application. This module initializes the FastAPI app, 
-sets up routes, and configures middleware and other necessary components.
-
-Author: Matthew Rogness
+The entry point for the backend application. Performance limits are initialized
+before route modules can import TensorFlow, Torch, Kraken, or Calamari.
 '''
 
-from fastapi import FastAPI
-from fastapi import Request
-from fastapi import Response
-import uvicorn
+from backend.performance import get_active_limits  # noqa: F401 - initializes process limits
 
-from backend.api.routes import router as api_router
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.database import Base
-from backend.database import engine
+from backend.api.routes import router as api_router
+from backend.database import Base, engine
 
 
 app = FastAPI()
@@ -44,9 +39,10 @@ async def allow_private_network_requests(request: Request, call_next) -> Respons
 
 @app.on_event("startup")
 def startup_event() -> None:
-    # This runs once when the FastAPI process starts
     Base.metadata.create_all(bind=engine)
 
 
 if __name__ == "__main__":
+    import uvicorn
+
     uvicorn.run("backend.main:app", host="127.0.0.1", port=8080, reload=True, reload_dirs=["backend"])

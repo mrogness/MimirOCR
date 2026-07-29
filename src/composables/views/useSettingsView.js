@@ -3,19 +3,18 @@ import { computed, onMounted, ref } from 'vue'
 import { useAppVersion } from '../settings/useAppVersion'
 import { useBackendDiagnostics } from '../settings/useBackendDiagnostics'
 import { useBrandThemeSettings } from '../settings/useBrandThemeSettings'
-import { useWorkerSettings } from '../settings/useWorkerSettings'
+import { usePerformanceProfileSettings } from '../settings/usePerformanceProfileSettings'
 
 export function useSettingsView(dependencies) {
   const settingsMessage = ref('')
-
-  const workerSettings = useWorkerSettings(dependencies)
+  const profileSettings = usePerformanceProfileSettings(dependencies)
   const themeSettings = useBrandThemeSettings(dependencies)
   const diagnostics = useBackendDiagnostics(dependencies)
   const version = useAppVersion()
 
   const settingsError = computed(
     () =>
-      workerSettings.workerSettingsError.value ||
+      profileSettings.profileError.value ||
       themeSettings.brandThemeError.value ||
       version.appVersionError.value ||
       '',
@@ -23,11 +22,11 @@ export function useSettingsView(dependencies) {
 
   onMounted(async () => {
     themeSettings.loadBrandTheme()
-    await workerSettings.loadWorkerSettings()
+    await profileSettings.loadPerformanceProfile()
   })
 
   return {
-    ...workerSettings,
+    ...profileSettings,
     ...themeSettings,
     ...diagnostics,
     ...version,

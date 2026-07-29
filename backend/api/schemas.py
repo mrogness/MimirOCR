@@ -80,9 +80,8 @@ class UploadedPdfResponse(BaseModel):
 
 
 class OCRConfigOverride(BaseModel):
-    dpi: int | None = None
-    binarization_threshold: int | None = None
-    num_workers: int | None = None
+    dpi: int | None = Field(default=None, ge=1)
+    binarization_threshold: int | None = Field(default=None, ge=1, le=256)
     device: str | None = None
     ocr_model_path: str | None = None
     strict_top_to_bottom: bool | None = None

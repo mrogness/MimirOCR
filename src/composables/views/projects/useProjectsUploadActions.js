@@ -4,8 +4,6 @@ import { getProjectSettings, saveProjectSettings } from '../../../services/appSe
 
 export function useProjectsUploadActions({
   backendFetch,
-  getDefaultWorkerCount,
-  getSavedWorkerCount,
   project,
   selectedPdf,
   uploadError,
@@ -20,7 +18,8 @@ export function useProjectsUploadActions({
   persistedElapsedSeconds,
   processingStartMs,
   processingEndMs,
-  workerCount,
+  activeJob,
+  refreshBackendRuntime,
   startElapsedTimer,
   stopElapsedTimer,
   persistActiveJob,
@@ -31,7 +30,6 @@ export function useProjectsUploadActions({
 }) {
   const pdfRef = ref(null)
   const isUploading = ref(false)
-
   const dpiInput = ref('300')
   const thresholdInput = ref('170')
   const strictTopToBottom = ref(false)
@@ -39,21 +37,15 @@ export function useProjectsUploadActions({
 
   function toPositiveInteger(value, fallback) {
     const n = Number.parseInt(value, 10)
-    if (!Number.isFinite(n) || n < 1) {
-      return fallback
-    }
-    return n
+    return Number.isFinite(n) && n >= 1 ? n : fallback
   }
 
   function triggerFileBrowser() {
-    if (pdfRef.value) {
-      pdfRef.value.click()
-    }
+    pdfRef.value?.click()
   }
 
   function loadProjectScopedSettings() {
-    const projectId = project.value?.id
-    const settings = getProjectSettings(projectId)
+    const settings = getProjectSettings(project.value?.id)
     dpiInput.value = String(settings.dpi)
     thresholdInput.value = String(settings.binarizationThreshold)
     spreadMode.value = settings.spreadMode
@@ -61,57 +53,42 @@ export function useProjectsUploadActions({
   }
 
   function persistProjectScopedSettings() {
-    const projectId = project.value?.id
-    if (!projectId) {
-      return
-    }
-
-    const dpi = toPositiveInteger(dpiInput.value, 300)
-    const threshold = toPositiveInteger(thresholdInput.value, 170)
-    saveProjectSettings(projectId, {
-      dpi,
-      binarizationThreshold: threshold,
+    if (!project.value?.id) return
+    saveProjectSettings(project.value.id, {
+      dpi: toPositiveInteger(dpiInput.value, 300),
+      binarizationThreshold: toPositiveInteger(thresholdInput.value, 170),
       spreadMode: spreadMode.value,
       strictTopToBottom: strictTopToBottom.value,
     })
   }
 
-  watch(
-    () => project.value?.id,
-    () => {
-      loadProjectScopedSettings()
-    },
-    { immediate: true }
-  )
-
-  watch([dpiInput, thresholdInput, spreadMode, strictTopToBottom], () => {
-    persistProjectScopedSettings()
-  })
+  watch(() => project.value?.id, loadProjectScopedSettings, { immediate: true })
+  watch([dpiInput, thresholdInput, spreadMode, strictTopToBottom], persistProjectScopedSettings)
 
   function onPdfSelected(event) {
-    const file = event.target.files?.[0]
-    selectedPdf.value = file || null
+    selectedPdf.value = event.target.files?.[0] || null
     event.target.value = ''
-
     const isActiveRun = Boolean(currentJobId.value) && !['completed', 'failed', 'idle'].includes(ocrPhase.value)
     if (!isActiveRun && selectedPdf.value) {
       stopElapsedTimer()
       processingStartMs.value = null
       processingEndMs.value = null
       persistedElapsedSeconds.value = null
-
       ocrPhase.value = 'idle'
       ocrProgress.value = 0
       currentJobId.value = ''
-
       totalPagesCounter.value = 0
       rasterizedPagesCounter.value = 0
       segmentedPagesCounter.value = 0
       ocrPagesCounter.value = 0
-
       uploadMessage.value = ''
       uploadError.value = ''
     }
+  }
+
+  async function errorFromResponse(response, fallback) {
+    const body = await response.json().catch(() => ({}))
+    return body.detail?.message || body.detail || `${fallback} (${response.status})`
   }
 
   async function uploadPdfAndStartOcr() {
@@ -119,9 +96,14 @@ export function useProjectsUploadActions({
       uploadError.value = 'Project must be loaded before uploading.'
       return
     }
-
     if (!selectedPdf.value) {
       uploadError.value = 'Choose a PDF before uploading.'
+      return
+    }
+
+    await refreshBackendRuntime().catch(() => {})
+    if (activeJob.value) {
+      uploadError.value = 'Another OCR job is already running. Only one job may run at a time.'
       return
     }
 
@@ -139,41 +121,33 @@ export function useProjectsUploadActions({
     try {
       const form = new FormData()
       form.append('file', selectedPdf.value)
-
       const uploadResponse = await backendFetch(`/files/projects/${project.value.id}/upload-pdf`, {
         method: 'POST',
         body: form,
       })
-
       if (!uploadResponse.ok) {
-        throw new Error(`Upload failed (${uploadResponse.status})`)
+        throw new Error(await errorFromResponse(uploadResponse, 'Upload failed'))
       }
 
       const uploadData = await uploadResponse.json()
-      const dpi = toPositiveInteger(dpiInput.value, 300)
-      const threshold = toPositiveInteger(thresholdInput.value, 170)
-
       const startResponse = await backendFetch(`/ocr/projects/${project.value.id}/jobs`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           upload_id: uploadData.upload_id,
           config: {
-            dpi,
-            binarization_threshold: threshold,
+            dpi: toPositiveInteger(dpiInput.value, 300),
+            binarization_threshold: toPositiveInteger(thresholdInput.value, 170),
             strict_top_to_bottom: strictTopToBottom.value,
-            num_workers: workerCount.value,
           },
         }),
       })
-
       if (!startResponse.ok) {
-        throw new Error(`Unable to start OCR job (${startResponse.status})`)
+        throw new Error(await errorFromResponse(startResponse, 'Unable to start OCR job'))
       }
 
       const job = await startResponse.json()
+      await refreshBackendRuntime().catch(() => {})
       await loadProject()
       currentJobId.value = job.job_id
       persistActiveJob(job.job_id, Date.now())
@@ -186,33 +160,13 @@ export function useProjectsUploadActions({
       uploadError.value = asUserMessage(error, 'Upload or OCR job start failed.')
       ocrPhase.value = 'idle'
       ocrProgress.value = 0
+      await refreshBackendRuntime().catch(() => {})
     } finally {
       isUploading.value = false
     }
   }
 
-  async function loadWorkerSettings() {
-    let totalCores = navigator.hardwareConcurrency || 1
-
-    try {
-      const response = await backendFetch('/system/cpu')
-      if (response.ok) {
-        const data = await response.json()
-        const parsed = Number.parseInt(data.total_cores, 10)
-        if (Number.isFinite(parsed) && parsed > 0) {
-          totalCores = parsed
-        }
-      }
-    } catch (_error) {
-      // Fall back to browser hardwareConcurrency if backend call fails.
-    }
-
-    const fallback = getDefaultWorkerCount(totalCores)
-    workerCount.value = getSavedWorkerCount(fallback)
-  }
-
   return {
-    workerCount,
     pdfRef,
     isUploading,
     dpiInput,
@@ -222,6 +176,5 @@ export function useProjectsUploadActions({
     triggerFileBrowser,
     onPdfSelected,
     uploadPdfAndStartOcr,
-    loadWorkerSettings,
   }
 }

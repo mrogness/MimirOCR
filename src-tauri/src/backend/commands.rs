@@ -1,128 +1,88 @@
 use tauri::State;
 
+use super::launcher::restart_backend_with_profile;
+use super::profile::{consume_restart_reservation, PerformanceProfile};
 use super::state::{
-    frontend_backend_url, reconcile_backend_child_state, BackendState, BackendStatus,
+    frontend_backend_url, reconcile_backend_child_state, BackendRestartResult, BackendState,
+    BackendStatus,
 };
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+    format!("Hello, {name}! You've been greeted from Rust!")
 }
 
 #[tauri::command]
 pub fn backend_url(state: State<'_, BackendState>) -> Option<String> {
     reconcile_backend_child_state(&state);
-
-    let port_slot = match state.port.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    port_slot.map(frontend_backend_url)
+    let slot = state
+        .port
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    (*slot).map(frontend_backend_url)
 }
 
 #[tauri::command]
 pub fn backend_status(state: State<'_, BackendState>) -> BackendStatus {
     reconcile_backend_child_state(&state);
-
-    let port_slot = match state.port.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let startup_error_slot = match state.startup_error.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let started_at_slot = match state.started_at.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let sidecar_selected_slot = match state.sidecar_selected_path.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let sidecar_checked_slot = match state.sidecar_checked_paths.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let sidecar_log_slot = match state.sidecar_log_path.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let backend_mode_slot = match state.backend_mode.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let backend_runtime_slot = match state.backend_runtime.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let python_selected_slot = match state.python_selected_path.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let python_checked_slot = match state.python_checked_candidates.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let app_data_dir_slot = match state.app_data_dir.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let cache_dir_slot = match state.cache_dir.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let temp_dir_slot = match state.temp_dir.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let db_path_slot = match state.db_path.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let uploads_dir_slot = match state.uploads_dir.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
-    let output_dir_slot = match state.output_dir.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-
     BackendStatus {
-        url: port_slot.map(frontend_backend_url),
-        uptime_seconds: started_at_slot
+        url: {
+            let slot = state.port.lock().unwrap_or_else(|p| p.into_inner());
+            (*slot).map(frontend_backend_url)
+        },
+        uptime_seconds: state
+            .started_at
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
             .as_ref()
             .map(|started_at| started_at.elapsed().as_secs()),
-        startup_error: startup_error_slot.clone(),
-        backend_mode: backend_mode_slot.clone(),
-        backend_runtime: backend_runtime_slot.clone(),
-        sidecar_selected_path: sidecar_selected_slot.clone(),
-        sidecar_checked_paths: sidecar_checked_slot.clone(),
-        sidecar_log_path: sidecar_log_slot.clone(),
-        python_selected_path: python_selected_slot.clone(),
-        python_checked_candidates: python_checked_slot.clone(),
-        app_data_dir: app_data_dir_slot.clone(),
-        cache_dir: cache_dir_slot.clone(),
-        temp_dir: temp_dir_slot.clone(),
-        db_path: db_path_slot.clone(),
-        uploads_dir: uploads_dir_slot.clone(),
-        output_dir: output_dir_slot.clone(),
+        startup_error: state.startup_error.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        backend_mode: state.backend_mode.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        backend_runtime: state.backend_runtime.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        lifecycle_status: state.lifecycle_status.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        active_profile: state.active_profile.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        restart_generation: *state.restart_generation.lock().unwrap_or_else(|p| p.into_inner()),
+        sidecar_selected_path: state.sidecar_selected_path.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        sidecar_checked_paths: state.sidecar_checked_paths.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        sidecar_log_path: state.sidecar_log_path.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        python_selected_path: state.python_selected_path.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        python_checked_candidates: state.python_checked_candidates.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        app_data_dir: state.app_data_dir.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        cache_dir: state.cache_dir.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        temp_dir: state.temp_dir.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        db_path: state.db_path.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        uploads_dir: state.uploads_dir.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+        output_dir: state.output_dir.lock().unwrap_or_else(|p| p.into_inner()).clone(),
+    }
+}
+
+#[tauri::command]
+pub fn restart_backend(
+    profile: String,
+    restart_token: String,
+    state: State<'_, BackendState>,
+) -> Result<BackendRestartResult, String> {
+    let profile = PerformanceProfile::parse(&profile)?;
+    let _lifecycle_guard = state
+        .lifecycle_lock
+        .lock()
+        .map_err(|_| "Backend lifecycle lock is poisoned".to_string())?;
+    let runtime_paths = state.runtime_paths()?;
+    consume_restart_reservation(&runtime_paths, &restart_token, profile)?;
+
+    *state.lifecycle_status.lock().unwrap_or_else(|p| p.into_inner()) = "restarting".to_string();
+    match restart_backend_with_profile(&state, profile) {
+        Ok(result) => Ok(result),
+        Err(error) => {
+            let child_is_running = state
+                .child
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .is_some();
+            *state.lifecycle_status.lock().unwrap_or_else(|p| p.into_inner()) =
+                if child_is_running { "running" } else { "failed" }.to_string();
+            *state.startup_error.lock().unwrap_or_else(|p| p.into_inner()) = Some(error.clone());
+            Err(error)
+        }
     }
 }
