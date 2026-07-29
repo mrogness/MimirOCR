@@ -1,6 +1,9 @@
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 import { useBackendRuntime } from '../runtime/useBackendRuntime'
+
+const RESTART_PHASE_DELAY_MS = 250
+const CONNECTED_MESSAGE_MS = 3000
 
 export function usePerformanceProfileSettings({
   backendFetch,
@@ -13,6 +16,8 @@ export function usePerformanceProfileSettings({
   const profileError = ref('')
   const isApplyingProfile = ref(false)
 
+  let clearMessageTimer = null
+
   const runtime = useBackendRuntime()
   const selectedProfileDescription = computed(
     () => performanceProfileOptions.find((item) => item.value === selectedProfile.value)?.description || '',
@@ -24,6 +29,33 @@ export function usePerformanceProfileSettings({
   const canApplyProfile = computed(
     () => profileChanged.value && !profileChangeBlocked.value && !isApplyingProfile.value,
   )
+
+  function pause(milliseconds) {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds))
+  }
+
+  function clearConnectedMessageTimer() {
+    if (clearMessageTimer) {
+      window.clearTimeout(clearMessageTimer)
+      clearMessageTimer = null
+    }
+  }
+
+  function scheduleConnectedMessageClear() {
+    clearConnectedMessageTimer()
+    clearMessageTimer = window.setTimeout(() => {
+      profileMessage.value = ''
+      clearMessageTimer = null
+    }, CONNECTED_MESSAGE_MS)
+  }
+
+  async function showRestartPhase(message, delay = 0) {
+    profileMessage.value = message
+    await nextTick()
+    if (delay > 0) {
+      await pause(delay)
+    }
+  }
 
   async function loadPerformanceProfile() {
     runtime.startBackendRuntimePolling()
@@ -55,25 +87,19 @@ export function usePerformanceProfileSettings({
       return
     }
 
-    const option = performanceProfileOptions.find((item) => item.value === selectedProfile.value)
-    const confirmed = window.confirm(
-      `Apply the ${option?.label || selectedProfile.value} profile and restart the processing backend?`,
-    )
-    if (!confirmed) {
-      selectedProfile.value = runtime.activeProfile.value
-      return
-    }
-
+    const requestedProfile = selectedProfile.value
+    clearConnectedMessageTimer()
     isApplyingProfile.value = true
-    profileMessage.value = 'Preparing backend restart…'
     profileError.value = ''
     let restartToken = ''
 
     try {
+      await showRestartPhase('Stopping Backend…', RESTART_PHASE_DELAY_MS)
+
       const prepareResponse = await backendFetch('/system/restart/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile: selectedProfile.value }),
+        body: JSON.stringify({ profile: requestedProfile }),
       })
       if (!prepareResponse.ok) {
         const body = await prepareResponse.json().catch(() => ({}))
@@ -84,20 +110,23 @@ export function usePerformanceProfileSettings({
 
       const previousInstanceId = runtime.backendInstanceId.value
       runtime.markBackendRestarting()
-      profileMessage.value = `Restarting backend with the ${option?.label || selectedProfile.value} profile…`
-      await restartBackend(selectedProfile.value, restartToken)
 
-      profileMessage.value = 'Waiting for the processing backend to reconnect…'
+      await showRestartPhase('Restarting Backend…')
+      await restartBackend(requestedProfile, restartToken)
+
+      await showRestartPhase('Connecting…')
       const nextRuntime = await waitForBackendRuntime({
-        expectedProfile: selectedProfile.value,
+        expectedProfile: requestedProfile,
         previousInstanceId,
       })
       runtime.applyBackendRuntime(nextRuntime)
-      profileMessage.value = `${option?.label || selectedProfile.value} profile is active.`
+      selectedProfile.value = nextRuntime.performance?.profile || requestedProfile
+      await showRestartPhase('Connected')
+      scheduleConnectedMessageClear()
     } catch (error) {
       await cancelRestartReservation(restartToken)
       profileError.value = String(error)
-      profileMessage.value = ''
+      await showRestartPhase('Restart failed')
       void runtime.refreshBackendRuntime().catch(() => {})
     } finally {
       isApplyingProfile.value = false
@@ -105,6 +134,7 @@ export function usePerformanceProfileSettings({
   }
 
   onBeforeUnmount(() => {
+    clearConnectedMessageTimer()
     runtime.stopBackendRuntimePolling()
   })
 

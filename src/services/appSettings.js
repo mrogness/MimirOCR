@@ -5,17 +5,17 @@ export const PERFORMANCE_PROFILE_OPTIONS = [
   {
     value: 'cool',
     label: 'Cool',
-    description: 'Lowest sustained CPU use and heat. Uses one segmentation worker and one OCR thread.',
+    description: 'Minimizes sustained CPU use and heat. Best for quieter operation or systems with limited cooling.',
   },
   {
     value: 'balanced',
     label: 'Balanced',
-    description: 'Recommended default with moderate parallelism and controlled native thread counts.',
+    description: 'Recommended for most users. Balances processing speed with moderate CPU use and heat.',
   },
   {
     value: 'fast',
     label: 'Fast',
-    description: 'Uses more CPU on systems with stronger processors and cooling.',
+    description: 'Prioritizes processing speed and may increase CPU use, fan activity, and heat.',
   },
 ]
 

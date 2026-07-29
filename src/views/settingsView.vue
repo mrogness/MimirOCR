@@ -23,9 +23,7 @@ const {
   selectedProfile,
   selectedProfileDescription,
   activeProfile,
-  effectiveLimits,
   activeJob,
-  backendConnection,
   profileMessage,
   profileChanged,
   profileChangeBlocked,
@@ -86,11 +84,11 @@ const {
         <SettingRow
           label="Processing Performance"
           input-id="performance-profile-input"
-          description="Controls segmentation parallelism, OCR native threads, and sustained heat."
+          description="Choose how aggressively Mimir uses system resources while processing."
         >
           <template #help>
             <SettingsHelp label="About processing performance">
-              Applying a different profile restarts the local Python backend. Saved projects and OCR
+              Applying a different profile restarts the local processing backend. Saved projects and OCR
               results are preserved. Profiles cannot be changed while an OCR run is active.
             </SettingsHelp>
           </template>
@@ -111,18 +109,9 @@ const {
               {{ selectedProfileDescription }}
             </p>
 
-            <div class="rounded border border-brand-200 bg-brand-50 p-3 text-sm text-brand-700">
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span>Active profile: <strong class="capitalize">{{ activeProfile }}</strong></span>
-                <span>Backend: <strong class="capitalize">{{ backendConnection }}</strong></span>
-              </div>
-              <div v-if="effectiveLimits" class="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
-                <span>Segmentation workers: {{ effectiveLimits.segmentation_workers }}</span>
-                <span>Segmentation threads: {{ effectiveLimits.segmentation_native_threads }}</span>
-                <span>OCR threads: {{ effectiveLimits.ocr_native_threads }}</span>
-                <span>Page cooldown: {{ effectiveLimits.page_cooldown_ms }} ms</span>
-              </div>
-            </div>
+            <p class="text-sm text-brand-600">
+              Current profile: <strong class="capitalize text-brand-800">{{ activeProfile }}</strong>
+            </p>
 
             <p v-if="activeJob" class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               An OCR run is active for project {{ activeJob.project_id }}. The performance profile is
@@ -132,16 +121,25 @@ const {
               Applying this change will restart the processing backend and temporarily disable OCR actions.
             </p>
 
-            <div class="flex items-center gap-3">
+            <div class="space-y-3">
               <button
                 type="button"
                 :disabled="!canApplyProfile"
                 class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                 @click="applyPerformanceProfile"
               >
-                {{ isApplyingProfile ? 'Restarting Backend…' : 'Apply and Restart Backend' }}
+                Apply and Restart Backend
               </button>
-              <span class="text-sm text-brand-600" aria-live="polite">{{ profileMessage }}</span>
+
+              <p
+                v-if="profileMessage"
+                class="rounded border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {{ profileMessage }}
+              </p>
             </div>
           </div>
         </SettingRow>
