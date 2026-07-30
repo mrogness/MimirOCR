@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use tauri::Manager;
-
 use super::discovery::{backend_mode, find_open_port, has_uvicorn, python_candidates, sidecar_candidates};
 use super::process::{
     backend_runtime_paths, ensure_child_is_running, shutdown_backend, try_spawn_backend,

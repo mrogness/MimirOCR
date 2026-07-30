@@ -77,15 +77,10 @@ const {
     </header>
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <SettingsSection
-        title="Performance Settings"
-        description="The selected profile is fixed for the lifetime of the processing backend."
-      >
-        <SettingRow
-          label="Processing Performance"
-          input-id="performance-profile-input"
-          description="Choose how aggressively Mimir uses system resources while processing."
-        >
+      <SettingsSection title="Performance Settings"
+        description="The selected profile is fixed for the lifetime of the processing backend.">
+        <SettingRow label="Processing Performance" input-id="performance-profile-input"
+          description="Choose how aggressively Mimir uses system resources while processing.">
           <template #help>
             <SettingsHelp label="About processing performance">
               Applying a different profile restarts the local processing backend. Saved projects and OCR
@@ -94,12 +89,9 @@ const {
           </template>
 
           <div class="space-y-4">
-            <select
-              id="performance-profile-input"
-              v-model="selectedProfile"
+            <select id="performance-profile-input" v-model="selectedProfile"
               :disabled="profileChangeBlocked || isApplyingProfile"
-              class="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-            >
+              class="w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60">
               <option v-for="option in performanceProfileOptions" :key="option.value" :value="option.value">
                 {{ option.label }}
               </option>
@@ -122,22 +114,15 @@ const {
             </p>
 
             <div class="space-y-3">
-              <button
-                type="button"
-                :disabled="!canApplyProfile"
+              <button type="button" :disabled="!canApplyProfile"
                 class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-                @click="applyPerformanceProfile"
-              >
+                @click="applyPerformanceProfile">
                 Apply and Restart Backend
               </button>
 
-              <p
-                v-if="profileMessage"
+              <p v-if="profileMessage"
                 class="rounded border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700"
-                role="status"
-                aria-live="polite"
-                aria-atomic="true"
-              >
+                role="status" aria-live="polite" aria-atomic="true">
                 {{ profileMessage }}
               </p>
             </div>
@@ -146,23 +131,27 @@ const {
       </SettingsSection>
 
       <SettingsSection title="Appearance" description="Choose a global application theme.">
-        <SettingRow label="Theme" input-id="brand-theme-input" description="Changes the colors used throughout the application.">
-          <select
-            id="brand-theme-input"
-            v-model="brandThemeInput"
-            class="w-full rounded border border-brand-300 px-2 py-2 text-sm sm:w-56"
-            @change="previewBrandTheme"
-          >
+        <SettingRow label="Theme" input-id="brand-theme-input"
+          description="Changes the colors used throughout the application.">
+          <select id="brand-theme-input" v-model="brandThemeInput"
+            class="w-full rounded border border-brand-300 px-2 py-2 text-sm sm:w-56" @change="previewBrandTheme">
             <option v-for="option in brandThemeOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
           </select>
           <div class="mt-3 overflow-hidden rounded border border-brand-200" aria-label="Selected theme color scale">
             <div class="grid h-8 grid-cols-11">
-              <div class="bg-brand-50"></div><div class="bg-brand-100"></div><div class="bg-brand-200"></div>
-              <div class="bg-brand-300"></div><div class="bg-brand-400"></div><div class="bg-brand-500"></div>
-              <div class="bg-brand-600"></div><div class="bg-brand-700"></div><div class="bg-brand-800"></div>
-              <div class="bg-brand-900"></div><div class="bg-brand-950"></div>
+              <div class="bg-brand-50"></div>
+              <div class="bg-brand-100"></div>
+              <div class="bg-brand-200"></div>
+              <div class="bg-brand-300"></div>
+              <div class="bg-brand-400"></div>
+              <div class="bg-brand-500"></div>
+              <div class="bg-brand-600"></div>
+              <div class="bg-brand-700"></div>
+              <div class="bg-brand-800"></div>
+              <div class="bg-brand-900"></div>
+              <div class="bg-brand-950"></div>
             </div>
           </div>
         </SettingRow>
@@ -176,29 +165,14 @@ const {
         {{ settingsError }}
       </p>
 
-      <ConnectivityDiagnostics
-        :is-open="isDiagnosticsOpen"
-        :is-refreshing="isRefreshingDiagnostics"
-        :backend-mode="backendMode"
-        :backend-runtime="backendRuntime"
-        :sidecar-selected-path="sidecarSelectedPath"
-        :sidecar-checked-paths="sidecarCheckedPaths"
-        :frontend-origin="frontendOrigin"
-        :frontend-port="frontendPort"
-        :backend-status-url="backendStatusUrl"
-        :backend-base-url="backendBaseUrl"
-        :backend-port="backendPort"
-        :app-data-dir="appDataDir"
-        :cache-dir="cacheDir"
-        :temp-dir="tempDir"
-        :db-path="dbPath"
-        :uploads-dir="uploadsDir"
-        :output-dir="outputDir"
-        :health-probe-summary="healthProbeSummary"
-        :projects-probe-summary="projectsProbeSummary"
-        :backend-startup-issue="backendStartupIssue"
-        @toggle="setDiagnosticsOpen"
-      />
+      <ConnectivityDiagnostics :is-open="isDiagnosticsOpen" :is-refreshing="isRefreshingDiagnostics"
+        :backend-mode="backendMode" :backend-runtime="backendRuntime" :sidecar-selected-path="sidecarSelectedPath"
+        :sidecar-checked-paths="sidecarCheckedPaths" :frontend-origin="frontendOrigin" :frontend-port="frontendPort"
+        :backend-status-url="backendStatusUrl" :backend-base-url="backendBaseUrl" :backend-port="backendPort"
+        :app-data-dir="appDataDir" :cache-dir="cacheDir" :temp-dir="tempDir" :db-path="dbPath" :uploads-dir="uploadsDir"
+        :output-dir="outputDir" :health-probe-summary="healthProbeSummary"
+        :projects-probe-summary="projectsProbeSummary" :backend-startup-issue="backendStartupIssue"
+        @toggle="setDiagnosticsOpen" />
     </div>
 
     <footer class="px-3 pb-3">

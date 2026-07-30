@@ -388,7 +388,7 @@ const suspiciousCharBoxes = computed(() => {
 
     const lineWidth = line.bounding_box.x_max - line.bounding_box.x_min
     const lineHeight = line.bounding_box.y_max - line.bounding_box.y_min
-      const useGeometricMode = usePolygonOverlay.value
+    const useGeometricMode = usePolygonOverlay.value
 
     if (!Number.isFinite(lineWidth) || lineWidth <= 0 || !Number.isFinite(lineHeight) || lineHeight <= 0) {
       continue
@@ -592,10 +592,8 @@ onBeforeUnmount(() => {
         <h1 class="text-2xl font-bold">Output Review</h1>
         <p class="text-sm text-brand-500"></p>
       </div>
-      <button
-        class="rounded border border-brand-300 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100"
-        @click="backToProject"
-      >
+      <button class="rounded border border-brand-300 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100"
+        @click="backToProject">
         Back to Project Workspace
       </button>
     </section>
@@ -608,94 +606,48 @@ onBeforeUnmount(() => {
       {{ errorMessage }}
     </section>
 
-    <section v-else-if="pages.length === 0" class="shrink-0 rounded border border-brand-200 bg-white p-4 text-brand-700">
+    <section v-else-if="pages.length === 0"
+      class="shrink-0 rounded border border-brand-200 bg-white p-4 text-brand-700">
       No OCR pages stored yet. Run OCR from the project page first.
     </section>
 
     <section v-else class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-      <ReviewTopBar
-        :selected-page-index="selectedPageIndex"
-        :total-pages="totalPages"
-        :page-input-value="pageInputValue"
-        :is-exporting="isExporting"
-        :export-error-message="exportErrorMessage"
-        :export-success-message="exportSuccessMessage"
-        @update:page-input-value="pageInputValue = $event"
-        @first-page="goToFirstPage"
-        @previous-page="goToPreviousPage"
-        @next-page="goToNextPage"
-        @last-page="goToLastPage"
-        @commit-page-input="commitPageInput"
-        @open-export-settings="showExportSettings = true"
-        @export-pdf="exportProjectPdf"
-      />
+      <ReviewTopBar :selected-page-index="selectedPageIndex" :total-pages="totalPages"
+        :page-input-value="pageInputValue" :is-exporting="isExporting" :export-error-message="exportErrorMessage"
+        :export-success-message="exportSuccessMessage" @update:page-input-value="pageInputValue = $event"
+        @first-page="goToFirstPage" @previous-page="goToPreviousPage" @next-page="goToNextPage"
+        @last-page="goToLastPage" @commit-page-input="commitPageInput" @open-export-settings="showExportSettings = true"
+        @export-pdf="exportProjectPdf" />
 
-      <ExportSettingsSheet
-        :show="showExportSettings"
-        :settings="exportSettings"
-        :is-exporting="isExporting"
-        @close="showExportSettings = false"
-        @export-pdf="exportProjectPdf"
-        @export-training-data="exportTrainingData"
-      />
+      <ExportSettingsSheet :show="showExportSettings" :settings="exportSettings" :is-exporting="isExporting"
+        @close="showExportSettings = false" @export-pdf="exportProjectPdf" @export-training-data="exportTrainingData" />
 
       <div v-if="selectedPage" class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
-        <PageImageOverlay
-          :selected-page="selectedPage"
-          :selected-page-image-url="selectedPageImageUrl"
-          :set-image-ref="setImageRef"
-          :set-overlay-panel-ref="setOverlayPanelRef"
-          :image-display-width="imageDisplayWidth"
-          :image-display-height="imageDisplayHeight"
-          :rendered-image-width="renderedImageWidth"
-          :rendered-image-height="renderedImageHeight"
-          :panel-viewport-height="panelViewportHeight"
-          :zoom-level="zoomLevel"
-          :use-polygon-overlay="usePolygonOverlay"
-          :lines-with-geometry="linesWithGeometry"
-          :box-scale-x="boxScaleX"
-          :box-scale-y="boxScaleY"
-          :should-render-polygon="shouldRenderPolygon"
-          :polygon-points-string="polygonPointsString"
-          :overlay-line-class="overlayLineClass"
-          :suspicious-char-boxes="suspiciousCharBoxes"
-          :active-suspicious-box-id="activeSuspiciousBoxId"
-          @update:use-polygon-overlay="usePolygonOverlay = $event"
-          @zoom-out="zoomOut"
-          @zoom-slider-input="onZoomSliderInput"
-          @zoom-in="zoomIn"
-          @trackpad-zoom="applyTrackpadZoom"
-          @fit-page-height="fitPageToViewportHeight"
-          @clear-active-line="clearActiveLine"
-          @set-active-line="setActiveLine"
-          @select-line="selectLine"
-          @page-image-load="onPageImageLoad"
-        />
+        <PageImageOverlay :selected-page="selectedPage" :selected-page-image-url="selectedPageImageUrl"
+          :set-image-ref="setImageRef" :set-overlay-panel-ref="setOverlayPanelRef"
+          :image-display-width="imageDisplayWidth" :image-display-height="imageDisplayHeight"
+          :rendered-image-width="renderedImageWidth" :rendered-image-height="renderedImageHeight"
+          :panel-viewport-height="panelViewportHeight" :zoom-level="zoomLevel" :use-polygon-overlay="usePolygonOverlay"
+          :lines-with-geometry="linesWithGeometry" :box-scale-x="boxScaleX" :box-scale-y="boxScaleY"
+          :should-render-polygon="shouldRenderPolygon" :polygon-points-string="polygonPointsString"
+          :overlay-line-class="overlayLineClass" :suspicious-char-boxes="suspiciousCharBoxes"
+          :active-suspicious-box-id="activeSuspiciousBoxId" @update:use-polygon-overlay="usePolygonOverlay = $event"
+          @zoom-out="zoomOut" @zoom-slider-input="onZoomSliderInput" @zoom-in="zoomIn"
+          @trackpad-zoom="applyTrackpadZoom" @fit-page-height="fitPageToViewportHeight"
+          @clear-active-line="clearActiveLine" @set-active-line="setActiveLine" @select-line="selectLine"
+          @page-image-load="onPageImageLoad" />
 
-        <PredictedTextPanel
-          :selected-page-lines="selectedPageLines"
-          :active-line-id="activeLineId"
-          :selected-line-id="selectedLineId"
-          :line-save-state="lineSaveState"
-          :show-suspicious-hints="showSuspiciousHints"
-          :suspicious-threshold="suspiciousThreshold"
-          :suspicious-count="suspiciousTargets.length"
-          :current-suspicious-index="currentSuspiciousIndex"
-          :panel-viewport-height="panelViewportHeight"
-          :line-has-suspicious-chars="lineHasSuspiciousChars"
-          :suspicious-segments-for-line="suspiciousSegmentsForLine"
-          :row-ref-fn="setLineRowRef"
+        <PredictedTextPanel :selected-page-lines="selectedPageLines" :active-line-id="activeLineId"
+          :selected-line-id="selectedLineId" :line-save-state="lineSaveState"
+          :show-suspicious-hints="showSuspiciousHints" :suspicious-threshold="suspiciousThreshold"
+          :suspicious-count="suspiciousTargets.length" :current-suspicious-index="currentSuspiciousIndex"
+          :panel-viewport-height="panelViewportHeight" :line-has-suspicious-chars="lineHasSuspiciousChars"
+          :suspicious-segments-for-line="suspiciousSegmentsForLine" :row-ref-fn="setLineRowRef"
           @update:show-suspicious-hints="showSuspiciousHints = $event"
-          @update:suspicious-threshold="suspiciousThreshold = $event"
-          @next-suspicious="goToNextSuspiciousCharacter"
-          @set-active-line="setActiveLine"
-          @clear-active-line="clearActiveLine"
-          @select-line="selectLine"
-          @move-line="moveLine"
-          @commit-line-order-input="commitLineOrderInput"
-          @delete-line="deleteLine"
-          @line-input="onLineInput"
-        />
+          @update:suspicious-threshold="suspiciousThreshold = $event" @next-suspicious="goToNextSuspiciousCharacter"
+          @set-active-line="setActiveLine" @clear-active-line="clearActiveLine" @select-line="selectLine"
+          @move-line="moveLine" @commit-line-order-input="commitLineOrderInput" @delete-line="deleteLine"
+          @line-input="onLineInput" />
       </div>
     </section>
   </div>

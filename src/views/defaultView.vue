@@ -50,10 +50,8 @@ const {
         <p class="text-sm text-brand-500">Create a project, then jump into the OCR workspace.</p>
       </div>
 
-      <button
-        class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-        @click="openCreateModal"
-      >
+      <button class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        @click="openCreateModal">
         Add Project
       </button>
     </section>
@@ -85,12 +83,8 @@ const {
         </thead>
 
         <tbody class="divide-y divide-brand-100 text-sm">
-          <tr
-            v-for="project in projects"
-            :key="project.id"
-            class="cursor-pointer hover:bg-brand-50"
-            @click="openProject(project.id)"
-          >
+          <tr v-for="project in projects" :key="project.id" class="cursor-pointer hover:bg-brand-50"
+            @click="openProject(project.id)">
             <td class="px-4 py-3">{{ project.name }}</td>
             <td class="px-4 py-3">{{ formatDate(project.date_created) }}</td>
             <td class="px-4 py-3">{{ formatDate(project.date_modified) }}</td>
@@ -98,9 +92,7 @@ const {
               <div class="inline-flex items-center gap-2">
                 <button
                   class="rounded border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="deletingProjectId === project.id"
-                  @click.stop="requestDeleteProject(project.id)"
-                >
+                  :disabled="deletingProjectId === project.id" @click.stop="requestDeleteProject(project.id)">
                   {{ deletingProjectId === project.id ? 'Deleting...' : 'Delete' }}
                 </button>
               </div>
@@ -116,14 +108,9 @@ const {
         <p class="mt-1 text-sm text-brand-500">Name the project before entering the workspace.</p>
 
         <label class="mt-4 block text-sm font-medium text-brand-700" for="project-name-input">Project Name</label>
-        <input
-          id="project-name-input"
-          v-model="newProjectName"
-          type="text"
+        <input id="project-name-input" v-model="newProjectName" type="text"
           class="mt-2 w-full rounded border border-brand-300 px-3 py-2 text-sm"
-          placeholder="Example: 1912 Newspaper Batch"
-          @keyup.enter="createProjectAndGo"
-        />
+          placeholder="Example: 1912 Newspaper Batch" @keyup.enter="createProjectAndGo" />
 
         <p v-if="createError" class="mt-2 text-sm text-red-600">{{ createError }}</p>
 
@@ -131,9 +118,7 @@ const {
           <button class="rounded border border-brand-300 px-3 py-2 text-sm" @click="closeCreateModal">Cancel</button>
           <button
             class="rounded bg-brand-900 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="isCreating"
-            @click="createProjectAndGo"
-          >
+            :disabled="isCreating" @click="createProjectAndGo">
             {{ isCreating ? 'Creating...' : 'Create and Open' }}
           </button>
         </div>
@@ -154,9 +139,7 @@ const {
           <button class="rounded border border-brand-300 px-3 py-2 text-sm" @click="closeDeleteModal">Cancel</button>
           <button
             class="rounded bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="deletingProjectId === pendingDeleteProjectId"
-            @click="confirmDeleteProject"
-          >
+            :disabled="deletingProjectId === pendingDeleteProjectId" @click="confirmDeleteProject">
             {{ deletingProjectId === pendingDeleteProjectId ? 'Deleting...' : 'Delete Project' }}
           </button>
         </div>
