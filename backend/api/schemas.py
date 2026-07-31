@@ -79,6 +79,22 @@ class UploadedPdfResponse(BaseModel):
     message: str
 
 
+class PdfDpiAnalysisResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    filename: str = Field(min_length=1)
+    page_count: int = Field(ge=1)
+    pages_analyzed: int = Field(ge=0)
+    pages_with_scan_estimate: int = Field(ge=0)
+    detected_median_dpi: int | None = Field(default=None, ge=1)
+    detected_min_dpi: int | None = Field(default=None, ge=1)
+    detected_max_dpi: int | None = Field(default=None, ge=1)
+    recommended_dpi: int = Field(ge=1)
+    confidence: Literal["high", "medium", "low", "unavailable"]
+    ignored_probable_watermark_images: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class OCRConfigOverride(BaseModel):
     dpi: int | None = Field(default=None, ge=1)
     binarization_threshold: int | None = Field(default=None, ge=1, le=256)

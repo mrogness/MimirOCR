@@ -35,6 +35,12 @@ export function useProjectsUploadActions({
   const strictTopToBottom = ref(false)
   const spreadMode = ref('split-spread')
 
+  const isAnalyzingDpi = ref(false)
+  const dpiAnalysis = ref(null)
+  const dpiAnalysisError = ref('')
+
+  let dpiAnalysisRequestId = 0
+
   function toPositiveInteger(value, fallback) {
     const n = Number.parseInt(value, 10)
     return Number.isFinite(n) && n >= 1 ? n : fallback
@@ -64,6 +70,9 @@ export function useProjectsUploadActions({
 
   watch(() => project.value?.id, loadProjectScopedSettings, { immediate: true })
   watch([dpiInput, thresholdInput, spreadMode, strictTopToBottom], persistProjectScopedSettings)
+  watch(selectedPdf, (file) => {
+    void analyzeSelectedPdf(file)
+  })
 
   function onPdfSelected(event) {
     selectedPdf.value = event.target.files?.[0] || null
@@ -91,6 +100,63 @@ export function useProjectsUploadActions({
     return body.detail?.message || body.detail || `${fallback} (${response.status})`
   }
 
+  async function analyzeSelectedPdf(file) {
+    const requestId = ++dpiAnalysisRequestId
+
+    dpiAnalysis.value = null
+    dpiAnalysisError.value = ''
+
+    if (!file) {
+      isAnalyzingDpi.value = false
+      return
+    }
+
+    isAnalyzingDpi.value = true
+
+    try {
+      const form = new FormData()
+      form.append('file', file)
+
+      const response = await backendFetch('/files/analyze-pdf-dpi', {
+        method: 'POST',
+        body: form,
+      })
+
+      if (!response.ok) {
+        throw new Error(await errorFromResponse(response, 'Unable to analyze PDF resolution'))
+      }
+
+      const analysis = await response.json()
+
+      // Ignore a response for a PDF that is no longer selected.
+      if (requestId !== dpiAnalysisRequestId || selectedPdf.value !== file) {
+        return
+      }
+
+      // Pydantic validates the backend response, but retain a small
+      // client-side guard before putting the value into the input.
+      if (!Number.isInteger(analysis.recommended_dpi) || analysis.recommended_dpi < 1) {
+        throw new Error('The backend returned an invalid DPI recommendation.')
+      }
+
+      dpiAnalysis.value = analysis
+      dpiInput.value = String(analysis.recommended_dpi)
+    } catch (error) {
+      if (requestId !== dpiAnalysisRequestId) {
+        return
+      }
+
+      dpiAnalysisError.value = asUserMessage(
+        error,
+        'Unable to analyze PDF resolution.',
+      )
+    } finally {
+      if (requestId === dpiAnalysisRequestId) {
+        isAnalyzingDpi.value = false
+      }
+    }
+  }
+
   async function uploadPdfAndStartOcr() {
     if (!project.value) {
       uploadError.value = 'Project must be loaded before uploading.'
@@ -101,7 +167,7 @@ export function useProjectsUploadActions({
       return
     }
 
-    await refreshBackendRuntime().catch(() => {})
+    await refreshBackendRuntime().catch(() => { })
     if (activeJob.value) {
       uploadError.value = 'Another OCR job is already running. Only one job may run at a time.'
       return
@@ -147,7 +213,7 @@ export function useProjectsUploadActions({
       }
 
       const job = await startResponse.json()
-      await refreshBackendRuntime().catch(() => {})
+      await refreshBackendRuntime().catch(() => { })
       await loadProject()
       currentJobId.value = job.job_id
       persistActiveJob(job.job_id, Date.now())
@@ -160,7 +226,7 @@ export function useProjectsUploadActions({
       uploadError.value = asUserMessage(error, 'Upload or OCR job start failed.')
       ocrPhase.value = 'idle'
       ocrProgress.value = 0
-      await refreshBackendRuntime().catch(() => {})
+      await refreshBackendRuntime().catch(() => { })
     } finally {
       isUploading.value = false
     }
@@ -169,6 +235,9 @@ export function useProjectsUploadActions({
   return {
     pdfRef,
     isUploading,
+    isAnalyzingDpi,
+    dpiAnalysis,
+    dpiAnalysisError,
     dpiInput,
     thresholdInput,
     strictTopToBottom,

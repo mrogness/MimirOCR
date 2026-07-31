@@ -22,6 +22,9 @@ const {
   uploadError,
   uploadMessage,
   isUploading,
+  isAnalyzingDpi,
+  dpiAnalysis,
+  dpiAnalysisError,
   dpiInput,
   thresholdInput,
   strictTopToBottom,
@@ -371,9 +374,56 @@ onMounted(() => {
 
               <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-sm font-medium text-brand-700">DPI</label>
-                  <input v-model="dpiInput" type="number" min="1"
-                    class="mt-1 w-full rounded border border-brand-300 px-3 py-2 text-sm" />
+                  <div class="flex items-center justify-between gap-2">
+                    <label class="block text-sm font-medium text-brand-700">
+                      Processing DPI
+                    </label>
+
+                    <span v-if="isAnalyzingDpi" class="text-xs text-brand-500">
+                      Analyzing PDF…
+                    </span>
+                  </div>
+
+                  <input v-model="dpiInput" type="number" min="1" :disabled="isAnalyzingDpi"
+                    class="mt-1 w-full rounded border border-brand-300 px-3 py-2 text-sm disabled:cursor-wait disabled:bg-brand-50 disabled:text-brand-500" />
+
+                  <p v-if="dpiAnalysisError" class="mt-1 text-xs text-amber-700">
+                    {{ dpiAnalysisError }} Using the current DPI value.
+                  </p>
+
+                  <template v-else-if="dpiAnalysis">
+                    <p v-if="dpiAnalysis.detected_median_dpi" class="mt-1 text-xs text-brand-600">
+                      Detected median:
+                      <strong>{{ dpiAnalysis.detected_median_dpi }} DPI</strong>
+                      across {{ dpiAnalysis.pages_with_scan_estimate }}
+                      of {{ dpiAnalysis.page_count }} pages.
+                      Recommended:
+                      <strong>{{ dpiAnalysis.recommended_dpi }} DPI</strong>.
+                    </p>
+
+                    <p v-else class="mt-1 text-xs text-brand-600">
+                      No dominant raster scan was detected. Using the
+                      {{ dpiAnalysis.recommended_dpi }} DPI fallback.
+                    </p>
+
+                    <p v-if="dpiAnalysis.ignored_probable_watermark_images > 0" class="mt-1 text-xs text-brand-500">
+                      Ignored
+                      {{ dpiAnalysis.ignored_probable_watermark_images }}
+                      small repeated watermark or logo image occurrences.
+                    </p>
+
+                    <details v-if="dpiAnalysis.warnings?.length" class="mt-1 text-xs text-brand-500">
+                      <summary class="cursor-pointer">
+                        Analysis details
+                      </summary>
+
+                      <ul class="mt-1 list-disc space-y-1 pl-4">
+                        <li v-for="warning in dpiAnalysis.warnings" :key="warning">
+                          {{ warning }}
+                        </li>
+                      </ul>
+                    </details>
+                  </template>
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-brand-700">Binarization Threshold</label>
@@ -454,9 +504,9 @@ onMounted(() => {
               <div ref="previewActionsRef" class="mt-auto flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="isUploading || !selectedPdf || hasActiveOcrJob || backendConnection !== 'connected'"
+                  :disabled="isUploading || isAnalyzingDpi || !selectedPdf || hasActiveOcrJob || backendConnection !== 'connected'"
                   @click="uploadPdfAndStartOcr">
-                  {{ isUploading ? 'Submitting...' : 'Submit and Process' }}
+                  {{ isAnalyzingDpi ? 'Analyzing PDF...' : isUploading ? 'Submitting...' : 'Submit and Process' }}
                 </button>
                 <p v-if="activeJobMessage" class="text-xs text-amber-700">
                   {{ activeJobMessage }}
@@ -468,7 +518,10 @@ onMounted(() => {
           </section>
         </div>
 
-        <section class="shrink-0 rounded border border-brand-200 bg-white p-5">
+        <section
+          v-if="currentJobId || ocrPhase !== 'idle' || canOpenReview"
+          class="shrink-0 rounded border border-brand-200 bg-white p-5"
+        >
           <h2 class="text-lg font-semibold">OCR Progress</h2>
           <p v-if="recoveredRunNotice"
             class="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 import shutil
 from uuid import uuid4
@@ -9,9 +10,10 @@ from sqlalchemy.orm import Session
 
 from backend.api import crud
 from backend.api.deps import get_db
-from backend.api.schemas import UploadedPdfResponse
+from backend.api.schemas import PdfDpiAnalysisResponse, UploadedPdfResponse
 from backend.pipeline.jobs import job_store
 from backend.runtime_paths import get_output_dir, get_temp_dir, get_uploads_dir
+from backend.services.pdf_dpi import PdfDpiAnalysisError, analyze_pdf_dpi
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -54,6 +56,21 @@ def _cleanup_project_artifacts(project_id: int, source_pdf_path: str) -> None:
                 source_path.unlink(missing_ok=True)
         except OSError:
             pass
+
+
+@router.post("/analyze-pdf-dpi", response_model=PdfDpiAnalysisResponse)
+async def analyze_uploaded_pdf_dpi(
+    file: Annotated[UploadFile, File(description="A PDF file to analyze without storing")],
+) -> PdfDpiAnalysisResponse:
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files allowed")
+
+    safe_name = Path(file.filename or "document.pdf").name
+    pdf_bytes = await file.read()
+    try:
+        return await asyncio.to_thread(analyze_pdf_dpi, pdf_bytes, safe_name)
+    except PdfDpiAnalysisError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @router.post("/projects/{project_id}/upload-pdf", response_model=UploadedPdfResponse)
