@@ -1,7 +1,7 @@
 <script setup>
+import AppHelp from '../components/help/AppHelp.vue'
 import ConnectivityDiagnostics from '../components/settings/ConnectivityDiagnostics.vue'
 import SettingRow from '../components/settings/SettingRow.vue'
-import SettingsHelp from '../components/settings/SettingsHelp.vue'
 import SettingsSection from '../components/settings/SettingsSection.vue'
 import { useSettingsView } from '../composables/views/useSettingsView'
 import {
@@ -82,10 +82,17 @@ const {
         <SettingRow label="Processing Performance" input-id="performance-profile-input"
           description="Choose how aggressively Mimir uses system resources while processing.">
           <template #help>
-            <SettingsHelp label="About processing performance">
-              Applying a different profile restarts the local processing backend. Saved projects and OCR
-              results are preserved. Profiles cannot be changed while an OCR run is active.
-            </SettingsHelp>
+            <AppHelp label="About processing performance" title="Processing performance"
+              intro="Profile changes affect how much work Mimir runs in parallel."
+              link-href="/info#processing-performance" link-label="More details in Info">
+              <p>
+                Applying a different profile restarts the local processing backend. Saved projects and OCR results are
+                preserved.
+              </p>
+              <p>
+                Profiles cannot be changed while an OCR run is active.
+              </p>
+            </AppHelp>
           </template>
 
           <div class="space-y-4">
