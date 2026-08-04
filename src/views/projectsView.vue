@@ -57,12 +57,14 @@ const {
 
 const selectedPdfPreviewUrl = ref('')
 const sourcePdfPreviewUrl = ref('')
+const contentColumnRef = ref(null)
 const sourcePdfPreviewError = ref('')
 const splitPaneHostRef = ref(null)
 const progressSectionRef = ref(null)
 const splitPaneHeightPx = ref(null)
 
 let progressResizeObserver = null
+let contentResizeObserver = null
 
 const selectedPdfInputId = 'project-upload-pdf-input'
 
@@ -125,6 +127,25 @@ function disconnectProgressResizeObserver() {
   progressResizeObserver = null
 }
 
+function disconnectContentResizeObserver() {
+  contentResizeObserver?.disconnect()
+  contentResizeObserver = null
+}
+
+function observeContentColumn() {
+  disconnectContentResizeObserver()
+
+  if (!contentColumnRef.value) {
+    return
+  }
+
+  contentResizeObserver = new ResizeObserver(() => {
+    updateSplitPaneHeight()
+  })
+
+  contentResizeObserver.observe(contentColumnRef.value)
+}
+
 function observeProgressSection() {
   disconnectProgressResizeObserver()
 
@@ -140,23 +161,18 @@ function observeProgressSection() {
 }
 
 function updateSplitPaneHeight() {
-  if (!hasActivePdfPreview.value || !splitPaneHostRef.value) {
+  if (!hasActivePdfPreview.value || !contentColumnRef.value) {
     splitPaneHeightPx.value = null
     return
   }
 
-  const viewportHeight = window.innerHeight
-  const hostRect = splitPaneHostRef.value.getBoundingClientRect()
+  const contentHeight = contentColumnRef.value.getBoundingClientRect().height
   const progressHeight = showProgressSection.value
     ? (progressSectionRef.value?.getBoundingClientRect().height ?? 0)
     : 0
 
   const gapBetweenSections = showProgressSection.value ? 16 : 0
-  const bottomPadding = 16
-
-  const availableHeight = Math.floor(
-    viewportHeight - hostRect.top - progressHeight - gapBetweenSections - bottomPadding,
-  )
+  const availableHeight = Math.floor(contentHeight - progressHeight - gapBetweenSections)
 
   splitPaneHeightPx.value = Math.max(320, availableHeight)
 }
@@ -215,6 +231,7 @@ watch(
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateSplitPaneHeight)
   disconnectProgressResizeObserver()
+  disconnectContentResizeObserver()
 
   clearSelectedPdfPreviewUrl()
   clearSourcePdfPreviewUrl()
@@ -223,6 +240,7 @@ onBeforeUnmount(() => {
 onMounted(() => {
   window.addEventListener('resize', updateSplitPaneHeight)
   nextTick(() => {
+    observeContentColumn()
     observeProgressSection()
     updateSplitPaneHeight()
   })
@@ -232,6 +250,7 @@ watch(
   [hasActivePdfPreview, showProgressSection],
   async () => {
     await nextTick()
+    observeContentColumn()
     observeProgressSection()
     updateSplitPaneHeight()
   },
@@ -268,7 +287,7 @@ watch(
     </section>
 
     <template v-else>
-      <div class="flex min-h-0 flex-1 flex-col gap-4">
+      <div ref="contentColumnRef" class="flex min-h-0 flex-1 flex-col gap-4">
         <div ref="splitPaneHostRef" class="min-h-0">
           <ResizableSplitPane class="h-full" :style="splitPaneStyle" :initial-left-width="480" :min-left-width="340"
             :max-left-width="760" :min-right-width="480" :max-right-width="1600"
@@ -421,7 +440,7 @@ watch(
 
           <template #right>
             <section v-if="hasActivePdfPreview"
-              class="flex min-h-0 min-w-0 flex-col overflow-hidden rounded border border-brand-200 bg-white p-5">
+              class="flex shrink-0 min-h-0 min-w-0 flex-col overflow-hidden rounded border border-brand-200 bg-white p-5">
               <h2 class="text-lg font-semibold">Preview Selection and Submit</h2>
               <p class="mt-1 text-sm text-brand-500">Preview your selected file and start OCR processing.</p>
 
