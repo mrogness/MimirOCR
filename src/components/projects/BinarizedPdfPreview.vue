@@ -14,8 +14,6 @@ const props = defineProps({
 const currentPageNumber = ref(1)
 const pageInputValue = ref('1')
 
-let viewportResizeObserver = null
-
 const {
   pageCount,
   previewImageUrl,
@@ -162,23 +160,6 @@ watch(pageCount, (nextTotal) => {
   pageInputValue.value = String(currentPageNumber.value)
 })
 
-function attachViewportResizeObserver() {
-  if (viewportResizeObserver) {
-    viewportResizeObserver.disconnect()
-    viewportResizeObserver = null
-  }
-
-  if (!overlayPanelRef.value || typeof ResizeObserver === 'undefined') {
-    return
-  }
-
-  viewportResizeObserver = new ResizeObserver(() => {
-    onWindowResize()
-  })
-
-  viewportResizeObserver.observe(overlayPanelRef.value)
-}
-
 watch(overlayPanelRef, () => {
   attachViewportResizeObserver()
 })
@@ -186,15 +167,10 @@ watch(overlayPanelRef, () => {
 onMounted(() => {
   window.addEventListener('resize', onWindowResize)
   recalculatePanelViewportHeight()
-  attachViewportResizeObserver()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onWindowResize)
-  if (viewportResizeObserver) {
-    viewportResizeObserver.disconnect()
-    viewportResizeObserver = null
-  }
 })
 </script>
 
