@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BinarizedPdfPreview from '../components/projects/BinarizedPdfPreview.vue'
 
@@ -159,10 +159,6 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateSplitPaneHeight)
-  disconnectProgressResizeObserver()
-  disconnectContentResizeObserver()
-
   clearSelectedPdfPreviewUrl()
   clearSourcePdfPreviewUrl()
 })

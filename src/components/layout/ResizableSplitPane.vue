@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
   initialLeftWidth: {
@@ -198,8 +198,10 @@ function resetWidth() {
   emit('resize-end', leftWidth.value)
 }
 
-function handleContainerResize(entries) {
-  const width = entries[0]?.contentRect.width ?? 0
+function updateStackedState(width = containerRef.value?.clientWidth ?? 0) {
+  if (width <= 0) {
+    return
+  }
 
   isStacked.value = width < props.disabledBreakpoint
 
@@ -207,6 +209,18 @@ function handleContainerResize(entries) {
     setLeftWidth(leftWidth.value)
   }
 }
+
+function handleContainerResize(entries) {
+  const width = entries[0]?.contentRect.width ?? 0
+  updateStackedState(width)
+}
+
+watch(
+  () => props.disabledBreakpoint,
+  () => {
+    updateStackedState()
+  },
+)
 
 onMounted(() => {
   const savedWidth = getSavedWidth()
@@ -219,7 +233,7 @@ onMounted(() => {
     resizeObserver = new ResizeObserver(handleContainerResize)
     resizeObserver.observe(containerRef.value)
 
-    setLeftWidth(leftWidth.value)
+    updateStackedState()
   }
 })
 
