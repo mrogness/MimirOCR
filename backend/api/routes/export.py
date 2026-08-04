@@ -8,6 +8,7 @@ from pathlib import Path
 from statistics import median
 from typing import Iterable, List, Optional, Tuple
 import zipfile
+from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -16,12 +17,18 @@ from sqlalchemy.orm import Session
 from backend.api import crud
 from backend.api.deps import get_db
 from backend.api.schemas import ExportPdfRequest
+from backend.exporting.reflow import build_source_regions, infer_reflow_paragraphs
 
 try:
     from reportlab.lib.pagesizes import A4, LETTER
     from reportlab.pdfgen import canvas
+    from reportlab.platypus import Paragraph, SimpleDocTemplate
+    from reportlab.lib.styles import ParagraphStyle
 except ImportError as exc:  # pragma: no cover - runtime dependency guard
     canvas = None
+    Paragraph = None
+    SimpleDocTemplate = None
+    ParagraphStyle = None
     _IMPORT_ERROR = exc
 else:
     _IMPORT_ERROR = None
@@ -65,6 +72,7 @@ class LineLayout:
     text: str
     x_min: float
     y_min: float
+    x_max: float
     y_max: float
 
 
@@ -197,8 +205,8 @@ def _to_layout_lines(
         if not text or not bbox:
             continue
 
-        x_min, y_min, _x_max, y_max = bbox
-        prepared.append(LineLayout(text=text, x_min=x_min, y_min=y_min, y_max=y_max))
+        x_min, y_min, x_max, y_max = bbox
+        prepared.append(LineLayout(text=text, x_min=x_min, y_min=y_min, x_max=x_max, y_max=y_max))
 
     return prepared
 
@@ -348,6 +356,86 @@ def _fit_lines_for_page(
     return shrunk, shrunk_size, shrunk_size * line_spacing
 
 
+def _render_reading_mode_pdf(
+    *,
+    db_pages: list,
+    request: ExportPdfRequest,
+    page_size: tuple[float, float],
+    margin: float,
+) -> BytesIO:
+    if SimpleDocTemplate is None or Paragraph is None or ParagraphStyle is None:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "PDF export dependency missing. Install reportlab in the backend environment. "
+                f"Import error: {_IMPORT_ERROR}"
+            ),
+        )
+
+    regions = build_source_regions(
+        db_pages,
+        spread_mode=request.spread_mode,
+        normalize_low_double_quote=request.normalize_low_double_quote,
+        normalize_long_s=request.normalize_long_s,
+    )
+    paragraphs = infer_reflow_paragraphs(
+        regions,
+        join_historical_line_breaks=request.join_historical_line_breaks,
+        normalize_double_oblique_hyphen=request.normalize_double_oblique_hyphen,
+    )
+
+    if not paragraphs:
+        raise HTTPException(status_code=400, detail="No usable OCR text available for PDF export")
+
+    pdf_buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=page_size,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+    )
+    leading = request.font_size * request.line_spacing
+    base_style = ParagraphStyle(
+        name="MimirBody",
+        fontName=request.font_family,
+        fontSize=request.font_size,
+        leading=leading,
+    )
+
+    max_indent_ratio = 0.15
+    max_indent_pt = 36.0
+    content_width = max(1.0, page_size[0] - (margin * 2.0))
+
+    story: list = []
+    for index, paragraph in enumerate(paragraphs):
+        first_indent_pt = min(
+            max_indent_pt,
+            max(0.0, min(max_indent_ratio, paragraph.first_line_indent_ratio) * content_width),
+        )
+        left_indent_pt = min(
+            max_indent_pt,
+            max(0.0, min(max_indent_ratio, paragraph.left_indent_ratio) * content_width),
+        )
+        style = ParagraphStyle(
+            f"MimirBody{index}",
+            parent=base_style,
+            firstLineIndent=first_indent_pt,
+            leftIndent=left_indent_pt,
+            spaceBefore=max(0.0, paragraph.space_before_lines * leading),
+        )
+
+        escaped_text = escape(paragraph.text)
+        # Sanitize after escaping so OCR markup-like characters are always text.
+        sanitized_text = _sanitize_for_builtin_pdf_fonts(escaped_text)
+        story.append(Paragraph(sanitized_text, style))
+
+    doc.build(story)
+    pdf_buffer.seek(0)
+    return pdf_buffer
+
+
 def _export_project_pdf_impl(
     project_id: int,
     request: ExportPdfRequest,
@@ -375,6 +463,20 @@ def _export_project_pdf_impl(
     margin = request.margin_in * 72.0
     content_width = max(120.0, page_width_pt - (margin * 2.0))
     content_height = max(120.0, page_height_pt - (margin * 2.0))
+
+    if request.layout_mode == "reading":
+        pdf_buffer = _render_reading_mode_pdf(
+            db_pages=db_pages,
+            request=request,
+            page_size=page_size,
+            margin=margin,
+        )
+        filename = _pdf_export_filename(project.name)
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     pdf_buffer = BytesIO()
     pdf = canvas.Canvas(pdf_buffer, pagesize=page_size)

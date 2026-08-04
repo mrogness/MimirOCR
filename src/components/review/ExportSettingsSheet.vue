@@ -32,6 +32,26 @@ const emit = defineEmits(['close', 'export-pdf', 'export-training-data'])
         </div>
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <fieldset class="text-xs text-brand-700 md:col-span-2 xl:col-span-4">
+            <legend class="mb-1 block font-semibold">Layout</legend>
+            <div class="flex flex-col gap-2 rounded border border-brand-300 bg-brand-50 p-2">
+              <label class="flex items-center gap-2 text-sm text-brand-900">
+                <input v-model="settings.layout_mode" type="radio" value="source-lines" />
+                Preserve source lines
+              </label>
+              <label class="flex items-center gap-2 text-sm text-brand-900">
+                <input v-model="settings.layout_mode" type="radio" value="reading" />
+                Reflow for reading
+              </label>
+            </div>
+            <p
+              v-if="settings.layout_mode === 'reading'"
+              class="mt-1 text-xs text-brand-600"
+            >
+              Reading mode combines OCR lines into paragraphs and lets text flow naturally across output pages.
+            </p>
+          </fieldset>
+
           <label class="text-xs text-brand-700">
             <span class="mb-1 block">Font</span>
             <select v-model="settings.font_family" class="w-full rounded border border-brand-300 bg-white px-2 py-1.5 text-sm text-brand-900">
@@ -85,9 +105,20 @@ const emit = defineEmits(['close', 'export-pdf', 'export-training-data'])
             </select>
           </label>
 
-          <label class="flex items-center gap-2 pt-6 text-sm text-brand-700">
+          <label
+            v-if="settings.layout_mode === 'source-lines'"
+            class="flex items-center gap-2 pt-6 text-sm text-brand-700"
+          >
             <input v-model="settings.fit_text_to_page" type="checkbox" />
             Auto-fit text to each output page
+          </label>
+
+          <label
+            v-if="settings.layout_mode === 'reading'"
+            class="flex items-center gap-2 pt-6 text-sm text-brand-700"
+          >
+            <input v-model="settings.join_historical_line_breaks" type="checkbox" />
+            Join words split across lines with ⸗
           </label>
 
           <label class="flex items-center gap-2 pt-6 text-sm text-brand-700">

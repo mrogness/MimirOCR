@@ -70,6 +70,7 @@ const {
   selectedPageImageUrl,
   loadReviewData,
   refreshPagesPreservingSelection,
+  selectPage,
   goToFirstPage,
   goToPreviousPage,
   goToNextPage,
@@ -203,6 +204,12 @@ const {
   moveLine,
   commitLineOrderInput,
   deleteLine,
+  canUndo,
+  undoLabel,
+  isUndoing,
+  undoErrorMessage,
+  undoLastAction,
+  clearUndoHistory,
   clearPendingTimers,
 } = useLineEditing({
   selectedPage,
@@ -211,7 +218,79 @@ const {
   activeLineId,
   backendFetch,
   refreshPagesPreservingSelection,
+  selectPageById: (pageId) => {
+    const pageIndex = pages.value.findIndex((page) => page.id === pageId)
+    if (pageIndex >= 0) {
+      selectPage(pageIndex)
+    }
+  },
 })
+
+function buildDatasetSignature(sourcePages) {
+  if (!Array.isArray(sourcePages)) {
+    return ''
+  }
+
+  return sourcePages
+    .map((page) => {
+      const lineIds = Array.isArray(page.lines)
+        ? [...page.lines].map((line) => line.id).sort((a, b) => a - b).join(',')
+        : ''
+      return `${page.id}:${lineIds}`
+    })
+    .sort()
+    .join('|')
+}
+
+function onWindowKeydownForUndo(event) {
+  const usesUndoShortcut =
+    (event.metaKey || event.ctrlKey) &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === 'z'
+
+  if (!usesUndoShortcut || !canUndo.value) {
+    return
+  }
+
+  event.preventDefault()
+  undoLastAction()
+}
+
+const previousDatasetSignature = ref('')
+
+watch(
+  () => pages.value,
+  (nextPages, previousPages) => {
+    const nextSignature = buildDatasetSignature(nextPages)
+    if (!Array.isArray(previousPages) || previousPages.length === 0) {
+      previousDatasetSignature.value = nextSignature
+      return
+    }
+
+    if (previousDatasetSignature.value && nextSignature !== previousDatasetSignature.value) {
+      clearUndoHistory()
+    }
+    previousDatasetSignature.value = nextSignature
+  }
+)
+
+watch(
+  () => projectId.value,
+  async (nextId, previousId) => {
+    if (nextId === previousId) {
+      return
+    }
+
+    clearPendingTimers()
+    clearUndoHistory()
+    previousDatasetSignature.value = ''
+
+    await loadReviewData()
+    await nextTick()
+    recalculatePanelViewportHeight()
+    previousDatasetSignature.value = buildDatasetSignature(pages.value)
+  }
+)
 
 function overlayLineClass(line) {
   if (line.id === activeLineId.value || line.id === selectedLineId.value) {
@@ -574,14 +653,18 @@ onErrorCaptured((error) => {
 
 onMounted(async () => {
   window.addEventListener('resize', onWindowResize)
+  window.addEventListener('keydown', onWindowKeydownForUndo)
   await loadReviewData()
   await nextTick()
   recalculatePanelViewportHeight()
+  previousDatasetSignature.value = buildDatasetSignature(pages.value)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onWindowResize)
+  window.removeEventListener('keydown', onWindowKeydownForUndo)
   clearPendingTimers()
+  clearUndoHistory()
 })
 </script>
 
@@ -613,10 +696,12 @@ onBeforeUnmount(() => {
 
     <section v-else class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <ReviewTopBar :selected-page-index="selectedPageIndex" :total-pages="totalPages"
-        :page-input-value="pageInputValue" :is-exporting="isExporting" :export-error-message="exportErrorMessage"
+        :page-input-value="pageInputValue" :can-undo="canUndo" :is-undoing="isUndoing" :undo-label="undoLabel"
+        :undo-error-message="undoErrorMessage" :is-exporting="isExporting" :export-error-message="exportErrorMessage"
         :export-success-message="exportSuccessMessage" @update:page-input-value="pageInputValue = $event"
         @first-page="goToFirstPage" @previous-page="goToPreviousPage" @next-page="goToNextPage"
-        @last-page="goToLastPage" @commit-page-input="commitPageInput" @open-export-settings="showExportSettings = true"
+        @last-page="goToLastPage" @commit-page-input="commitPageInput" @undo="undoLastAction"
+        @open-export-settings="showExportSettings = true"
         @export-pdf="exportProjectPdf" />
 
       <ExportSettingsSheet :show="showExportSettings" :settings="exportSettings" :is-exporting="isExporting"
