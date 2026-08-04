@@ -11,7 +11,7 @@ export function useReviewViewport() {
   const zoomLevel = ref(1)
   const hasManualZoom = ref(false)
   const hasInitializedZoom = ref(false)
-  const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 900)
+  const viewportHeight = ref(typeof window !== 'undefined' ? overlayPanelRef.value.clientHeight : 900)
   const panelViewportHeight = ref(360)
 
   const imageRef = ref(null)
@@ -51,7 +51,7 @@ export function useReviewViewport() {
 
     const panelRect = overlayPanelRef.value.getBoundingClientRect()
     const viewportPadding = 16
-    const availableHeight = Math.max(120, window.innerHeight - panelRect.top - viewportPadding)
+    const availableHeight = Math.max(120, overlayPanelRef.value.clientHeight - panelRect.top - viewportPadding)
     return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, availableHeight / baseImageHeight.value))
   }
 
@@ -64,7 +64,7 @@ export function useReviewViewport() {
 
     const rect = referenceEl.getBoundingClientRect()
     const viewportPadding = 12
-    const available = Math.max(220, window.innerHeight - rect.top - viewportPadding)
+    const available = Math.max(220, overlayPanelRef.value.clientHeight - rect.top - viewportPadding)
     panelViewportHeight.value = Math.floor(available)
   }
 
@@ -137,7 +137,7 @@ export function useReviewViewport() {
   }
 
   function onWindowResize() {
-    viewportHeight.value = window.innerHeight
+    viewportHeight.value = overlayPanelRef.value.clientHeight
     recalculatePanelViewportHeight()
     if (baseImageHeight.value > 0) {
       zoomLevel.value = clampZoom(zoomLevel.value)
