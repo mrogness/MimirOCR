@@ -18,7 +18,7 @@ cffi==2.1.0
 charset-normalizer==3.4.9
 click==8.2.1
 coremltools==6.3.0
-cryptography==49.0.0
+cryptography==50.0.0
 dataclasses-json==0.5.5
 edit-distance==1.0.9
 editdistance==0.8.1
