@@ -1,11 +1,13 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import * as pdfjsLib from 'pdfjs-dist'
-import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import BinarizedPdfPreview from '../components/projects/BinarizedPdfPreview.vue'
 
 import { useProjectsView } from '../composables/views/useProjectsView'
 import { backendFetch } from '../services/backend'
+
+import AppHelp from '../components/help/AppHelp.vue'
+import ResizableSplitPane from '../components/layout/ResizableSplitPane.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -56,23 +58,29 @@ const {
 const selectedPdfPreviewUrl = ref('')
 const sourcePdfPreviewUrl = ref('')
 const sourcePdfPreviewError = ref('')
-const renderedPreviewImageUrl = ref('')
-const isRenderingPreview = ref(false)
-const previewRenderError = ref('')
-const previewFrameRef = ref(null)
-const previewActionsRef = ref(null)
-const isWideViewport = ref(false)
-const previewFrameHeight = ref(0)
-const previewAspectRatio = ref(0.75)
-const previewActionsWidth = ref(0)
+const splitPaneHostRef = ref(null)
+const progressSectionRef = ref(null)
+const splitPaneHeightPx = ref(null)
 
-let previewFrameResizeObserver = null
-let previewActionsResizeObserver = null
+let progressResizeObserver = null
 
 const selectedPdfInputId = 'project-upload-pdf-input'
 
 const activePdfPreviewUrl = computed(() => selectedPdfPreviewUrl.value || sourcePdfPreviewUrl.value)
-const activePreviewImageUrl = computed(() => renderedPreviewImageUrl.value)
+const hasActivePdfPreview = computed(() => Boolean(String(activePdfPreviewUrl.value || '').trim()))
+const showProgressSection = computed(() => currentJobId.value || ocrPhase.value !== 'idle' || canOpenReview.value)
+
+const splitPaneDisabledBreakpoint = computed(() => (hasActivePdfPreview.value ? 768 : 100000))
+
+const splitPaneStyle = computed(() => {
+  if (!hasActivePdfPreview.value || splitPaneHeightPx.value == null) {
+    return undefined
+  }
+
+  return {
+    height: `${splitPaneHeightPx.value}px`,
+  }
+})
 
 function toDisplayPdfName(name) {
   const value = String(name || '').trim()
@@ -98,27 +106,6 @@ const activePdfDisplayName = computed(() => {
   return ''
 })
 
-const previewColumnWidthPx = computed(() => {
-  const measuredControlsWidth = previewActionsWidth.value > 0 ? previewActionsWidth.value + 24 : 0
-  const controlsMinWidth = Math.max(220, Math.round(measuredControlsWidth))
-  const horizontalChrome = 16
-  const imageWidth = previewFrameHeight.value > 0 ? previewFrameHeight.value * previewAspectRatio.value : 0
-  const preferred = imageWidth > 0 ? imageWidth + horizontalChrome : controlsMinWidth
-  return Math.max(controlsMinWidth, Math.round(preferred))
-})
-
-const topCardsGridStyle = computed(() => {
-  if (!isWideViewport.value) {
-    return {}
-  }
-
-  return {
-    gridTemplateColumns: `minmax(22rem, 1fr) minmax(22rem, ${previewColumnWidthPx.value}px)`,
-  }
-})
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc
-
 function clearSelectedPdfPreviewUrl() {
   if (selectedPdfPreviewUrl.value) {
     URL.revokeObjectURL(selectedPdfPreviewUrl.value)
@@ -133,104 +120,45 @@ function clearSourcePdfPreviewUrl() {
   }
 }
 
-function clearRenderedPreviewImageUrl() {
-  if (renderedPreviewImageUrl.value) {
-    URL.revokeObjectURL(renderedPreviewImageUrl.value)
-    renderedPreviewImageUrl.value = ''
-  }
+function disconnectProgressResizeObserver() {
+  progressResizeObserver?.disconnect()
+  progressResizeObserver = null
 }
 
-async function renderFirstPdfPageToImage(pdfUrl) {
-  clearRenderedPreviewImageUrl()
-  previewRenderError.value = ''
+function observeProgressSection() {
+  disconnectProgressResizeObserver()
 
-  if (!pdfUrl) {
+  if (!progressSectionRef.value) {
     return
   }
 
-  isRenderingPreview.value = true
-  try {
-    const loadingTask = pdfjsLib.getDocument({ url: pdfUrl })
-    const pdf = await loadingTask.promise
-    const page = await pdf.getPage(1)
-    const viewport = page.getViewport({ scale: 1.5 })
-    if (viewport.width > 0 && viewport.height > 0) {
-      previewAspectRatio.value = viewport.width / viewport.height
-    }
-
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    if (!context) {
-      throw new Error('Canvas context unavailable')
-    }
-
-    canvas.width = Math.max(1, Math.floor(viewport.width))
-    canvas.height = Math.max(1, Math.floor(viewport.height))
-
-    await page.render({ canvasContext: context, viewport }).promise
-
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob((result) => {
-        if (result) {
-          resolve(result)
-        } else {
-          reject(new Error('Failed to render PDF preview image'))
-        }
-      }, 'image/png')
-    })
-
-    renderedPreviewImageUrl.value = URL.createObjectURL(blob)
-  } catch (_err) {
-    previewRenderError.value = 'Unable to render PDF preview.'
-  } finally {
-    isRenderingPreview.value = false
-  }
-}
-
-function updateViewportMode() {
-  isWideViewport.value = window.innerWidth >= 1280
-}
-
-function attachPreviewFrameObserver() {
-  if (previewFrameResizeObserver) {
-    previewFrameResizeObserver.disconnect()
-    previewFrameResizeObserver = null
-  }
-
-  if (!previewFrameRef.value || typeof ResizeObserver === 'undefined') {
-    return
-  }
-
-  previewFrameResizeObserver = new ResizeObserver((entries) => {
-    const entry = entries[0]
-    if (!entry) {
-      return
-    }
-    previewFrameHeight.value = Math.max(0, entry.contentRect.height)
+  progressResizeObserver = new ResizeObserver(() => {
+    updateSplitPaneHeight()
   })
 
-  previewFrameResizeObserver.observe(previewFrameRef.value)
+  progressResizeObserver.observe(progressSectionRef.value)
 }
 
-function attachPreviewActionsObserver() {
-  if (previewActionsResizeObserver) {
-    previewActionsResizeObserver.disconnect()
-    previewActionsResizeObserver = null
-  }
-
-  if (!previewActionsRef.value || typeof ResizeObserver === 'undefined') {
+function updateSplitPaneHeight() {
+  if (!hasActivePdfPreview.value || !splitPaneHostRef.value) {
+    splitPaneHeightPx.value = null
     return
   }
 
-  previewActionsResizeObserver = new ResizeObserver((entries) => {
-    const entry = entries[0]
-    if (!entry) {
-      return
-    }
-    previewActionsWidth.value = Math.max(0, entry.contentRect.width)
-  })
+  const viewportHeight = window.innerHeight
+  const hostRect = splitPaneHostRef.value.getBoundingClientRect()
+  const progressHeight = showProgressSection.value
+    ? (progressSectionRef.value?.getBoundingClientRect().height ?? 0)
+    : 0
 
-  previewActionsResizeObserver.observe(previewActionsRef.value)
+  const gapBetweenSections = showProgressSection.value ? 16 : 0
+  const bottomPadding = 16
+
+  const availableHeight = Math.floor(
+    viewportHeight - hostRect.top - progressHeight - gapBetweenSections - bottomPadding,
+  )
+
+  splitPaneHeightPx.value = Math.max(320, availableHeight)
 }
 
 async function loadSourcePdfPreview() {
@@ -264,22 +192,6 @@ watch(selectedPdf, (file) => {
 })
 
 watch(
-  activePdfPreviewUrl,
-  (url) => {
-    renderFirstPdfPageToImage(url)
-  },
-  { immediate: true }
-)
-
-watch(previewFrameRef, () => {
-  attachPreviewFrameObserver()
-})
-
-watch(previewActionsRef, () => {
-  attachPreviewActionsObserver()
-})
-
-watch(
   [
     () => project.value?.id ?? null,
     () => project.value?.source_pdf_name ?? null,
@@ -301,27 +213,30 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateViewportMode)
-  if (previewFrameResizeObserver) {
-    previewFrameResizeObserver.disconnect()
-    previewFrameResizeObserver = null
-  }
-  if (previewActionsResizeObserver) {
-    previewActionsResizeObserver.disconnect()
-    previewActionsResizeObserver = null
-  }
+  window.removeEventListener('resize', updateSplitPaneHeight)
+  disconnectProgressResizeObserver()
 
   clearSelectedPdfPreviewUrl()
   clearSourcePdfPreviewUrl()
-  clearRenderedPreviewImageUrl()
 })
 
 onMounted(() => {
-  updateViewportMode()
-  window.addEventListener('resize', updateViewportMode)
-  attachPreviewFrameObserver()
-  attachPreviewActionsObserver()
+  window.addEventListener('resize', updateSplitPaneHeight)
+  nextTick(() => {
+    observeProgressSection()
+    updateSplitPaneHeight()
+  })
 })
+
+watch(
+  [hasActivePdfPreview, showProgressSection],
+  async () => {
+    await nextTick()
+    observeProgressSection()
+    updateSplitPaneHeight()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -354,174 +269,192 @@ onMounted(() => {
 
     <template v-else>
       <div class="flex min-h-0 flex-1 flex-col gap-4">
-        <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:items-stretch" :style="topCardsGridStyle">
-          <section class="min-h-0 rounded border overflow-y-auto border-brand-200 bg-white p-5">
-            <h2 class="text-lg font-semibold">Project Details</h2>
+        <div ref="splitPaneHostRef" class="min-h-0">
+          <ResizableSplitPane class="h-full" :style="splitPaneStyle" :initial-left-width="480" :min-left-width="340"
+            :max-left-width="760" :min-right-width="480" :max-right-width="1600"
+            :disabled-breakpoint="splitPaneDisabledBreakpoint" storage-key="mimir-project-view-details-width">
+          <template #left>
+            <section class="min-h-0 min-w-0 overflow-y-auto rounded border border-brand-200 bg-white p-5">
+              <h2 class="text-lg font-semibold">Project Details</h2>
 
-            <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div class="flex-1">
-                <label class="block text-sm font-medium text-brand-700">Project Name</label>
-                <input v-model="renameInput" type="text"
-                  class="mt-1 w-full rounded border border-brand-300 px-3 py-2 text-sm" />
-              </div>
-            </div>
-            <p v-if="isRenaming" class="mt-2 text-xs text-brand-500">Saving name...</p>
-            <p v-if="renameError" class="mt-2 text-sm text-red-600">{{ renameError }}</p>
-
-            <div class="mt-2 border-t border-brand-100 pt-2">
-              <h3 class="text-base font-semibold text-brand-800">OCR Settings</h3>
-              <p class="mt-1 text-sm text-brand-500">Adjust processing options before uploading a PDF.</p>
-
-              <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div class="flex items-center justify-between gap-2">
-                    <label class="block text-sm font-medium text-brand-700">
-                      Processing DPI
-                    </label>
-
-                    <span v-if="isAnalyzingDpi" class="text-xs text-brand-500">
-                      Analyzing PDF…
-                    </span>
-                  </div>
-
-                  <input v-model="dpiInput" type="number" min="1" :disabled="isAnalyzingDpi"
-                    class="mt-1 w-full rounded border border-brand-300 px-3 py-2 text-sm disabled:cursor-wait disabled:bg-brand-50 disabled:text-brand-500" />
-
-                  <p v-if="dpiAnalysisError" class="mt-1 text-xs text-amber-700">
-                    {{ dpiAnalysisError }} Using the current DPI value.
-                  </p>
-
-                  <template v-else-if="dpiAnalysis">
-                    <p v-if="dpiAnalysis.detected_median_dpi" class="mt-1 text-xs text-brand-600">
-                      Detected median:
-                      <strong>{{ dpiAnalysis.detected_median_dpi }} DPI</strong>
-                      across {{ dpiAnalysis.pages_with_scan_estimate }}
-                      of {{ dpiAnalysis.page_count }} pages.
-                      Recommended:
-                      <strong>{{ dpiAnalysis.recommended_dpi }} DPI</strong>.
-                    </p>
-
-                    <p v-else class="mt-1 text-xs text-brand-600">
-                      No dominant raster scan was detected. Using the
-                      {{ dpiAnalysis.recommended_dpi }} DPI fallback.
-                    </p>
-
-                    <p v-if="dpiAnalysis.ignored_probable_watermark_images > 0" class="mt-1 text-xs text-brand-500">
-                      Ignored
-                      {{ dpiAnalysis.ignored_probable_watermark_images }}
-                      small repeated watermark or logo image occurrences.
-                    </p>
-
-                    <details v-if="dpiAnalysis.warnings?.length" class="mt-1 text-xs text-brand-500">
-                      <summary class="cursor-pointer">
-                        Analysis details
-                      </summary>
-
-                      <ul class="mt-1 list-disc space-y-1 pl-4">
-                        <li v-for="warning in dpiAnalysis.warnings" :key="warning">
-                          {{ warning }}
-                        </li>
-                      </ul>
-                    </details>
-                  </template>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-brand-700">Binarization Threshold</label>
-                  <input v-model="thresholdInput" type="number" min="1" max="256"
+              <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div class="flex-1">
+                  <label class="block text-sm font-medium text-brand-700">Project Name</label>
+                  <input v-model="renameInput" type="text"
                     class="mt-1 w-full rounded border border-brand-300 px-3 py-2 text-sm" />
                 </div>
-                <div>
-                  <label class="block text-sm font-medium text-brand-700">Page Layout</label>
-                  <select v-model="spreadMode"
-                    class="mt-1 w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm text-brand-900">
-                    <option value="split-spread">Split Left/Right Spread</option>
-                    <option value="single">Single Page Per Scan</option>
-                  </select>
-                </div>
-                <div class="flex items-end">
-                  <label class="flex items-center gap-2 text-sm text-brand-700">
-                    <input v-model="strictTopToBottom" type="checkbox" />
-                    Strict top-to-bottom line sorting
-                  </label>
-                </div>
               </div>
-            </div>
+              <p v-if="isRenaming" class="mt-2 text-xs text-brand-500">Saving name...</p>
+              <p v-if="renameError" class="mt-2 text-sm text-red-600">{{ renameError }}</p>
 
-            <div class="mt-5 border-t border-brand-100 pt-4">
-              <label :for="selectedPdfInputId"
-                class="block cursor-pointer rounded border border-dashed border-brand-300 bg-brand-50/50 px-3 py-3 hover:bg-brand-100/50">
-                <div class="min-w-0">
-                  <p class="text-xs font-medium uppercase tracking-wide text-brand-500">PDF File</p>
-                  <p class="mt-1 truncate text-sm text-brand-800">
-                    {{ activePdfDisplayName || 'Click to select a PDF file' }}
-                  </p>
-                </div>
-              </label>
-
-              <input :id="selectedPdfInputId" type="file" accept=".pdf, application/pdf" ref="pdfRef"
-                @change="onPdfSelected" class="hidden" />
-
-              <p v-if="project?.source_pdf_name && !selectedPdf" class="mt-2 text-xs text-brand-500">
-                Showing previously uploaded file for this project.
-              </p>
-            </div>
-          </section>
-
-          <section class="flex min-h-0 flex-col rounded border border-brand-200 bg-white p-5">
-            <h2 class="text-lg font-semibold">Preview Selection and Submit</h2>
-            <p class="mt-1 text-sm text-brand-500">Preview your selected file and start OCR processing.</p>
-
-            <div class="mt-4 flex min-h-0 flex-1 flex-col gap-3">
-              <p v-if="sourcePdfPreviewError" class="text-xs text-red-600">
-                {{ sourcePdfPreviewError }}
-              </p>
-
-              <p v-if="previewRenderError" class="text-xs text-red-600">
-                {{ previewRenderError }}
-              </p>
-
-              <div ref="previewFrameRef" class="min-h-0 flex-1 rounded border border-brand-900 bg-brand-700 p-1">
-                <div v-if="activePdfPreviewUrl" class="flex h-full min-h-0 flex-col gap-2">
-                  <div class="min-h-0 flex-1 overflow-hidden rounded border border-brand-900 bg-brand-100">
-                    <div v-if="isRenderingPreview"
-                      class="flex h-full w-full items-center justify-center text-xs text-brand-500">
-                      Rendering preview...
-                    </div>
-                    <img v-else-if="activePreviewImageUrl" :src="activePreviewImageUrl"
-                      alt="Selected PDF first-page preview" class="mx-auto block h-full w-auto max-w-none"
-                      draggable="false" />
-                    <div v-else class="flex h-full w-full items-center justify-center text-xs text-brand-500">
-                      PDF preview unavailable
-                    </div>
+              <div class="mt-5 border-t border-brand-100 pt-4">
+                <label :for="selectedPdfInputId"
+                  class="block cursor-pointer rounded border border-dashed border-brand-300 bg-brand-50/50 px-3 py-3 hover:bg-brand-100/50">
+                  <div class="min-w-0">
+                    <p class="text-xs font-medium uppercase tracking-wide text-brand-500">PDF File</p>
+                    <p class="mt-1 truncate text-sm text-brand-800">
+                      {{ activePdfDisplayName || 'Click to select a PDF file' }}
+                    </p>
                   </div>
-                </div>
-                <div v-else
-                  class="flex h-full min-h-0 items-center justify-center rounded border border-dashed border-brand-300 text-xs text-brand-500">
-                  PDF preview appears here
-                </div>
-              </div>
+                </label>
 
-              <div ref="previewActionsRef" class="mt-auto flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="isUploading || isAnalyzingDpi || !selectedPdf || hasActiveOcrJob || backendConnection !== 'connected'"
-                  @click="uploadPdfAndStartOcr">
-                  {{ isAnalyzingDpi ? 'Analyzing PDF...' : isUploading ? 'Submitting...' : 'Submit and Process' }}
-                </button>
-                <p v-if="activeJobMessage" class="text-xs text-amber-700">
-                  {{ activeJobMessage }}
+                <input :id="selectedPdfInputId" type="file" accept=".pdf, application/pdf" ref="pdfRef"
+                  @change="onPdfSelected" class="hidden" />
+
+                <p v-if="project?.source_pdf_name && !selectedPdf" class="mt-2 text-xs text-brand-500">
+                  Showing previously uploaded file for this project.
                 </p>
               </div>
-            </div>
 
-            <p v-if="uploadError" class="mt-2 text-sm text-red-600">{{ uploadError }}</p>
-          </section>
+              <div v-if="hasActivePdfPreview" class="mt-5 border-t border-brand-100 pt-4">
+                <h3 class="text-base font-semibold text-brand-800">OCR Settings</h3>
+                <p class="mt-1 text-sm text-brand-500">Adjust processing options before submitting OCR.</p>
+
+                <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-2">
+                        <label class="block text-sm font-medium text-brand-700">
+                          Processing DPI
+                        </label>
+                        <AppHelp label="About processing DPI" title="Processing DPI"
+                          intro="The DPI (dots per inch) setting affects the quality and file size of the images taken from input PDFs."
+                          link-href="/info#Processing-DPI" link-label="More details in Info" trigger-text="?">
+                          <p>
+                            Changing the processing DPI will affect the quality of the OCR results. Higher DPI values
+                            can
+                            improve accuracy but may increase processing time and file size.
+                          </p>
+                          <p>
+                            Using a higher processing DPI than an input PDF was originally scanned at has no benefit and
+                            may slow down processing.
+                          </p>
+                        </AppHelp>
+                      </div>
+
+                      <span v-if="isAnalyzingDpi" class="text-xs text-brand-500">
+                        Analyzing PDF…
+                      </span>
+                    </div>
+
+                    <input v-model="dpiInput" type="number" min="1" :disabled="isAnalyzingDpi"
+                      class="mt-1 w-full rounded border border-brand-300 px-3 py-2 text-sm disabled:cursor-wait disabled:bg-brand-50 disabled:text-brand-500" />
+
+                    <p v-if="dpiAnalysisError" class="mt-1 text-xs text-amber-700">
+                      {{ dpiAnalysisError }} Using the current DPI value.
+                    </p>
+
+                    <template v-else-if="dpiAnalysis">
+                      <p v-if="dpiAnalysis.detected_median_dpi" class="mt-1 text-xs text-brand-600">
+                        Detected median:
+                        <strong>{{ dpiAnalysis.detected_median_dpi }} DPI</strong>
+                        across {{ dpiAnalysis.pages_with_scan_estimate }}
+                        of {{ dpiAnalysis.page_count }} pages.
+                        Recommended:
+                        <strong>{{ dpiAnalysis.recommended_dpi }} DPI</strong>.
+                      </p>
+
+                      <p v-else class="mt-1 text-xs text-brand-600">
+                        No dominant raster scan was detected. Using the
+                        {{ dpiAnalysis.recommended_dpi }} DPI fallback.
+                      </p>
+
+                      <p v-if="dpiAnalysis.ignored_probable_watermark_images > 0" class="mt-1 text-xs text-brand-500">
+                        Ignored
+                        {{ dpiAnalysis.ignored_probable_watermark_images }}
+                        small repeated watermark or logo image occurrences.
+                      </p>
+
+                      <details v-if="dpiAnalysis.warnings?.length" class="mt-1 text-xs text-brand-500">
+                        <summary class="cursor-pointer">
+                          Analysis details
+                        </summary>
+
+                        <ul class="mt-1 list-disc space-y-1 pl-4">
+                          <li v-for="warning in dpiAnalysis.warnings" :key="warning">
+                            {{ warning }}
+                          </li>
+                        </ul>
+                      </details>
+                    </template>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <label class="block text-sm font-medium text-brand-700">Binarization Threshold</label>
+                      <AppHelp label="About Binarization Threshold" title="Binarization Threshold"
+                        intro="The binarization threshold affects how grayscale images are converted to black and white."
+                        link-href="/info#Binarization-Threshold" link-label="More details in Info" trigger-text="?">
+                        <p>
+                          Adjusting the binarization threshold can improve OCR accuracy for images with varying
+                          contrast. This value can
+                          be between 1 and 256, where lower values make the image darker and higher values make it
+                          lighter.
+                        </p>
+                        <p>
+                          Note: In an OCR run, binarization is only applied after lines of text have been extracted from
+                          the images,
+                          before OCR is performed on each line.
+                        </p>
+                      </AppHelp>
+                    </div>
+                    <input v-model="thresholdInput" type="number" min="1" max="256"
+                      class="mt-1 w-full rounded border border-brand-300 px-3 py-2 text-sm" step="5" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-brand-700">Page Layout</label>
+                    <select v-model="spreadMode"
+                      class="mt-1 w-full rounded border border-brand-300 bg-white px-3 py-2 text-sm text-brand-900">
+                      <option value="split-spread">Split Left/Right Spread</option>
+                      <option value="single">Single Page Per Scan</option>
+                    </select>
+                  </div>
+                  <div class="flex items-end">
+                    <label class="flex items-center gap-2 text-sm text-brand-700">
+                      <input v-model="strictTopToBottom" type="checkbox" />
+                      Strict top-to-bottom line sorting
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </template>
+
+          <template #right>
+            <section v-if="hasActivePdfPreview"
+              class="flex min-h-0 min-w-0 flex-col overflow-hidden rounded border border-brand-200 bg-white p-5">
+              <h2 class="text-lg font-semibold">Preview Selection and Submit</h2>
+              <p class="mt-1 text-sm text-brand-500">Preview your selected file and start OCR processing.</p>
+
+              <div class="mt-4 flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+                <p v-if="sourcePdfPreviewError" class="text-xs text-red-600">
+                  {{ sourcePdfPreviewError }}
+                </p>
+
+                <div class="min-h-0 min-w-0 flex-1 overflow-hidden rounded border border-brand-900 bg-brand-700 p-1">
+                  <BinarizedPdfPreview :pdf-url="activePdfPreviewUrl" :dpi="dpiInput" :threshold="thresholdInput"
+                    :display-name="activePdfDisplayName" />
+                </div>
+
+                <div class="mt-auto flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    class="rounded bg-brand-900 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="isUploading || isAnalyzingDpi || !selectedPdf || hasActiveOcrJob || backendConnection !== 'connected'"
+                    @click="uploadPdfAndStartOcr">
+                    {{ isAnalyzingDpi ? 'Analyzing PDF...' : isUploading ? 'Submitting...' : 'Submit and Process' }}
+                  </button>
+                  <p v-if="activeJobMessage" class="text-xs text-amber-700">
+                    {{ activeJobMessage }}
+                  </p>
+                </div>
+              </div>
+
+              <p v-if="uploadError" class="mt-2 text-sm text-red-600">{{ uploadError }}</p>
+            </section>
+          </template>
+          </ResizableSplitPane>
         </div>
-
-        <section
-          v-if="currentJobId || ocrPhase !== 'idle' || canOpenReview"
-          class="shrink-0 rounded border border-brand-200 bg-white p-5"
-        >
+        <section v-if="showProgressSection" ref="progressSectionRef"
+          class=" min-h-0 rounded border border-brand-200 bg-white p-5">
           <h2 class="text-lg font-semibold">OCR Progress</h2>
           <p v-if="recoveredRunNotice"
             class="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

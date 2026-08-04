@@ -199,6 +199,14 @@ def get_line_by_page_and_order(db: Session, page_id: int, line_order: int) -> Li
     )
 
 
+def _serialize_json_field(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return json.dumps(value)
+
+
 def update_line(db: Session, line: Line, corrected_text: str, line_order: int | None = None) -> Line:
     line.corrected_text = corrected_text
     if line_order is not None and line_order > 0:
@@ -210,6 +218,67 @@ def update_line(db: Session, line: Line, corrected_text: str, line_order: int | 
     db.commit()
     db.refresh(line)
     return line
+
+
+def restore_deleted_line(db: Session, line_snapshot: Any, line_orders: list[Any]) -> Line:
+    page = db.query(Page).filter(Page.id == line_snapshot.page_id).first()
+    if not page:
+        raise LookupError("page-not-found")
+
+    occupied = db.query(Line).filter(Line.id == line_snapshot.id).first()
+    if occupied:
+        raise FileExistsError("line-id-occupied")
+
+    existing_lines = db.query(Line).filter(Line.page_id == page.id).all()
+    existing_ids = {line.id for line in existing_lines}
+
+    if not line_orders:
+        raise ValueError("line_orders is required")
+
+    provided_ids = [entry.id for entry in line_orders]
+    provided_ids_set = set(provided_ids)
+    if len(provided_ids) != len(provided_ids_set):
+        raise ValueError("line_orders contains duplicate line IDs")
+
+    expected_ids = set(existing_ids)
+    expected_ids.add(line_snapshot.id)
+    if provided_ids_set != expected_ids:
+        raise ValueError("line_orders must include all page lines exactly once")
+
+    provided_orders = [entry.line_order for entry in line_orders]
+    if any((not isinstance(order, int)) or order <= 0 for order in provided_orders):
+        raise ValueError("line_order values must be positive integers")
+
+    expected_orders = list(range(1, len(line_orders) + 1))
+    if sorted(provided_orders) != expected_orders:
+        raise ValueError("line_order values must be unique and contiguous")
+
+    order_by_id = {entry.id: entry.line_order for entry in line_orders}
+
+    restored = Line(
+        id=line_snapshot.id,
+        page_id=page.id,
+        img_path=line_snapshot.img_path,
+        bounding_box=_serialize_json_field(line_snapshot.bounding_box),
+        polygon_points=_serialize_json_field(line_snapshot.polygon_points),
+        ocr_text=line_snapshot.ocr_text,
+        corrected_text=line_snapshot.corrected_text,
+        line_confidence=line_snapshot.line_confidence,
+        char_confidence=_serialize_json_field(line_snapshot.char_confidence),
+        char_positions=_serialize_json_field(line_snapshot.char_positions),
+        line_order=order_by_id[line_snapshot.id],
+    )
+
+    db.add(restored)
+    db.flush()
+
+    for line in existing_lines:
+        line.line_order = order_by_id[line.id]
+
+    _touch_project(page.project)
+    db.commit()
+    db.refresh(restored)
+    return restored
 
 
 def delete_line(db: Session, line: Line) -> None:

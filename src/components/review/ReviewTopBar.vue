@@ -3,6 +3,10 @@ const props = defineProps({
   selectedPageIndex: { type: Number, required: true },
   totalPages: { type: Number, required: true },
   pageInputValue: { type: String, required: true },
+  canUndo: { type: Boolean, default: false },
+  isUndoing: { type: Boolean, default: false },
+  undoLabel: { type: String, default: 'Undo' },
+  undoErrorMessage: { type: String, default: '' },
   isExporting: { type: Boolean, required: true },
   exportErrorMessage: { type: String, default: '' },
   exportSuccessMessage: { type: String, default: '' },
@@ -15,6 +19,7 @@ const emit = defineEmits([
   'next-page',
   'last-page',
   'commit-page-input',
+  'undo',
   'open-export-settings',
   'export-pdf',
 ])
@@ -78,6 +83,15 @@ function onCommitPageInput() {
 
       <div class="ml-auto flex items-center gap-2">
         <button
+          class="rounded border border-brand-300 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="!canUndo || isUndoing"
+          :title="undoLabel"
+          :aria-label="undoLabel"
+          @click="emit('undo')"
+        >
+          {{ isUndoing ? 'Undoing...' : 'Undo' }}
+        </button>
+        <button
           class="rounded border border-brand-300 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100"
           @click="emit('open-export-settings')"
         >
@@ -93,7 +107,8 @@ function onCommitPageInput() {
       </div>
     </div>
 
+    <p v-if="undoErrorMessage" class="mt-2 text-xs text-red-700">{{ undoErrorMessage }}</p>
     <p v-if="exportErrorMessage" class="mt-2 text-xs text-red-700">{{ exportErrorMessage }}</p>
-    <p v-else-if="exportSuccessMessage" class="mt-2 text-xs text-emerald-700">{{ exportSuccessMessage }}</p>
+    <p v-if="exportSuccessMessage" class="mt-2 text-xs text-emerald-700">{{ exportSuccessMessage }}</p>
   </div>
 </template>

@@ -57,6 +57,34 @@ class LineUpdateResponse(BaseModel):
     line: ProjectLineRead
 
 
+class LineOrderSnapshot(BaseModel):
+    id: int
+    line_order: int
+
+
+class DeletedLineSnapshot(BaseModel):
+    id: int
+    page_id: int
+    line_order: int | None = None
+    img_path: str | None = None
+    bounding_box: dict[str, Any] | None = None
+    polygon_points: list[list[float]] | None = None
+    ocr_text: str | None = None
+    corrected_text: str | None = None
+    line_confidence: float | None = None
+    char_confidence: Any | None = None
+    char_positions: list[dict[str, Any]] | None = None
+
+
+class LineRestoreRequest(BaseModel):
+    line: DeletedLineSnapshot
+    line_orders: list[LineOrderSnapshot]
+
+
+class LineRestoreResponse(BaseModel):
+    line: ProjectLineRead
+
+
 class ProjectPageRead(BaseModel):
     id: int
     page_number: int
@@ -133,11 +161,13 @@ class OcrJobsListResponse(BaseModel):
 
 
 class ExportPdfRequest(BaseModel):
+    layout_mode: Literal["source-lines", "reading"] = "source-lines"
     font_family: Literal["Times-Roman", "Helvetica", "Courier"] = "Times-Roman"
     font_size: float = 12.0
     line_spacing: float = 1.35
     margin_in: float = 0.8
     spread_mode: Literal["single", "split-spread"] = "split-spread"
+    join_historical_line_breaks: bool = True
     normalize_low_double_quote: bool = False
     normalize_long_s: bool = False
     normalize_double_oblique_hyphen: bool = False

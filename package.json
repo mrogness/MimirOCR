@@ -18,6 +18,7 @@
     "package:windows": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles nsis"
   },
   "dependencies": {
+    "@floating-ui/vue": "^2.0.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "pdfjs-dist": "^6.1.200",

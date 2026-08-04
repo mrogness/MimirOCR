@@ -8,11 +8,13 @@ export function useExportPdf({ projectId, backendFetch }) {
   const exportErrorMessage = ref('')
   const exportSuccessMessage = ref('')
   const exportSettings = ref({
+    layout_mode: 'source-lines',
     font_family: 'Times-Roman',
     font_size: 12,
     line_spacing: 1.35,
     margin_in: 0.8,
     spread_mode: 'split-spread',
+    join_historical_line_breaks: true,
     normalize_low_double_quote: true,
     normalize_long_s: true,
     normalize_double_oblique_hyphen: true,
