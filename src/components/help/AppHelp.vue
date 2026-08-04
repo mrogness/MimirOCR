@@ -1,5 +1,12 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, useId } from 'vue'
+import { Teleport, computed, onBeforeUnmount, ref, useId } from 'vue'
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useFloating,
+} from '@floating-ui/vue'
 
 const props = defineProps({
   label: {
@@ -39,9 +46,21 @@ const props = defineProps({
 const isOpen = ref(false)
 const rootRef = ref(null)
 const triggerRef = ref(null)
+const floatingRef = ref(null)
 const panelId = useId()
 const titleId = useId()
 let closeTimer = null
+
+const { floatingStyles, update } = useFloating(triggerRef, floatingRef, {
+  placement: 'bottom-start',
+  strategy: 'fixed',
+  middleware: [
+    offset(8),
+    flip({ padding: 8 }),
+    shift({ padding: 8 }),
+  ],
+  whileElementsMounted: autoUpdate,
+})
 
 const normalizedLinkHref = computed(() => String(props.linkHref || '').trim())
 const normalizedLinkLabel = computed(() => String(props.linkLabel || '').trim())
@@ -50,6 +69,7 @@ const hasLink = computed(() => Boolean(normalizedLinkHref.value && normalizedLin
 function open() {
   cancelScheduledClose()
   isOpen.value = true
+  update()
 }
 
 function close({ restoreFocus = false } = {}) {
@@ -82,8 +102,14 @@ function toggle() {
 
 function handleFocusOut(event) {
   const next = event.relatedTarget
+  if (!(next instanceof Node)) {
+    scheduleClose()
+    return
+  }
+
   const root = rootRef.value
-  if (root && next instanceof Node && root.contains(next)) {
+  const floating = floatingRef.value
+  if ((root && root.contains(next)) || (floating && floating.contains(next))) {
     return
   }
   scheduleClose()
@@ -126,36 +152,40 @@ onBeforeUnmount(() => {
       </slot>
     </button>
 
-    <div
-      v-if="isOpen"
-      :id="panelId"
-      role="tooltip"
-      class="absolute left-0 top-7 z-30 w-72 max-w-[calc(100vw-2rem)] rounded border border-brand-200 bg-white p-3 text-sm font-normal text-brand-700 shadow-lg"
-      :aria-labelledby="title ? titleId : undefined"
-      @mouseenter="open"
-      @mouseleave="scheduleClose"
-      @focusin="open"
-      @focusout="handleFocusOut"
-    >
-      <div v-if="title || intro" class="space-y-1">
-        <h3 v-if="title" :id="titleId" class="text-sm font-semibold text-brand-900">{{ title }}</h3>
-        <p v-if="intro" class="text-sm text-brand-600">{{ intro }}</p>
-      </div>
+    <Teleport to="body">
+      <div
+        v-if="isOpen"
+        :id="panelId"
+        ref="floatingRef"
+        role="tooltip"
+        class="z-30 w-72 max-w-[calc(100vw-2rem)] rounded border border-brand-200 bg-white p-3 text-sm font-normal text-brand-700 shadow-lg"
+        :style="floatingStyles"
+        :aria-labelledby="title ? titleId : undefined"
+        @mouseenter="open"
+        @mouseleave="scheduleClose"
+        @focusin="open"
+        @focusout="handleFocusOut"
+      >
+        <div v-if="title || intro" class="space-y-1">
+          <h3 v-if="title" :id="titleId" class="text-sm font-semibold text-brand-900">{{ title }}</h3>
+          <p v-if="intro" class="text-sm text-brand-600">{{ intro }}</p>
+        </div>
 
-      <div v-if="$slots.default" class="mt-2 space-y-2">
-        <slot />
-      </div>
+        <div v-if="$slots.default" class="mt-2 space-y-2">
+          <slot />
+        </div>
 
-      <div v-if="hasLink" class="mt-2 border-t border-brand-100 pt-2">
-        <a
-          :href="normalizedLinkHref"
-          :target="linkTarget"
-          :rel="linkTarget === '_blank' ? 'noopener noreferrer' : undefined"
-          class="text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-900"
-        >
-          {{ normalizedLinkLabel }}
-        </a>
+        <div v-if="hasLink" class="mt-2 border-t border-brand-100 pt-2">
+          <a
+            :href="normalizedLinkHref"
+            :target="linkTarget"
+            :rel="linkTarget === '_blank' ? 'noopener noreferrer' : undefined"
+            class="text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-900"
+          >
+            {{ normalizedLinkLabel }}
+          </a>
+        </div>
       </div>
-    </div>
+    </Teleport>
   </span>
 </template>
