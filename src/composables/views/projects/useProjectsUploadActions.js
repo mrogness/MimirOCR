@@ -28,7 +28,6 @@ export function useProjectsUploadActions({
   asUserMessage,
   loadProject,
 }) {
-  const pdfRef = ref(null)
   const isUploading = ref(false)
   const dpiInput = ref('300')
   const thresholdInput = ref('170')
@@ -44,10 +43,6 @@ export function useProjectsUploadActions({
   function toPositiveInteger(value, fallback) {
     const n = Number.parseInt(value, 10)
     return Number.isFinite(n) && n >= 1 ? n : fallback
-  }
-
-  function triggerFileBrowser() {
-    pdfRef.value?.click()
   }
 
   function loadProjectScopedSettings() {
@@ -233,7 +228,6 @@ export function useProjectsUploadActions({
   }
 
   return {
-    pdfRef,
     isUploading,
     isAnalyzingDpi,
     dpiAnalysis,
@@ -242,7 +236,6 @@ export function useProjectsUploadActions({
     thresholdInput,
     strictTopToBottom,
     spreadMode,
-    triggerFileBrowser,
     onPdfSelected,
     uploadPdfAndStartOcr,
   }
