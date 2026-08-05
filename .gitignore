@@ -61,11 +61,9 @@ backend/data/app_data.db
 # ------------------------------
 src-tauri/target/
 src-tauri/gen/schemas/
-src-tauri/binaries/*
-!src-tauri/binaries/.gitkeep
-!src-tauri/binaries/backend-empty/
-!src-tauri/binaries/backend-empty/.gitkeep
-!src-tauri/binaries/backend-sentinel
+src-tauri/binaries/
+src-tauri/resources/backend-runtime/*
+!src-tauri/resources/backend-runtime/.gitkeep
 
 # ------------------------------
 # IDE / OS

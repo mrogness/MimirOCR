@@ -1,11 +1,9 @@
 import {
-  chmodSync,
   existsSync,
   lstatSync,
   readlinkSync,
   rmSync,
   symlinkSync,
-  writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
 
@@ -87,47 +85,6 @@ export function sidecarExecutablePath(outDir, bundleName) {
   const executableName =
     process.platform === 'win32' ? `${bundleName}.exe` : bundleName
   return path.join(outDir, bundleName, executableName)
-}
-
-export function createPosixLauncherSidecar(outDir, launcherName, bundleName) {
-  const launcherPath = path.join(outDir, launcherName)
-  const script = [
-    '#!/usr/bin/env bash',
-    'set -euo pipefail',
-    '',
-    'SELF_DIR="$(cd "$(dirname "$0")" && pwd)"',
-    `BUNDLE_NAME="${bundleName}"`,
-    `LAUNCHER_NAME="${launcherName}"`,
-    'CANDIDATES=(',
-    '  "$SELF_DIR/$BUNDLE_NAME/$BUNDLE_NAME"',
-    '  "$SELF_DIR/$BUNDLE_NAME/$LAUNCHER_NAME"',
-    '  "$SELF_DIR/$BUNDLE_NAME/backend"',
-    ')',
-    'EXECUTABLE_PATH=""',
-    'for candidate in "${CANDIDATES[@]}"; do',
-    '  if [ -f "$candidate" ] && [ ! -x "$candidate" ]; then',
-    '    chmod +x "$candidate" 2>/dev/null || true',
-    '  fi',
-    '  if [ -x "$candidate" ]; then',
-    '    EXECUTABLE_PATH="$candidate"',
-    '    break',
-    '  fi',
-    'done',
-    'if [ -z "$EXECUTABLE_PATH" ]; then',
-    '  echo "Mimir sidecar executable not found. Checked:" >&2',
-    '  for candidate in "${CANDIDATES[@]}"; do',
-    '    echo "  - $candidate" >&2',
-    '  done',
-    '  exit 1',
-    'fi',
-    '',
-    'exec "$EXECUTABLE_PATH" "$@"',
-    '',
-  ].join('\n')
-
-  writeFileSync(launcherPath, script, 'utf8')
-  chmodSync(launcherPath, 0o755)
-  return launcherPath
 }
 
 function runSidecarSmokeTest(binaryPath) {

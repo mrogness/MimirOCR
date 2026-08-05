@@ -36,8 +36,8 @@
     "macOS": {
       "signingIdentity": "-"
     },
-    "resources": [
-      "binaries"
-    ]
+    "resources": {
+      "resources/backend-runtime/": "backend-runtime/"
+    }
   }
 }

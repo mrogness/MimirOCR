@@ -2,6 +2,9 @@ import { computed, ref } from 'vue'
 
 import { backendFetch } from '../../services/backend'
 
+const ACTIVE_POLL_MS = 1200
+const IDLE_POLL_MS = 5000
+const HIDDEN_POLL_MS = 15000
 const backendConnection = ref('connecting')
 const backendInstanceId = ref('')
 const activeJob = ref(null)
@@ -40,26 +43,59 @@ async function refreshBackendRuntime() {
       throw error
     } finally {
       refreshPromise = null
+      if (
+        subscriberCount > 0 &&
+        !pollTimer &&
+        backendConnection.value !== 'restarting'
+      ) {
+        scheduleBackendRuntimePoll()
+      }
     }
   })()
 
   return refreshPromise
 }
 
+function nextPollDelay() {
+  if (typeof document !== 'undefined' && document.hidden) {
+    return HIDDEN_POLL_MS
+  }
+  return activeJob.value ? ACTIVE_POLL_MS : IDLE_POLL_MS
+}
+
+function scheduleBackendRuntimePoll(delayMs = nextPollDelay()) {
+  if (pollTimer) {
+    window.clearTimeout(pollTimer)
+    pollTimer = null
+  }
+
+  if (subscriberCount === 0) {
+    return
+  }
+
+  pollTimer = window.setTimeout(async () => {
+    pollTimer = null
+    try {
+      await refreshBackendRuntime()
+    } catch (_error) {
+      // Runtime state exposes the failure; polling continues at the idle rate.
+    } finally {
+      scheduleBackendRuntimePoll()
+    }
+  }, delayMs)
+}
+
 function startBackendRuntimePolling() {
   subscriberCount += 1
-  void refreshBackendRuntime().catch(() => {})
-  if (!pollTimer) {
-    pollTimer = window.setInterval(() => {
-      void refreshBackendRuntime().catch(() => {})
-    }, 1200)
+  if (subscriberCount === 1) {
+    scheduleBackendRuntimePoll(0)
   }
 }
 
 function stopBackendRuntimePolling() {
   subscriberCount = Math.max(0, subscriberCount - 1)
   if (subscriberCount === 0 && pollTimer) {
-    window.clearInterval(pollTimer)
+    window.clearTimeout(pollTimer)
     pollTimer = null
   }
 }
@@ -68,6 +104,10 @@ function markBackendRestarting() {
   backendConnection.value = 'restarting'
   activeJob.value = null
   runtimeError.value = ''
+  if (pollTimer) {
+    window.clearTimeout(pollTimer)
+    pollTimer = null
+  }
 }
 
 function applyBackendRuntime(data) {
@@ -77,6 +117,9 @@ function applyBackendRuntime(data) {
   activeProfile.value = data.performance?.profile || 'balanced'
   effectiveLimits.value = data.performance || null
   runtimeError.value = ''
+  if (subscriberCount > 0) {
+    scheduleBackendRuntimePoll()
+  }
 }
 
 export function useBackendRuntime() {

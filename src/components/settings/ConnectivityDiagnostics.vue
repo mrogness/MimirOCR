@@ -84,7 +84,7 @@ function handleToggle(event) {
           <div><dt class="inline font-semibold">Uploads dir:</dt> <dd class="inline">{{ uploadsDir || 'unknown' }}</dd></div>
           <div><dt class="inline font-semibold">Output dir:</dt> <dd class="inline">{{ outputDir || 'unknown' }}</dd></div>
           <div><dt class="inline font-semibold">/health probe:</dt> <dd class="inline">{{ healthProbeSummary || 'not checked' }}</dd></div>
-          <div><dt class="inline font-semibold">/projects/ probe:</dt> <dd class="inline">{{ projectsProbeSummary || 'not checked' }}</dd></div>
+          <div><dt class="inline font-semibold">/system/runtime probe:</dt> <dd class="inline">{{ projectsProbeSummary || 'not checked' }}</dd></div>
         </dl>
 
         <p v-if="backendStartupIssue" class="mt-3 text-sm text-amber-700">

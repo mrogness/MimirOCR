@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { chmodSync, mkdirSync } from 'node:fs'
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
-import { commandExists, runCommand } from './lib/commands.mjs'
+import { runCommand } from './lib/commands.mjs'
 import {
   createPyInstallerArgs,
   defaultSidecarProfile,
@@ -18,7 +18,6 @@ import {
 import { scriptProjectRootFrom } from './lib/projectPaths.mjs'
 import {
   cleanPathIfExists,
-  createPosixLauncherSidecar,
   deduplicateTensorFlowBinary,
   runSidecarSmokeTestWithPolicy,
   sidecarExecutablePath,
@@ -26,6 +25,8 @@ import {
 } from './lib/sidecarBundle.mjs'
 
 const ROOT_DIR = scriptProjectRootFrom(import.meta.url)
+const SIDECAR_BUNDLE_NAME = 'backend-runtime'
+const SIDECAR_OUTPUT_DIR = path.join('src-tauri', 'resources')
 process.chdir(ROOT_DIR)
 
 function resolveKrakenBllaModelPath(python) {
@@ -44,68 +45,37 @@ function resolveKrakenBllaModelPath(python) {
   return result ? String(result.stdout || '').trim() : ''
 }
 
-function detectRustTargetTriple() {
-  if (!commandExists('rustc')) {
-    throw new Error('rustc is required to detect target triple')
-  }
-
-  const rustInfo = runCommand('rustc', ['-vV']).stdout || ''
-  const hostLine = rustInfo
-    .split(/\r?\n/)
-    .find((line) => line.toLowerCase().startsWith('host:'))
-  const targetTriple = hostLine?.split(':')[1]?.trim()
-
-  if (!targetTriple) {
-    throw new Error('Unable to detect Rust host target triple')
-  }
-
-  return targetTriple
+function cleanPreviousOutputs() {
+  mkdirSync(SIDECAR_OUTPUT_DIR, { recursive: true })
+  cleanPathIfExists(path.join(SIDECAR_OUTPUT_DIR, SIDECAR_BUNDLE_NAME))
+  cleanPathIfExists(
+    path.join(SIDECAR_OUTPUT_DIR, `${SIDECAR_BUNDLE_NAME}.exe`),
+  )
 }
 
-function cleanPreviousOutputs({ outDir, launcherName, bundleName, sentinelPath }) {
-  mkdirSync(outDir, { recursive: true })
-  cleanPathIfExists(path.join(outDir, bundleName))
-  cleanPathIfExists(path.join(outDir, `${bundleName}.exe`))
-  cleanPathIfExists(path.join(outDir, launcherName))
-  cleanPathIfExists(path.join(outDir, `${launcherName}.exe`))
-
-  // The sentinel remains until a real sidecar has been produced successfully.
-  void sentinelPath
-}
-
-function finalizeSidecar({
-  outDir,
-  launcherName,
-  bundleName,
-  sentinelPath,
-}) {
-  const sidecarRootDir = path.join(outDir, bundleName)
-  const executablePath = sidecarExecutablePath(outDir, bundleName)
+function finalizeSidecar() {
+  const sidecarRootDir = path.join(
+    SIDECAR_OUTPUT_DIR,
+    SIDECAR_BUNDLE_NAME,
+  )
+  const executablePath = sidecarExecutablePath(
+    SIDECAR_OUTPUT_DIR,
+    SIDECAR_BUNDLE_NAME,
+  )
 
   deduplicateTensorFlowBinary(sidecarRootDir)
 
-  if (process.platform === 'win32') {
-    runSidecarSmokeTestWithPolicy(executablePath)
-    cleanPathIfExists(sentinelPath)
-    console.log(`Built Windows onedir sidecar runtime at ${sidecarRootDir}`)
-    return
+  if (process.platform !== 'win32') {
+    chmodSync(executablePath, 0o755)
   }
 
-  chmodSync(executablePath, 0o755)
   runSidecarSmokeTestWithPolicy(executablePath)
   signSidecarIfNeeded(executablePath)
 
-  const launcherPath = createPosixLauncherSidecar(
-    outDir,
-    launcherName,
-    bundleName,
-  )
-  runSidecarSmokeTestWithPolicy(launcherPath)
-  cleanPathIfExists(sentinelPath)
+  // Keep the generated resource directory present in clean source checkouts.
+  writeFileSync(path.join(sidecarRootDir, '.gitkeep'), '', 'utf8')
 
-  console.log(
-    `Built launcher sidecar ${launcherPath} using in-bundle runtime directory ${sidecarRootDir}`,
-  )
+  console.log(`Built sidecar runtime at ${sidecarRootDir}`)
 }
 
 function main() {
@@ -125,12 +95,6 @@ function main() {
     console.log(`Using Python interpreter: ${pythonExecutable}`)
   }
 
-  const targetTriple = detectRustTargetTriple()
-  const outDir = path.join('src-tauri', 'binaries')
-  const launcherName = `backend-${targetTriple}`
-  const bundleName = `${launcherName}-bundle`
-  const sentinelPath = path.join(outDir, 'backend-sentinel')
-
   const calamariModelsSrc = path.join(
     ROOT_DIR,
     'backend',
@@ -139,18 +103,13 @@ function main() {
   )
   const krakenBllaModelSrc = resolveKrakenBllaModelPath(python)
 
-  cleanPreviousOutputs({
-    outDir,
-    launcherName,
-    bundleName,
-    sentinelPath,
-  })
+  cleanPreviousOutputs()
 
   const pyinstallerArgs = createPyInstallerArgs({
     profile,
     rootDir: ROOT_DIR,
-    outDir,
-    bundleName,
+    outDir: SIDECAR_OUTPUT_DIR,
+    bundleName: SIDECAR_BUNDLE_NAME,
     calamariModelsSrc,
     calamariModelsDest: path.join('backend', 'ml', 'calamari'),
     krakenBllaModelSrc,
@@ -164,16 +123,12 @@ function main() {
     { stdio: 'inherit' },
   )
 
-  finalizeSidecar({
-    outDir,
-    launcherName,
-    bundleName,
-    sentinelPath,
-  })
+  finalizeSidecar()
 
   console.log(
-    `Built onedir sidecar bundle in ${path.join(outDir, bundleName)} ` +
-      `(launcher: ${launcherName}, profile: ${profile})`,
+    `Built deterministic sidecar resource ` +
+      `${path.join(SIDECAR_OUTPUT_DIR, SIDECAR_BUNDLE_NAME)} ` +
+      `(profile: ${profile})`,
   )
 }
 

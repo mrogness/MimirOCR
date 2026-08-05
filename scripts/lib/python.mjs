@@ -1,32 +1,39 @@
-import path from 'node:path'
-
 import { commandExists, tryCommand } from './commands.mjs'
 
-function pythonCandidates(rootDir) {
-  const localVenvCandidates = process.platform === 'win32'
-    ? [
-        path.join(rootDir, '.venv', 'Scripts', 'python.exe'),
-        path.join(rootDir, 'venv', 'Scripts', 'python.exe'),
-      ]
-    : [
-        path.join(rootDir, '.venv', 'bin', 'python'),
-        path.join(rootDir, 'venv', 'bin', 'python'),
-      ]
+const DEFAULT_MACOS_PYTHON =
+  '/Users/matthew/personal-projects/fraktur/mimir-venv/venv/bin/python'
 
-  return [
-    ...localVenvCandidates.map((command) => ({
-      command,
+function pythonCandidates() {
+  const candidates = []
+  const configuredPython = String(process.env.MIMIR_PYTHON || '').trim()
+
+  if (configuredPython) {
+    candidates.push({
+      command: configuredPython,
       prefixArgs: [],
-      source: 'local-venv',
-    })),
-    { command: 'python', prefixArgs: [], source: 'PATH' },
-    { command: 'python3', prefixArgs: [], source: 'PATH' },
-    { command: 'py', prefixArgs: ['-3'], source: 'PATH' },
-  ]
+      source: 'MIMIR_PYTHON',
+    })
+  }
+
+  if (process.platform === 'darwin') {
+    candidates.push({
+      command: DEFAULT_MACOS_PYTHON,
+      prefixArgs: [],
+      source: 'macOS development venv',
+    })
+  }
+
+  candidates.push({
+    command: process.platform === 'win32' ? 'python' : 'python3',
+    prefixArgs: [],
+    source: 'platform PATH',
+  })
+
+  return candidates
 }
 
-export function resolvePython(rootDir) {
-  for (const candidate of pythonCandidates(rootDir)) {
+export function resolvePython(_rootDir) {
+  for (const candidate of pythonCandidates()) {
     if (commandExists(candidate.command, [...candidate.prefixArgs, '--version'])) {
       return candidate
     }
@@ -49,10 +56,6 @@ export function getPythonExecutable(python) {
 }
 
 export function resolvePyInstaller(python) {
-  if (commandExists('pyinstaller', ['--version'])) {
-    return { command: 'pyinstaller', prefixArgs: [] }
-  }
-
   if (!python) {
     return null
   }

@@ -1,14 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
 
 let cachedBackendUrl = ''
-
-function isTauriOrigin() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return window.location.protocol === 'tauri:'
-}
+let cachedBackendStatus = null
+let connectionPromise = null
+let connectionGeneration = 0
 
 function parsePortFromUrl(rawUrl) {
   if (!rawUrl) {
@@ -23,27 +18,16 @@ function parsePortFromUrl(rawUrl) {
   }
 }
 
-function alternateLoopbackUrl(rawUrl) {
-  if (!rawUrl) {
-    return ''
+function sleep(delayMs) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs))
+}
+
+function positiveInteger(value, fallback, minimum = 1) {
+  if (!Number.isFinite(value)) {
+    return fallback
   }
 
-  try {
-    const parsed = new URL(rawUrl)
-    if (parsed.hostname === '127.0.0.1') {
-      parsed.hostname = 'localhost'
-      return parsed.toString().replace(/\/$/, '')
-    }
-
-    if (parsed.hostname === 'localhost') {
-      parsed.hostname = '127.0.0.1'
-      return parsed.toString().replace(/\/$/, '')
-    }
-
-    return ''
-  } catch (_err) {
-    return ''
-  }
+  return Math.max(minimum, Number.parseInt(value, 10))
 }
 
 async function probeEndpoint(url, path, timeoutMs = 2500) {
@@ -61,7 +45,10 @@ async function probeEndpoint(url, path, timeoutMs = 2500) {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const response = await fetch(`${url}${path}`, { signal: controller.signal })
+    const response = await fetch(`${url}${path}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
     return {
       ok: response.ok,
       status: String(response.status),
@@ -70,32 +57,12 @@ async function probeEndpoint(url, path, timeoutMs = 2500) {
       noCorsReachable: false,
     }
   } catch (error) {
-    let noCorsReachable = false
-
-    // If a normal CORS fetch fails with TypeError, check whether transport still
-    // reaches localhost by using a no-cors request (opaque response expected).
-    if (error instanceof TypeError) {
-      const noCorsController = new AbortController()
-      const noCorsTimeoutId = setTimeout(() => noCorsController.abort(), timeoutMs)
-      try {
-        await fetch(`${url}${path}`, {
-          mode: 'no-cors',
-          signal: noCorsController.signal,
-        })
-        noCorsReachable = true
-      } catch (_noCorsError) {
-        noCorsReachable = false
-      } finally {
-        clearTimeout(noCorsTimeoutId)
-      }
-    }
-
     return {
       ok: false,
       status: 'error',
       elapsedMs: Math.round(performance.now() - start),
       error: String(error),
-      noCorsReachable,
+      noCorsReachable: false,
     }
   } finally {
     clearTimeout(timeoutId)
@@ -119,21 +86,87 @@ async function invokeWithTimeout(command, args = {}, timeoutMs = 1800) {
   }
 }
 
-async function waitForHealth(url, attempts = 40, delayMs = 250) {
-  for (let i = 0; i < attempts; i += 1) {
+async function waitForRuntimeEndpoint(url, attempts, delayMs) {
+  let lastError = null
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const response = await fetch(`${url}/health`)
+      const response = await fetch(`${url}/system/runtime`, {
+        cache: 'no-store',
+      })
       if (response.ok) {
-        return true
+        return
       }
-    } catch (_err) {
-      // Backend may still be starting.
+      lastError = new Error(`Backend runtime check failed (${response.status})`)
+    } catch (error) {
+      lastError = error
     }
 
-    await new Promise((resolve) => setTimeout(resolve, delayMs))
+    if (attempt < attempts - 1) {
+      await sleep(delayMs)
+    }
   }
 
-  return false
+  const detail = lastError ? ` Last error: ${lastError}` : ''
+  throw new Error(`Backend runtime endpoint did not become ready.${detail}`)
+}
+
+async function resolveBackendConnection({
+  forceRefresh = false,
+  waitUntilReady = true,
+  readinessAttempts = 40,
+  readinessDelayMs = 250,
+} = {}) {
+  if (!forceRefresh && cachedBackendUrl) {
+    return {
+      baseUrl: cachedBackendUrl,
+      status: cachedBackendStatus,
+    }
+  }
+
+  if (!forceRefresh && connectionPromise) {
+    return connectionPromise
+  }
+
+  const generation = connectionGeneration
+  const pending = (async () => {
+    const status = await invokeWithTimeout('backend_status')
+    const url = typeof status?.url === 'string' ? status.url.trim() : ''
+
+    if (!url) {
+      const detail = status?.startup_error ? ` Details: ${status.startup_error}` : ''
+      throw new Error(`Backend URL is unavailable.${detail}`)
+    }
+
+    if (waitUntilReady) {
+      await waitForRuntimeEndpoint(
+        url,
+        positiveInteger(readinessAttempts, 40),
+        positiveInteger(readinessDelayMs, 250, 50),
+      )
+    }
+
+    if (generation !== connectionGeneration) {
+      throw new Error('Backend connection changed while it was being resolved.')
+    }
+
+    cachedBackendUrl = url
+    cachedBackendStatus = status
+    return {
+      baseUrl: url,
+      status,
+    }
+  })()
+
+  connectionPromise = pending
+
+  try {
+    return await pending
+  } finally {
+    if (connectionPromise === pending) {
+      connectionPromise = null
+    }
+  }
 }
 
 export async function getBackendStartupIssue() {
@@ -146,116 +179,31 @@ export async function getBackendStartupIssue() {
 }
 
 export async function getBackendBaseUrl(options = {}) {
-  const allowUnhealthyUrl = options.allowUnhealthyUrl !== false
-  const healthAttempts = Number.isFinite(options.healthAttempts)
-    ? Math.max(1, Number.parseInt(options.healthAttempts, 10))
-    : 40
-  const healthDelayMs = Number.isFinite(options.healthDelayMs)
-    ? Math.max(50, Number.parseInt(options.healthDelayMs, 10))
-    : 250
-  const tauriOrigin = isTauriOrigin()
-  let tauriStatusError = ''
-  let statusLookupFailed = false
-
-  try {
-    const status = await invokeWithTimeout('backend_status')
-    const url = status?.url
-    const startupError = status?.startup_error
-
-    if (typeof url === 'string' && url.length > 0) {
-      cachedBackendUrl = url
-      const healthy = await waitForHealth(url, healthAttempts, healthDelayMs)
-      if (healthy) {
-        return url
-      }
-
-      const alternateUrl = tauriOrigin ? '' : alternateLoopbackUrl(url)
-      if (alternateUrl) {
-        const alternateHealthy = await waitForHealth(
-          alternateUrl,
-          Math.min(8, healthAttempts),
-          healthDelayMs
-        )
-        if (alternateHealthy) {
-          cachedBackendUrl = alternateUrl
-          return alternateUrl
-        }
-      }
-
-      if (allowUnhealthyUrl) {
-        // If a URL was provided by Tauri, keep using it even if health is slow
-        // under heavy OCR load. Endpoint-specific calls can still report failures.
-        return url
-      }
-    }
-
-    if (startupError) {
-      tauriStatusError = startupError
-    }
-  } catch (err) {
-    statusLookupFailed = true
-    console.warn('backend_status command unavailable', err)
-  }
-
-  if (cachedBackendUrl) {
-    const cachedHealthy = await waitForHealth(cachedBackendUrl, Math.min(3, healthAttempts), healthDelayMs)
-    if (cachedHealthy) {
-      return cachedBackendUrl
-    }
-    cachedBackendUrl = ''
-  }
-
-  if (statusLookupFailed) {
-    throw new Error("Backend status is unavailable. Start the app with 'yarn tauri dev'.")
-  }
-
-  const detail = tauriStatusError ? ` Details: ${tauriStatusError}` : ''
-  throw new Error(
-    `Backend is not reachable. Start the app with 'yarn tauri dev' or run FastAPI manually.${detail}`
-  )
+  const readinessAttempts = options.readinessAttempts ?? options.healthAttempts
+  const readinessDelayMs = options.readinessDelayMs ?? options.healthDelayMs
+  const connection = await resolveBackendConnection({
+    forceRefresh: options.forceRefresh === true,
+    waitUntilReady: options.waitUntilReady !== false,
+    readinessAttempts: positiveInteger(readinessAttempts, 40),
+    readinessDelayMs: positiveInteger(readinessDelayMs, 250, 50),
+  })
+  return connection.baseUrl
 }
 
 export async function backendFetch(path, init = {}, options = {}) {
-  const retries = Number.isFinite(options.retries) ? options.retries : 1
-  const healthAttempts = Number.isFinite(options.healthAttempts)
-    ? Math.max(1, Number.parseInt(options.healthAttempts, 10))
-    : 4
-  const healthDelayMs = Number.isFinite(options.healthDelayMs)
-    ? Math.max(50, Number.parseInt(options.healthDelayMs, 10))
-    : 150
-  const tauriOrigin = isTauriOrigin()
-
+  const retries = positiveInteger(options.retries, 1, 0)
   let lastError = null
+
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      const backendBaseUrl = await getBackendBaseUrl({
-        allowUnhealthyUrl: false,
-        healthAttempts,
-        healthDelayMs,
-      })
-      try {
-        return await fetch(`${backendBaseUrl}${path}`, init)
-      } catch (error) {
-        if (!(error instanceof TypeError)) {
-          throw error
-        }
-
-        if (tauriOrigin) {
-          throw error
-        }
-
-        const alternateUrl = alternateLoopbackUrl(backendBaseUrl)
-        if (!alternateUrl) {
-          throw error
-        }
-
-        return await fetch(`${alternateUrl}${path}`, init)
-      }
+      const backendBaseUrl = await getBackendBaseUrl()
+      return await fetch(`${backendBaseUrl}${path}`, init)
     } catch (error) {
       lastError = error
-      const canRetry = error instanceof TypeError && attempt < retries
-      if (!canRetry) {
-        if (error instanceof TypeError) {
+      const isTransportFailure = error instanceof TypeError
+
+      if (!isTransportFailure || attempt >= retries) {
+        if (isTransportFailure) {
           const startupIssue = await getBackendStartupIssue()
           const detail = startupIssue ? ` Startup issue: ${startupIssue}` : ''
           throw new Error(`Unable to reach backend endpoint '${path}'.${detail}`)
@@ -263,7 +211,7 @@ export async function backendFetch(path, init = {}, options = {}) {
         throw error
       }
 
-      cachedBackendUrl = ''
+      invalidateBackendConnection()
     }
   }
 
@@ -274,55 +222,27 @@ export async function getBackendConnectionDiagnostics() {
   const frontendOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const frontendPort = parsePortFromUrl(frontendOrigin)
 
-  let backendStatusUrl = ''
-  let backendBaseUrl = ''
+  let status = null
   let startupError = ''
-  let backendMode = ''
-  let backendRuntime = ''
-  let sidecarSelectedPath = ''
-  let sidecarCheckedPaths = []
-  let sidecarLogPath = ''
-  let appDataDir = ''
-  let cacheDir = ''
-  let tempDir = ''
-  let dbPath = ''
-  let uploadsDir = ''
-  let outputDir = ''
-  let uptimeSeconds = null
 
   try {
-    const status = await invokeWithTimeout('backend_status', {}, 1800)
-    backendStatusUrl = typeof status?.url === 'string' ? status.url : ''
-    startupError = status?.startup_error || ''
-    backendMode = status?.backend_mode || ''
-    backendRuntime = status?.backend_runtime || ''
-    sidecarSelectedPath = status?.sidecar_selected_path || ''
-    sidecarCheckedPaths = Array.isArray(status?.sidecar_checked_paths) ? status.sidecar_checked_paths : []
-    sidecarLogPath = status?.sidecar_log_path || ''
-    appDataDir = status?.app_data_dir || ''
-    cacheDir = status?.cache_dir || ''
-    tempDir = status?.temp_dir || ''
-    dbPath = status?.db_path || ''
-    uploadsDir = status?.uploads_dir || ''
-    outputDir = status?.output_dir || ''
-    const parsedUptime = Number(status?.uptime_seconds)
-    uptimeSeconds = Number.isFinite(parsedUptime) ? parsedUptime : null
+    status = await invokeWithTimeout('backend_status', {}, 1800)
   } catch (error) {
     startupError = String(error)
   }
 
-  try {
-    backendBaseUrl = await getBackendBaseUrl({ allowUnhealthyUrl: true })
-  } catch (_err) {
-    // Keep diagnostics best-effort; use backend_status URL if available.
-  }
-
+  const backendStatusUrl = typeof status?.url === 'string' ? status.url : ''
+  const backendBaseUrl = cachedBackendUrl || backendStatusUrl
   const chosenBackendUrl = backendBaseUrl || backendStatusUrl
   const backendPort = parsePortFromUrl(chosenBackendUrl)
 
+  if (!startupError) {
+    startupError = status?.startup_error || ''
+  }
+
   const [health, projects] = await Promise.all([
     probeEndpoint(chosenBackendUrl, '/health'),
-    probeEndpoint(chosenBackendUrl, '/projects/'),
+    probeEndpoint(chosenBackendUrl, '/system/runtime'),
   ])
 
   return {
@@ -333,26 +253,35 @@ export async function getBackendConnectionDiagnostics() {
     chosenBackendUrl,
     backendPort,
     startupError,
-    backendMode,
-    backendRuntime,
-    sidecarSelectedPath,
-    sidecarCheckedPaths,
-    sidecarLogPath,
-    appDataDir,
-    cacheDir,
-    tempDir,
-    dbPath,
-    uploadsDir,
-    outputDir,
-    uptimeSeconds,
+    backendMode: status?.backend_mode || '',
+    backendRuntime: status?.backend_runtime || '',
+    sidecarSelectedPath: status?.sidecar_selected_path || '',
+    sidecarCheckedPaths: Array.isArray(status?.sidecar_checked_paths)
+      ? status.sidecar_checked_paths
+      : [],
+    sidecarLogPath: status?.sidecar_log_path || '',
+    appDataDir: status?.app_data_dir || '',
+    cacheDir: status?.cache_dir || '',
+    tempDir: status?.temp_dir || '',
+    dbPath: status?.db_path || '',
+    uploadsDir: status?.uploads_dir || '',
+    outputDir: status?.output_dir || '',
+    uptimeSeconds:
+      status?.uptime_seconds != null &&
+      Number.isFinite(Number(status.uptime_seconds))
+        ? Number(status.uptime_seconds)
+        : null,
     health,
+    // Retain the existing diagnostics field name for UI compatibility.
     projects,
   }
 }
 
-// MIMIR_PERFORMANCE_PROFILE_REFACTOR
 export function invalidateBackendConnection() {
+  connectionGeneration += 1
   cachedBackendUrl = ''
+  cachedBackendStatus = null
+  connectionPromise = null
 }
 
 export function isTauriRuntime() {
@@ -377,31 +306,43 @@ export async function waitForBackendRuntime({
 }) {
   invalidateBackendConnection()
   let lastError = null
+  let baseUrl = ''
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const baseUrl = await getBackendBaseUrl({
-        allowUnhealthyUrl: false,
-        healthAttempts: 2,
-        healthDelayMs: 100,
+      if (!baseUrl) {
+        baseUrl = await getBackendBaseUrl({
+          forceRefresh: true,
+          waitUntilReady: false,
+        })
+      }
+
+      const response = await fetch(`${baseUrl}/system/runtime`, {
+        cache: 'no-store',
       })
-      const response = await fetch(`${baseUrl}/system/runtime`)
       if (!response.ok) {
         throw new Error(`Backend runtime check failed (${response.status})`)
       }
+
       const runtime = await response.json()
-      const instanceChanged = !previousInstanceId || runtime.backend_instance_id !== previousInstanceId
+      const instanceChanged =
+        !previousInstanceId || runtime.backend_instance_id !== previousInstanceId
       const profileMatches = runtime.performance?.profile === expectedProfile
+
       if (instanceChanged && profileMatches) {
         return runtime
       }
     } catch (error) {
       lastError = error
-      invalidateBackendConnection()
     }
-    await new Promise((resolve) => setTimeout(resolve, delayMs))
+
+    await sleep(delayMs)
   }
 
+  const startupIssue = await getBackendStartupIssue()
+  const startupDetail = startupIssue ? ` Startup issue: ${startupIssue}` : ''
   const detail = lastError ? ` Last error: ${lastError}` : ''
-  throw new Error(`The backend did not reconnect with the ${expectedProfile} profile.${detail}`)
+  throw new Error(
+    `The backend did not reconnect with the ${expectedProfile} profile.${detail}${startupDetail}`,
+  )
 }
