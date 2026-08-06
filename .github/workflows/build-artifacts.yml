@@ -78,7 +78,7 @@ jobs:
           APP_DIR="$(find src-tauri/target/release/bundle/macos \
             -maxdepth 1 -type d -name '*.app' | head -n 1)"
 
-          INTERNAL="$APP_DIR/Contents/Resources/binaries/backend-aarch64-apple-darwin-bundle/_internal"
+          INTERNAL="$APP_DIR/Contents/Resources/backend-runtime/_internal"
 
           rm -f "$INTERNAL/_pywrap_tensorflow_internal.so"
 
@@ -249,14 +249,6 @@ jobs:
 
           yarn build:sidecar
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Inspect Windows sidecar artifacts before Tauri build
-        shell: pwsh
-        run: |
-          Write-Host "Listing src-tauri/binaries"
-          Get-ChildItem -Path "src-tauri/binaries" -Force
-          Write-Host "Listing nested sidecar payload files"
-          Get-ChildItem -Path "src-tauri/binaries" -Recurse -File | Select-Object -ExpandProperty FullName
 
       - name: Build unsigned Windows installer
         shell: pwsh
