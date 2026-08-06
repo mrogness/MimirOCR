@@ -1,10 +1,13 @@
+import path from 'node:path'
+
 import { commandExists, tryCommand } from './commands.mjs'
 
 const DEFAULT_MACOS_PYTHON =
   '/Users/matthew/personal-projects/fraktur/mimir-venv/venv/bin/python'
 
-function pythonCandidates() {
+function pythonCandidates(rootDir) {
   const candidates = []
+
   const configuredPython = String(process.env.MIMIR_PYTHON || '').trim()
 
   if (configuredPython) {
@@ -14,6 +17,17 @@ function pythonCandidates() {
       source: 'MIMIR_PYTHON',
     })
   }
+
+  const projectVenvPython =
+    process.platform === 'win32'
+      ? path.join(rootDir, '.venv', 'Scripts', 'python.exe')
+      : path.join(rootDir, '.venv', 'bin', 'python')
+
+  candidates.push({
+    command: projectVenvPython,
+    prefixArgs: [],
+    source: 'project .venv',
+  })
 
   if (process.platform === 'darwin') {
     candidates.push({
@@ -32,41 +46,17 @@ function pythonCandidates() {
   return candidates
 }
 
-export function resolvePython(_rootDir) {
-  for (const candidate of pythonCandidates()) {
-    if (commandExists(candidate.command, [...candidate.prefixArgs, '--version'])) {
+export function resolvePython(rootDir) {
+  for (const candidate of pythonCandidates(rootDir)) {
+    if (
+      commandExists(candidate.command, [
+        ...candidate.prefixArgs,
+        '--version',
+      ])
+    ) {
       return candidate
     }
   }
 
   return null
-}
-
-export function runPython(python, args, options = {}) {
-  return tryCommand(
-    python.command,
-    [...python.prefixArgs, ...args],
-    options,
-  )
-}
-
-export function getPythonExecutable(python) {
-  const result = runPython(python, ['-c', 'import sys; print(sys.executable)'])
-  return result ? String(result.stdout || '').trim() || null : null
-}
-
-export function resolvePyInstaller(python) {
-  if (!python) {
-    return null
-  }
-
-  const result = runPython(python, ['-m', 'PyInstaller', '--version'])
-  if (!result) {
-    return null
-  }
-
-  return {
-    command: python.command,
-    prefixArgs: [...python.prefixArgs, '-m', 'PyInstaller'],
-  }
 }

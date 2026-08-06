@@ -61,6 +61,8 @@ jobs:
           ./.venv/bin/python -c "import kraken, calamari_ocr, uvicorn; print('python sidecar deps ok')"
 
       - name: Build macOS sidecar
+        env:
+          MIMIR_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
           yarn sidecar:preflight
           yarn build:sidecar
@@ -239,9 +241,14 @@ jobs:
 
       - name: Build Windows sidecar
         shell: pwsh
+        env:
+          MIMIR_PYTHON: ${{ github.workspace }}/.venv/Scripts/python.exe
         run: |
           yarn sidecar:preflight
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
           yarn build:sidecar
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Inspect Windows sidecar artifacts before Tauri build
         shell: pwsh
