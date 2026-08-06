@@ -60,3 +60,47 @@ export function resolvePython(rootDir) {
 
   return null
 }
+
+export function runPython(python, args, options = {}) {
+  return tryCommand(
+    python.command,
+    [...python.prefixArgs, ...args],
+    options,
+  )
+}
+
+export function getPythonExecutable(python) {
+  const result = runPython(python, [
+    '-c',
+    'import sys; print(sys.executable)',
+  ])
+
+  return result
+    ? String(result.stdout || '').trim() || null
+    : null
+}
+
+export function resolvePyInstaller(python) {
+  if (!python) {
+    return null
+  }
+
+  const result = runPython(python, [
+    '-m',
+    'PyInstaller',
+    '--version',
+  ])
+
+  if (!result) {
+    return null
+  }
+
+  return {
+    command: python.command,
+    prefixArgs: [
+      ...python.prefixArgs,
+      '-m',
+      'PyInstaller',
+    ],
+  }
+}
