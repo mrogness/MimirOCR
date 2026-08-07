@@ -110,6 +110,7 @@ export function useProjectsView({ route, router, backendFetch }) {
     dpiInput: uploadActions.dpiInput,
     thresholdInput: uploadActions.thresholdInput,
     strictTopToBottom: uploadActions.strictTopToBottom,
+    ijDisambiguation: uploadActions.ijDisambiguation,
     spreadMode: uploadActions.spreadMode,
     ocrPhase: runtime.ocrPhase,
     ocrProgress: runtime.ocrProgress,

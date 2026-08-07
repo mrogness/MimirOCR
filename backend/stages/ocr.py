@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 from backend.models.page import Page
 from backend.models.project_config import ProjectConfig
+from backend.services.ij_disambiguation import disambiguate_ij_text
 
 
 CALAMARI_LINE_SIDE_PADDING_PX = 16.0
@@ -67,7 +68,12 @@ def create_predictor(config: ProjectConfig):
     return predictor
 
 
-def ocr_with_predictor(page: Page, predictor: object) -> Page:
+def ocr_with_predictor(
+    page: Page,
+    predictor: object,
+    *,
+    disambiguate_ij: bool = True,
+) -> Page:
     if not page.lines:
         return page
 
@@ -75,7 +81,8 @@ def ocr_with_predictor(page: Page, predictor: object) -> Page:
     samples = predictor.predict_raw(_line_generator(page))
     for line, sample in zip(page.lines, samples):
         outputs = sample.outputs
-        line.ocr_text = outputs.sentence
+        raw_text = outputs.sentence
+        line.ocr_text = disambiguate_ij_text(raw_text) if disambiguate_ij else raw_text
         line.confidence = _extract_line_confidence(outputs)
         line.char_positions = _extract_char_positions(outputs)
         line.char_confidence = _extract_char_confidence(outputs)
@@ -419,7 +426,11 @@ def _coerce_confidence_sequence(value: Any) -> Optional[List[float]]:
 
 def ocr(page: Page, config: ProjectConfig) -> Page:
     predictor = create_predictor(config)
-    return ocr_with_predictor(page, predictor)
+    return ocr_with_predictor(
+        page,
+        predictor,
+        disambiguate_ij=config.ocr.disambiguate_ij,
+    )
 
 
 def ocr_pages(
@@ -434,7 +445,13 @@ def ocr_pages(
     total = len(pages)
     output: List[Page] = []
     for idx, page in enumerate(pages, start=1):
-        output.append(ocr_with_predictor(page, predictor))
+        output.append(
+            ocr_with_predictor(
+                page,
+                predictor,
+                disambiguate_ij=config.ocr.disambiguate_ij,
+            )
+        )
         if on_page_done:
             on_page_done(idx, total)
 
@@ -527,4 +544,3 @@ def _configure_runtime_threads(max_threads: int) -> None:
             pass
     except ImportError:
         pass
-            

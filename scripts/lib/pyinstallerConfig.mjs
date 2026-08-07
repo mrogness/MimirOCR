@@ -73,6 +73,8 @@ export function createPyInstallerArgs({
   bundleName,
   calamariModelsSrc,
   calamariModelsDest,
+  ijLexiconSrc,
+  ijLexiconDest,
   krakenBllaModelSrc,
   krakenBllaModelDest,
 }) {
@@ -106,6 +108,9 @@ export function createPyInstallerArgs({
 
     '--add-data',
     `${calamariModelsSrc}${dataSeparator}${calamariModelsDest}`,
+
+    '--add-data',
+    `${ijLexiconSrc}${dataSeparator}${ijLexiconDest}`,
 
     ...(krakenBllaModelSrc
       ? [

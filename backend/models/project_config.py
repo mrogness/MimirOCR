@@ -16,6 +16,7 @@ class SegmentationConfig(BaseModel):
 
 class OCRConfig(BaseModel):
     model_path: str = "backend/ml/calamari/r10.ckpt"
+    disambiguate_ij: bool = True
     
 class ProjectConfig(BaseModel):
     #general settings
@@ -36,5 +37,3 @@ class ProjectConfig(BaseModel):
     
     #ocr settings
     ocr: OCRConfig = OCRConfig()
-    
-    

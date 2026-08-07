@@ -29,6 +29,7 @@ const {
   dpiInput,
   thresholdInput,
   strictTopToBottom,
+  ijDisambiguation,
   spreadMode,
   ocrPhase,
   ocrProgress,
@@ -209,10 +210,12 @@ onBeforeUnmount(() => {
                   :threshold-input="thresholdInput"
                   :spread-mode="spreadMode"
                   :strict-top-to-bottom="strictTopToBottom"
+                  :ij-disambiguation="ijDisambiguation"
                   @update:dpi-input="dpiInput = $event"
                   @update:threshold-input="thresholdInput = $event"
                   @update:spread-mode="spreadMode = $event"
                   @update:strict-top-to-bottom="strictTopToBottom = $event"
+                  @update:ij-disambiguation="ijDisambiguation = $event"
                 />
               </section>
             </template>

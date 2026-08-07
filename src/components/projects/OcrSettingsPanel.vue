@@ -9,6 +9,7 @@ defineProps({
   thresholdInput: { type: [String, Number], default: '170' },
   spreadMode: { type: String, default: 'split-spread' },
   strictTopToBottom: { type: Boolean, default: false },
+  ijDisambiguation: { type: Boolean, default: true },
 })
 
 const emit = defineEmits([
@@ -16,6 +17,7 @@ const emit = defineEmits([
   'update:threshold-input',
   'update:spread-mode',
   'update:strict-top-to-bottom',
+  'update:ij-disambiguation',
 ])
 </script>
 
@@ -144,6 +146,21 @@ const emit = defineEmits([
           />
           Strict top-to-bottom line sorting
         </label>
+      </div>
+
+      <div class="sm:col-span-2">
+        <label class="flex items-center gap-2 text-sm text-brand-700">
+          <input
+            :checked="ijDisambiguation"
+            type="checkbox"
+            @change="emit('update:ij-disambiguation', $event.target.checked)"
+          />
+          Resolve ambiguous Fraktur I/J using bundled lexicon
+        </label>
+        <p class="mt-1 text-xs text-brand-500">
+          Changes an OCR capital I to I or J only when exactly one spelling exists in the bundled Dano-Norwegian
+          lexicon. Ambiguous and unknown words are left unchanged for review.
+        </p>
       </div>
     </div>
   </div>

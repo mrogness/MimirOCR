@@ -129,6 +129,7 @@ class OCRConfigOverride(BaseModel):
     device: str | None = None
     ocr_model_path: str | None = None
     strict_top_to_bottom: bool | None = None
+    disambiguate_ij: bool | None = None
 
 
 class OcrJobStartRequest(BaseModel):

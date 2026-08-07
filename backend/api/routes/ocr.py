@@ -95,6 +95,8 @@ def _run_ocr_job(
             config.ingestion.binarization_threshold = request_config.binarization_threshold
         if request_config.ocr_model_path is not None:
             config.ocr.model_path = request_config.ocr_model_path
+        if request_config.disambiguate_ij is not None:
+            config.ocr.disambiguate_ij = request_config.disambiguate_ij
         if request_config.strict_top_to_bottom is not None:
             config.segmentation.strict_top_to_bottom = request_config.strict_top_to_bottom
 

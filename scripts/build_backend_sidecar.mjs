@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -62,6 +62,17 @@ function finalizeSidecar() {
     SIDECAR_OUTPUT_DIR,
     SIDECAR_BUNDLE_NAME,
   )
+  const bundledIjLexiconPath = path.join(
+    sidecarRootDir,
+    '_internal',
+    'backend',
+    'resources',
+    'fraktur_ij_lexicon.txt',
+  )
+
+  if (!existsSync(bundledIjLexiconPath)) {
+    throw new Error(`Bundled Fraktur I/J lexicon is missing: ${bundledIjLexiconPath}`)
+  }
 
   deduplicateTensorFlowBinary(sidecarRootDir)
 
@@ -101,6 +112,12 @@ function main() {
     'ml',
     'calamari',
   )
+  const ijLexiconSrc = path.join(
+    ROOT_DIR,
+    'backend',
+    'resources',
+    'fraktur_ij_lexicon.txt',
+  )
   const krakenBllaModelSrc = resolveKrakenBllaModelPath(python)
 
   cleanPreviousOutputs()
@@ -112,6 +129,8 @@ function main() {
     bundleName: SIDECAR_BUNDLE_NAME,
     calamariModelsSrc,
     calamariModelsDest: path.join('backend', 'ml', 'calamari'),
+    ijLexiconSrc,
+    ijLexiconDest: path.join('backend', 'resources'),
     krakenBllaModelSrc,
     krakenBllaModelDest: 'kraken',
   })

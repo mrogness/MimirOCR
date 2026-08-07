@@ -32,6 +32,7 @@ export function useProjectsUploadActions({
   const dpiInput = ref('300')
   const thresholdInput = ref('170')
   const strictTopToBottom = ref(false)
+  const ijDisambiguation = ref(true)
   const spreadMode = ref('split-spread')
 
   const isAnalyzingDpi = ref(false)
@@ -51,6 +52,7 @@ export function useProjectsUploadActions({
     thresholdInput.value = String(settings.binarizationThreshold)
     spreadMode.value = settings.spreadMode
     strictTopToBottom.value = settings.strictTopToBottom === true
+    ijDisambiguation.value = settings.ijDisambiguation !== false
   }
 
   function persistProjectScopedSettings() {
@@ -60,11 +62,15 @@ export function useProjectsUploadActions({
       binarizationThreshold: toPositiveInteger(thresholdInput.value, 170),
       spreadMode: spreadMode.value,
       strictTopToBottom: strictTopToBottom.value,
+      ijDisambiguation: ijDisambiguation.value,
     })
   }
 
   watch(() => project.value?.id, loadProjectScopedSettings, { immediate: true })
-  watch([dpiInput, thresholdInput, spreadMode, strictTopToBottom], persistProjectScopedSettings)
+  watch(
+    [dpiInput, thresholdInput, spreadMode, strictTopToBottom, ijDisambiguation],
+    persistProjectScopedSettings,
+  )
   watch(selectedPdf, (file) => {
     void analyzeSelectedPdf(file)
   })
@@ -200,6 +206,7 @@ export function useProjectsUploadActions({
             dpi: toPositiveInteger(dpiInput.value, 300),
             binarization_threshold: toPositiveInteger(thresholdInput.value, 170),
             strict_top_to_bottom: strictTopToBottom.value,
+            disambiguate_ij: ijDisambiguation.value,
           },
         }),
       })
@@ -235,6 +242,7 @@ export function useProjectsUploadActions({
     dpiInput,
     thresholdInput,
     strictTopToBottom,
+    ijDisambiguation,
     spreadMode,
     onPdfSelected,
     uploadPdfAndStartOcr,

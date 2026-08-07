@@ -73,6 +73,7 @@ function defaultProjectSettings() {
     binarizationThreshold: 170,
     spreadMode: 'split-spread',
     strictTopToBottom: false,
+    ijDisambiguation: true,
   }
 }
 
@@ -95,6 +96,7 @@ export function getProjectSettings(projectId) {
       ),
       spreadMode: parsed.spreadMode === 'single' ? 'single' : 'split-spread',
       strictTopToBottom: parsed.strictTopToBottom === true,
+      ijDisambiguation: parsed.ijDisambiguation !== false,
     }
   } catch (_error) {
     return defaults
@@ -112,6 +114,7 @@ export function saveProjectSettings(projectId, nextSettings) {
   safe.binarizationThreshold = toPositiveInt(safe.binarizationThreshold, 170)
   safe.spreadMode = safe.spreadMode === 'single' ? 'single' : 'split-spread'
   safe.strictTopToBottom = safe.strictTopToBottom === true
+  safe.ijDisambiguation = safe.ijDisambiguation !== false
   if (key) localStorage.setItem(key, JSON.stringify(safe))
   return safe
 }

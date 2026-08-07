@@ -164,10 +164,6 @@ const {
         </SettingRow>
       </SettingsSection>
 
-      <SettingsSection title="Storage" description="Manage application and output locations.">
-        <!-- Future storage settings -->
-      </SettingsSection>
-
       <p v-if="settingsError" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
         {{ settingsError }}
       </p>

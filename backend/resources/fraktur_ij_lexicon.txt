@@ -1,0 +1,59 @@
+# Small Dano-Norwegian starter lexicon for Fraktur capital I/J disambiguation.
+# One word per line. Matching is Unicode-aware and case-insensitive.
+# Keep both I- and J-initial words here so genuine lexical ambiguity remains unchanged.
+
+# I words
+i
+iblandt
+ibsen
+idet
+ifølge
+igaar
+igen
+igennem
+ikke
+ild
+imellem
+imidlertid
+imod
+ind
+inden
+indenfor
+ingen
+ingenlunde
+intet
+island
+israel
+italien
+iver
+
+# J words
+ja
+januar
+jeg
+jens
+jer
+jeres
+jern
+jernbane
+jesu
+jesus
+jo
+johan
+johannes
+jomfru
+jord
+jorden
+jordens
+jul
+julen
+juli
+juni
+just
+jylland
+jæger
+jævn
+jøde
+jøder
+jødisk
+jørgen
