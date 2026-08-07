@@ -45,10 +45,10 @@ const emit = defineEmits(['open-review'])
         :disabled="!canOpenReview"
         @click="emit('open-review')"
       >
-        Open OCR Review
+        Open Output Review
       </button>
       <p v-if="!canOpenReview" class="mt-1 text-xs text-brand-500">
-        OCR review is available after at least one successful OCR run.
+        Output review is available after at least one successful OCR run.
       </p>
     </div>
   </section>
