@@ -158,3 +158,15 @@ body,
 	height: 100%;
 	overflow: hidden;
 }
+
+@font-face {
+  font-family: "MimirFraktur";
+  src: url("../fonts/ChursaechsischeFraktur.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-fraktur {
+  font-family: "MimirFraktur", "Times New Roman", serif;
+}

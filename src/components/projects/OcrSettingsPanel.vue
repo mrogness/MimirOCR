@@ -131,8 +131,8 @@ const emit = defineEmits([
             intro="When enabled, Mimir will attempt to resolve ambiguous Fraktur I/J characters using a lexicon."
             link-href="/info#I-J-Disambiguation" link-label="More details in Info" trigger-text="?">
             <p>
-              This option can improve OCR accuracy for texts that use the Fraktur script, where the letters I and J
-              can be difficult to distinguish. When enabled, Mimir will use a lexicon to help determine the correct
+              This option can improve OCR accuracy for input texts. To address the fraktur convention that I and J
+              are visually identical. When enabled, Mimir will use a lexicon to help determine the correct
               character based on context. Does not solve all I/J ambiguities, but can improve results for some texts.
             </p>
           </AppHelp>

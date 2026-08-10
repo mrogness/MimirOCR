@@ -57,7 +57,7 @@ def _pdf_export_filename(project_name: str) -> str:
     base = re.sub(r"\s+", "_", (project_name or "").strip())
     base = re.sub(r"[^a-zA-Z0-9_-]+", "", base)
     base = base.strip("_")
-    return f"{base or 'project'}.pdf"
+    return f"{base or 'project'}_export.pdf"
 
 
 def _line_training_text(line) -> str:
@@ -471,7 +471,7 @@ def _export_project_pdf_impl(
             page_size=page_size,
             margin=margin,
         )
-        filename = _pdf_export_filename(project.name)
+        filename = _pdf_export_filename(str(project.name or ""))
         return StreamingResponse(
             pdf_buffer,
             media_type="application/pdf",
@@ -512,7 +512,7 @@ def _export_project_pdf_impl(
     pdf.save()
     pdf_buffer.seek(0)
 
-    filename = _pdf_export_filename(project.name)
+    filename = _pdf_export_filename(str(project.name or ""))
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",
@@ -550,7 +550,7 @@ def export_project_training_data(project_id: int, db: Session = Depends(get_db))
 
     archive_buffer = BytesIO()
     exported_pairs = 0
-    project_slug = _slugify(project.name)
+    project_slug = _slugify(str(project.name or ""))
     root_dir = f"project_{project_id}_{project_slug}"
 
     with zipfile.ZipFile(archive_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
