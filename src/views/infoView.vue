@@ -14,6 +14,6 @@ import CompareCharacters from '../components/help/CompareCharacters.vue'
     </header>
 
     <FrakturCharacterGuide />
-    <CompareCharacters :character-pair="['f','ſ']"/>
+    <CompareCharacters/>
   </div>
 </template>

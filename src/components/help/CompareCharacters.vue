@@ -1,12 +1,5 @@
 <script setup>
 import { ref, Transition } from 'vue'
-const props = defineProps({
-  characterPair: {
-    type: Array,
-    validator: (value) => Array.isArray(value) && value.length === 2,
-    required: true,
-  },
-})
 
 const confusedCharPairs = [
   ['a', 'o'],
