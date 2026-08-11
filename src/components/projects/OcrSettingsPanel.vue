@@ -33,7 +33,7 @@ const emit = defineEmits([
             <label class="block text-sm font-medium text-brand-700">Processing DPI</label>
             <AppHelp label="About processing DPI" title="Processing DPI"
               intro="The DPI (dots per inch) setting affects the quality and file size of the images taken from input PDFs."
-              link-href="/info#Processing-DPI" link-label="More details in Info" trigger-text="?">
+              link-href="/info#processing-dpi" link-label="More details in Info" trigger-text="?">
               <p>
                 Changing the processing DPI will affect the quality of the OCR results. Higher DPI values can improve
                 accuracy but may increase processing time and file size.
@@ -87,7 +87,7 @@ const emit = defineEmits([
           <label class="block text-sm font-medium text-brand-700">Binarization Threshold</label>
           <AppHelp label="About Binarization Threshold" title="Binarization Threshold"
             intro="The binarization threshold affects how grayscale images are converted to black and white."
-            link-href="/info#Binarization-Threshold" link-label="More details in Info" trigger-text="?">
+            link-href="/info#binarization-threshold" link-label="More details in Info" trigger-text="?">
             <p>
               Adjusting the binarization threshold can improve OCR accuracy for images with varying contrast. This
               value can be between 0 and 256, where lower values make the image darker and higher values make it
@@ -129,7 +129,7 @@ const emit = defineEmits([
           Resolve Fraktur I/J from Lexicon
           <AppHelp label="About I/J disambiguation" title="Resolve Fraktur I/J from Lexicon"
             intro="When enabled, Mimir will attempt to resolve ambiguous Fraktur I/J characters using a lexicon."
-            link-href="/info#I-J-Disambiguation" link-label="More details in Info" trigger-text="?">
+            link-href="/info#i-j-disambiguation" link-label="More details in Info" trigger-text="?">
             <p>
               This option can improve OCR accuracy for input texts. To address the fraktur convention that I and J
               are visually identical. When enabled, Mimir will use a lexicon to help determine the correct

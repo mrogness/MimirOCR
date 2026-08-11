@@ -9,13 +9,15 @@ const fontOptions = [
   { value: 'fraktur', label: 'Fraktur' },
 ]
 
-const uppercase = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZÆØ,;?']
-const lowercase = [...'abcdefghijklmnopqrstuvwxyzæø.:!']
+const uppercase = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZÆØ']
+const lowercase = [...'abcdefghijklmnopqrstuvwxyzæø']
 
 const characterPairs = uppercase.map((upper, index) => ({
   upper,
   lower: lowercase[index],
 }))
+
+const punctuation = [',', '.', ';', ':', '?', '!']
 
 const historicalForms = [
   {
@@ -29,23 +31,21 @@ const historicalForms = [
   {
     character: '⸗',
     label: 'Double oblique hyphen',
-    
   },
 ]
 </script>
 
 <template>
-  <section class="space-y-5 rounded border border-brand-200 bg-white p-5" aria-labelledby="fraktur-guide-title">
+  <section class="space-y-5 rounded border border-brand-200 bg-white p-5"
+    aria-labelledby="fraktur-character-guide-title">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <div class="flex items-center gap-2">
-          <h2 id="fraktur-guide-title" class="text-lg font-semibold text-brand-900">
+          <h3 id="fraktur-character-guide-title" class="text-lg font-semibold text-brand-900">
             Fraktur character guide
-
-          </h2>
-           <AppHelp label="About processing performance" title="Processing performance"
-              intro="Note that Fraktur is not one font, but a family of typefaces. The Fraktur characters shown here are an example of common Fraktur forms from the 19th Century.">
-            </AppHelp>
+          </h3>
+          <AppHelp label="About this Fraktur sample" title="About this Fraktur sample"
+            intro="Fraktur is a family of typefaces rather than one font. These characters show one example of forms common in the 19th century." />
         </div>
         <p class="mt-1 text-sm text-brand-500">
           Compare familiar Latin characters with their Fraktur forms.
@@ -82,9 +82,23 @@ const historicalForms = [
     </ul>
 
     <div class="border-t border-brand-200 pt-4">
-      <h3 class="text-sm font-semibold text-brand-800">
+      <h4 class="text-sm font-semibold text-brand-800">
+        Punctuation
+      </h4>
+
+      <ul class="mt-3 flex flex-wrap gap-2" aria-label="Fraktur punctuation">
+        <li v-for="character in punctuation" :key="character"
+          class="flex h-16 w-16 items-center justify-center rounded border border-brand-200 bg-brand-50/50 text-3xl text-brand-900"
+          :class="selectedFont === 'fraktur' ? 'font-fraktur' : 'font-sans'">
+          {{ character }}
+        </li>
+      </ul>
+    </div>
+
+    <div class="border-t border-brand-200 pt-4">
+      <h4 class="text-sm font-semibold text-brand-800">
         Historical forms and symbols
-      </h3>
+      </h4>
 
       <div class="mt-3 flex flex-wrap gap-2">
         <div v-for="form in historicalForms" :key="form.character"
