@@ -161,7 +161,7 @@ body,
 
 @font-face {
   font-family: "MimirFraktur";
-  src: url("../fonts/ChursaechsischeFraktur.ttf") format("truetype");
+  src: url("/fonts/ChursaechsischeFraktur.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -170,3 +170,20 @@ body,
 .font-fraktur {
   font-family: "MimirFraktur", "Times New Roman", serif;
 }
+
+/* Update active classes to transition BOTH opacity and color */
+.crossfade-enter-active,
+.crossfade-leave-active {
+  transition: opacity 1s ease-in-out, color 1s ease-in-out;
+}
+
+/* 1. Outgoing text fades to 0 opacity (stays black) */
+.crossfade-leave-to {
+  opacity: 0;
+}
+
+/* 2. Incoming text starts at 0 opacity AND starts as yellow */
+.crossfade-enter-from {
+  opacity: 0;
+}
+
