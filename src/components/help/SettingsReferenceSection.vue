@@ -9,7 +9,7 @@ const settingsGroups = [
         id: 'processing-performance',
         title: 'Processing Performance',
         what: 'Controls how much rasterization, segmentation, and OCR work MimirOCR runs in parallel.',
-        when: 'Use Balanced for normal work, Cool when heat or battery use matters, and Fast on systems with sufficient power and cooling.',
+        when: 'Use Balanced for normal work, Cool when heat use matters or when performance is limited, and Fast on systems with sufficient power and cooling.',
         note: 'Changing profiles restarts the local backend and is disabled while an OCR run is active.',
       },
       {
@@ -53,7 +53,7 @@ const settingsGroups = [
         title: 'Strict top-to-bottom line sorting',
         what: 'Orders lines by vertical position within each detected text region instead of relying on segmentation ordering.',
         when: 'Try it when the default ordering is visibly inconsistent on a regularly structured page.',
-        note: 'For a two-page spread, regions are still processed from the left page to the right page.',
+        note: 'For a two-page spread, regions are still processed from the left page to the right page. This setting is most useful when normal ordering has been attempted with limited results.',
       },
       {
         id: 'i-j-disambiguation',

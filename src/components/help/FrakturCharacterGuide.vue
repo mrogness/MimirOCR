@@ -67,7 +67,7 @@ const historicalForms = [
     <ul class="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-7 xl:grid-cols-10" aria-label="Fraktur alphabet">
       <li v-for="pair in characterPairs" :key="pair.upper"
         class="rounded border border-brand-200 bg-brand-50/50 px-2 py-3 text-center">
-        <div class="flex min-h-6 items-center justify-center gap-2 text-3xl leading-none text-brand-900"
+        <div class="flex min-h-6 items-center justify-center gap-2 text-4xl leading-none text-brand-900"
           :class="selectedFont === 'fraktur' ? 'font-fraktur' : 'font-sans'">
           <span>{{ pair.upper }}</span>
           <span>{{ pair.lower }}</span>

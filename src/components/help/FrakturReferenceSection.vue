@@ -22,6 +22,10 @@ import FrakturCharacterGuide from './FrakturCharacterGuide.vue'
 
     <CompareCharacters />
 
+    <div class="rounded border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+      Fraktur, along with many other historical typefaces, uses the long s 'ſ' rather than 's' in certain contexts. MimirOCR includes an export setting to automatically convert long s to s in exported text, but for machine learning purposes, it does distinguish between the two forms in its transcriptions.
+    </div>
+
     <details class="group rounded border border-brand-200 bg-white">
       <summary
         class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-semibold text-brand-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500">

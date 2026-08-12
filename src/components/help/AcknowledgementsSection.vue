@@ -1,4 +1,5 @@
 <script setup>
+import { h } from 'vue';
 import { useAppVersion } from '../../composables/settings/useAppVersion'
 
 const { appVersion } = useAppVersion()
@@ -18,6 +19,12 @@ const { appVersion } = useAppVersion()
         MimirOCR was created by Matthew Rogness as a student research project through the Nordic Studies Department at
         Luther College in 2026. Training material included hand-transcribed Dano-Norwegian Fraktur texts held by Preus Library.
       </p>
+      <h3 class="mt-5 font-semibold text-brand-900">Special thanks</h3>
+      <ul class="mt-1 list-inside list-disc">
+        <li> Thank you to Maren Johnson of the Nordic Studies Department at Luther College for her extensive language support and guidance in the development of MimirOCR.</li>
+
+        <li> Also tremendous thanks to Andi Beckendorf for her literary expertise and access to materials from the Rare Book Room at Preus Library, Luther College.</li>
+      </ul>
 
       <dl class="mt-5 grid gap-4 sm:grid-cols-2">
         <div>
