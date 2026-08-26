@@ -13,6 +13,7 @@ from backend.services.ij_disambiguation import disambiguate_ij_text
 
 
 CALAMARI_LINE_SIDE_PADDING_PX = 16.0
+MAX_SAVED_CHARACTER_CANDIDATES = 5
 
 
 def _resolve_model_path(raw_path: str) -> str:
@@ -77,6 +78,8 @@ def ocr_with_predictor(
     if not page.lines:
         return page
 
+    codec = _read_predictor_codec(predictor)
+
     # Keep predictions aligned with the original line ordering.
     samples = predictor.predict_raw(_line_generator(page))
     for line, sample in zip(page.lines, samples):
@@ -84,7 +87,7 @@ def ocr_with_predictor(
         raw_text = outputs.sentence
         line.ocr_text = disambiguate_ij_text(raw_text) if disambiguate_ij else raw_text
         line.confidence = _extract_line_confidence(outputs)
-        line.char_positions = _extract_char_positions(outputs)
+        line.char_positions = _extract_char_positions(outputs, codec=codec)
         line.char_confidence = _extract_char_confidence(outputs)
         if not line.char_confidence and line.char_positions:
             line.char_confidence = _char_confidence_from_positions(line.char_positions)
@@ -167,7 +170,7 @@ def _extract_char_confidence_from_positions(prediction: Any) -> Optional[List[fl
     return values if values else None
 
 
-def _extract_char_positions(outputs: object) -> Optional[List[dict]]:
+def _extract_char_positions(outputs: object, codec: Any = None) -> Optional[List[dict]]:
     positions = _read_positions(outputs)
     if not positions:
         return None
@@ -177,7 +180,8 @@ def _extract_char_positions(outputs: object) -> Optional[List[dict]]:
     normalized: List[dict] = []
     for index, pos in enumerate(positions):
         chars = _read_chars(pos)
-        best_char, best_label, best_prob = _pick_best_char(chars)
+        best_char, best_label, best_prob = _pick_best_char(chars, codec=codec)
+        candidates = _extract_char_candidates(chars, codec=codec)
 
         start, start_key = _pick_position_coordinate(
             pos,
@@ -219,6 +223,8 @@ def _extract_char_positions(outputs: object) -> Optional[List[dict]]:
             item["char_id"] = best_label
         if best_prob is not None:
             item["probability"] = best_prob
+        if candidates:
+            item["candidates"] = candidates
 
         normalized.append(item)
 
@@ -311,7 +317,10 @@ def _read_chars(position: Any) -> List[Any]:
     return []
 
 
-def _pick_best_char(chars: List[Any]) -> Tuple[Optional[str], Optional[int], Optional[float]]:
+def _pick_best_char(
+    chars: List[Any],
+    codec: Any = None,
+) -> Tuple[Optional[str], Optional[int], Optional[float]]:
     best_char: Optional[str] = None
     best_label: Optional[int] = None
     best_prob: Optional[float] = None
@@ -324,8 +333,7 @@ def _pick_best_char(chars: List[Any]) -> Tuple[Optional[str], Optional[int], Opt
         prob = _coerce_finite_float(_read_field(candidate, "probability"))
         label_raw = _read_field(candidate, "label")
         label = int(label_raw) if isinstance(label_raw, (int, float)) else None
-        char_value = _read_field(candidate, "char")
-        char_text = char_value if isinstance(char_value, str) else None
+        char_text = _read_candidate_char(candidate, label, codec)
 
         if prob is None:
             continue
@@ -345,6 +353,65 @@ def _pick_best_char(chars: List[Any]) -> Tuple[Optional[str], Optional[int], Opt
         return best_non_blank_char, best_non_blank_label, best_non_blank_prob
 
     return best_char, best_label, best_prob
+
+
+def _extract_char_candidates(chars: List[Any], codec: Any = None) -> List[dict]:
+    """Return the strongest distinct non-blank candidates for one position."""
+    candidates_by_char: dict[str, dict] = {}
+
+    for candidate in chars:
+        probability = _coerce_finite_float(_read_field(candidate, "probability"))
+        if probability is None:
+            continue
+
+        label_raw = _read_field(candidate, "label")
+        label = int(label_raw) if isinstance(label_raw, (int, float)) else None
+        char_text = _read_candidate_char(candidate, label, codec)
+        if not char_text:
+            continue
+
+        existing = candidates_by_char.get(char_text)
+        if existing is not None and existing["probability"] >= probability:
+            continue
+
+        normalized = {
+            "char": char_text,
+            "probability": probability,
+        }
+        if label is not None:
+            normalized["label"] = label
+            normalized["char_id"] = label
+        candidates_by_char[char_text] = normalized
+
+    return sorted(
+        candidates_by_char.values(),
+        key=lambda candidate: candidate["probability"],
+        reverse=True,
+    )[:MAX_SAVED_CHARACTER_CANDIDATES]
+
+
+def _read_predictor_codec(predictor: Any) -> Any:
+    data = _read_field(predictor, "data", "_data")
+    params = _read_field(data, "params", "_params")
+    return _read_field(params, "codec", "_codec")
+
+
+def _read_candidate_char(candidate: Any, label: Optional[int], codec: Any) -> Optional[str]:
+    char_value = _read_field(candidate, "char")
+    if isinstance(char_value, str) and char_value != "":
+        return char_value
+
+    if label is None or codec is None:
+        return char_value if isinstance(char_value, str) else None
+
+    code_to_char = _read_field(codec, "code2char")
+    decoded = None
+    if isinstance(code_to_char, dict):
+        decoded = code_to_char.get(label)
+    elif isinstance(code_to_char, (list, tuple)) and 0 <= label < len(code_to_char):
+        decoded = code_to_char[label]
+
+    return decoded if isinstance(decoded, str) else None
 
 
 def _read_field(obj: Any, *keys: str) -> Any:
