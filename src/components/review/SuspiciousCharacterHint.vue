@@ -41,7 +41,7 @@ function closeTooltip() {
 <template>
   <span
     ref="triggerRef"
-    class="suspicious-character cursor-help rounded-sm focus:outline-none focus:ring-2 focus:ring-red-400/70"
+    class="suspicious-character cursor-help bg-red-100 rounded-sm focus:outline-none focus:ring-2 focus:ring-red-400/70"
     tabindex="0"
     :aria-describedby="isOpen ? tooltipId : undefined"
     @mouseenter="openTooltip"
