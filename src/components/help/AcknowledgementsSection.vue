@@ -23,7 +23,7 @@ const { appVersion } = useAppVersion()
       <ul class="mt-1 list-inside list-disc">
         <li> Thank you to Maren Johnson of the Nordic Studies Department at Luther College for her extensive language support and guidance in the development of MimirOCR.</li>
 
-        <li> Also tremendous thanks to Andi Beckendorf for her literary expertise and access to materials from the Rare Book Room at Preus Library, Luther College.</li>
+        <li> Also tremendous thanks to Andi Beckendorf for her expertise with Norwegian and Norwegian-American historical texts and access to materials from the Rare Book Room at Preus Library, Luther College.</li>
       </ul>
 
       <dl class="mt-5 grid gap-4 sm:grid-cols-2">
