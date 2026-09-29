@@ -113,3 +113,37 @@ pub fn consume_restart_reservation(
 
     fs::remove_file(path).map_err(|error| error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PerformanceProfile;
+
+    #[test]
+    fn profile_parse_accepts_supported_values() {
+        assert!(matches!(
+            PerformanceProfile::parse("cool"),
+            Ok(PerformanceProfile::Cool)
+        ));
+        assert!(matches!(
+            PerformanceProfile::parse("  balanced  "),
+            Ok(PerformanceProfile::Balanced)
+        ));
+        assert!(matches!(
+            PerformanceProfile::parse("FAST"),
+            Ok(PerformanceProfile::Fast)
+        ));
+    }
+
+    #[test]
+    fn profile_parse_rejects_unknown_value() {
+        let error = PerformanceProfile::parse("turbo").expect_err("expected parse to fail");
+        assert!(error.contains("cool, balanced, or fast"));
+    }
+
+    #[test]
+    fn profile_as_str_matches_expected_wire_values() {
+        assert_eq!(PerformanceProfile::Cool.as_str(), "cool");
+        assert_eq!(PerformanceProfile::Balanced.as_str(), "balanced");
+        assert_eq!(PerformanceProfile::Fast.as_str(), "fast");
+    }
+}

@@ -86,3 +86,16 @@ pub fn restart_backend(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::greet;
+
+    #[test]
+    fn greet_formats_message() {
+        assert_eq!(
+            greet("Mimir"),
+            "Hello, Mimir! You've been greeted from Rust!".to_string()
+        );
+    }
+}

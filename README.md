@@ -21,3 +21,47 @@ Many Norwegian Americans who emigrated in the 19th century continued to read and
 MimirOCR uses a combination of two major OCR libraries to perform transcription. The actual OCR (Optical Character Recognition) is performed by a model trained using [Calamari-OCR](https://github.com/Calamari-OCR/calamari). The training process was completed by combining one of Calamari's 19th century Fraktur models and training data collected from hand transcribed Dano-Norwegian Fraktur texts owned by Preus Library at Luther College. This approach is possible because of Calamari-OCR's warmstart training feature, which made it possible to use their 19th century Fraktur model as a springboard to go from general Fraktur transcription to Dano-Norwegian Fraktur transcription by providing samples of Dano-Norwegian specific characters and language conventions. 
 
 In order to obtain images of the lines of text within input pdfs, page layout information, and other relevant data, MimirOCR makes use of [Kraken](https://github.com/mittagessen/kraken), which has been developed for historical texts in particular. These two models are contained and coordinated by a localhost FastAPI that is bundled as a sidecar process in the Tauri app. This means that transcription occurs locally. This was an intentional design decision, as hosting the backend on a performant enough server would cost more money than is feasible as a Student Researcher.
+
+## Testing
+
+This repository is now working towards implmenting reasonable testing, using the following frameworks for each piece of the application.
+
+- Python backend: `pytest`, `pytest-cov`, `fastapi.testclient`
+- Vue frontend: `vitest`, `@vue/test-utils`
+- Rust/Tauri side: built-in `cargo test`
+
+### Run backend tests
+
+Install backend test dependencies:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+Run tests:
+
+```bash
+pytest
+pytest --cov=backend --cov-report=term-missing
+```
+
+### Run frontend tests
+
+Install dependencies:
+
+```bash
+yarn install
+```
+
+Run tests:
+
+```bash
+yarn test:unit
+yarn test:unit:coverage
+```
+
+### Run Rust/Tauri tests
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml
+```
