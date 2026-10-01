@@ -1,8 +1,6 @@
 import os
 import sys
 from pathlib import Path
-import PIL.Image as Image
-import numpy as np
 import math
 from collections.abc import Iterable as IterableABC
 from typing import Any, Callable, Iterable, List, Optional, Tuple
@@ -526,6 +524,11 @@ def ocr_pages(
 
 
 def _line_generator(page: Page):
+    # Import imaging dependencies lazily so helper-only imports in lightweight
+    # test/doc environments do not require Pillow/NumPy.
+    import PIL.Image as Image
+    import numpy as np
+
     for line in page.lines:
         with Image.open(line.image_path) as img:
             yield np.asarray(img.convert("L"))
