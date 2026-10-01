@@ -10,7 +10,6 @@ Outputs:
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -24,10 +23,6 @@ DOCS_GENERATED = ROOT / "docs" / "generated"
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def _ensure_dirs() -> None:
@@ -62,7 +57,7 @@ def _generate_openapi_docs() -> None:
     md_lines = [
         "# Backend OpenAPI Summary",
         "",
-        f"Generated: {_now_iso()}",
+        "Generated from current backend routes.",
         "",
         "| Method | Path | Summary | Tags |",
         "|---|---|---|---|",
@@ -121,7 +116,7 @@ def _generate_test_inventory() -> None:
     lines = [
         "# Test Inventory",
         "",
-        f"Generated: {_now_iso()}",
+        "Generated from current test files.",
         "",
         "## Summary",
         "",

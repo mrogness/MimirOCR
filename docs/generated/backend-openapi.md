@@ -1,6 +1,6 @@
 # Backend OpenAPI Summary
 
-Generated: 2026-10-01T15:11:29+00:00
+Generated from current backend routes.
 
 | Method | Path | Summary | Tags |
 |---|---|---|---|
