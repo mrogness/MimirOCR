@@ -38,6 +38,15 @@ ENV/
 .coverage.*
 coverage.xml
 htmlcov/
+coverage/
+test-results/
+.vitest/
+.nyc_output/
+junit.xml
+junit-*.xml
+pytestdebug.log
+*.lcov
+coverage-final.json
 
 # Build artifacts
 build/
