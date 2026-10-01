@@ -1,9 +1,6 @@
 # segment.py
 import os
 from typing import Any, Iterable
-from PIL import Image, ImageOps
-from kraken.blla import segment as segment_blla
-from kraken.lib.segmentation import extract_polygons
 
 from backend.models.line import Line
 from backend.models.page import Page
@@ -45,6 +42,12 @@ def _configure_segmentation_threads(config: ProjectConfig) -> None:
 
 def segment(page: Page, config: ProjectConfig) -> Page:
     """Run BLLA segmentation and filter lines via dynamically scaled GUI coordinates."""
+    # Keep heavyweight OCR/segmentation dependencies lazy so helper-only imports
+    # in lightweight test and docs environments do not require PIL/Kraken.
+    from PIL import Image, ImageOps
+    from kraken.blla import segment as segment_blla
+    from kraken.lib.segmentation import extract_polygons
+
     _configure_segmentation_threads(config)
     image = Image.open(page.image_path)
     
@@ -111,6 +114,8 @@ def segment(page: Page, config: ProjectConfig) -> Page:
 
 
 def _save_and_binarize_segmented_lines(polygons: Iterable[Any], page_id: str, lines_dir: str, threshold: int) -> list[Line]:
+    from PIL import ImageOps
+
     items = list(polygons)
     line_count = len(items)
     pad = max(3, len(str(line_count)))
