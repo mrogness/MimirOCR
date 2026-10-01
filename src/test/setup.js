@@ -1,0 +1,10 @@
+import { afterEach } from 'vitest'
+import { enableAutoUnmount } from '@vue/test-utils'
+
+enableAutoUnmount(afterEach)
+
+afterEach(() => {
+  localStorage.clear()
+  sessionStorage.clear()
+  document.documentElement.removeAttribute('data-brand-theme')
+})

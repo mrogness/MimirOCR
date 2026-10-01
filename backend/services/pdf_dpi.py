@@ -6,7 +6,13 @@ from math import ceil, hypot, isfinite
 from statistics import median
 from typing import Any
 
-import fitz
+try:
+    import fitz
+except ImportError as exc:  # pragma: no cover - dependency guard
+    fitz = None  # type: ignore[assignment]
+    _FITZ_IMPORT_ERROR = exc
+else:
+    _FITZ_IMPORT_ERROR = None
 
 from backend.api.schemas import PdfDpiAnalysisResponse
 
@@ -36,6 +42,11 @@ class _ImageCandidate:
 
 def analyze_pdf_dpi(pdf_bytes: bytes, filename: str) -> PdfDpiAnalysisResponse:
     """Estimate source scan DPI without rasterizing or persisting the PDF."""
+    if fitz is None:
+        raise PdfDpiAnalysisError(
+            "PDF DPI analysis dependency missing. Install PyMuPDF (fitz) in the backend environment."
+        ) from _FITZ_IMPORT_ERROR
+
     if not pdf_bytes:
         raise PdfDpiAnalysisError("The uploaded PDF is empty.")
 

@@ -24,7 +24,10 @@ In order to obtain images of the lines of text within input pdfs, page layout in
 
 ## Testing
 
-This repository is now working towards implmenting reasonable testing, using the following frameworks for each piece of the application.
+Unit and component tests run on pull requests and gate tagged release builds.
+See [the testing guide](docs/testing.md) for coverage, isolation, CI behavior, and
+guidelines for adding tests. See [generated testing architecture diagrams](docs/testing-architecture.md)
+for a visual map of test flows.
 
 - Python backend: `pytest`, `pytest-cov`, `fastapi.testclient`
 - Vue frontend: `vitest`, `@vue/test-utils`
@@ -35,7 +38,7 @@ This repository is now working towards implmenting reasonable testing, using the
 Install backend test dependencies:
 
 ```bash
-python -m pip install -r requirements-dev.txt
+python -m pip install -r requirements-test.txt
 ```
 
 Run tests:
@@ -50,7 +53,7 @@ pytest --cov=backend --cov-report=term-missing
 Install dependencies:
 
 ```bash
-yarn install
+yarn install --frozen-lockfile
 ```
 
 Run tests:
@@ -63,5 +66,28 @@ yarn test:unit:coverage
 ### Run Rust/Tauri tests
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml
+cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+```
+
+## Documentation
+
+Contributor documentation lives under `docs/` and is published via MkDocs.
+
+- Entry point: [docs/index.md](docs/index.md)
+- Testing architecture diagrams: [docs/testing-architecture.md](docs/testing-architecture.md)
+- Automation details: [docs/maintenance/automation.md](docs/maintenance/automation.md)
+
+### Build docs locally
+
+```bash
+python -m pip install -r requirements-docs.txt
+python scripts/generate_docs.py
+mkdocs serve
+```
+
+Or via Yarn scripts:
+
+```bash
+yarn docs:generate
+yarn docs:build
 ```

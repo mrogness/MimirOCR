@@ -1,0 +1,2344 @@
+{
+  "components": {
+    "schemas": {
+      "Body_analyze_uploaded_pdf_dpi_files_analyze_pdf_dpi_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "A PDF file to analyze without storing",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_uploaded_pdf_dpi_files_analyze_pdf_dpi_post",
+        "type": "object"
+      },
+      "Body_upload_pdf_for_project_files_projects__project_id__upload_pdf_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "A PDF file",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_pdf_for_project_files_projects__project_id__upload_pdf_post",
+        "type": "object"
+      },
+      "DeletedLineSnapshot": {
+        "properties": {
+          "bounding_box": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bounding Box"
+          },
+          "char_confidence": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Confidence"
+          },
+          "char_positions": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Positions"
+          },
+          "corrected_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected Text"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "img_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Img Path"
+          },
+          "line_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Confidence"
+          },
+          "line_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Order"
+          },
+          "ocr_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Text"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "integer"
+          },
+          "polygon_points": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Polygon Points"
+          }
+        },
+        "required": [
+          "id",
+          "page_id"
+        ],
+        "title": "DeletedLineSnapshot",
+        "type": "object"
+      },
+      "ExportPdfRequest": {
+        "properties": {
+          "fit_text_to_page": {
+            "default": true,
+            "title": "Fit Text To Page",
+            "type": "boolean"
+          },
+          "font_family": {
+            "default": "Times-Roman",
+            "enum": [
+              "Times-Roman",
+              "Helvetica",
+              "Courier"
+            ],
+            "title": "Font Family",
+            "type": "string"
+          },
+          "font_size": {
+            "default": 12.0,
+            "title": "Font Size",
+            "type": "number"
+          },
+          "join_historical_line_breaks": {
+            "default": true,
+            "title": "Join Historical Line Breaks",
+            "type": "boolean"
+          },
+          "layout_mode": {
+            "default": "source-lines",
+            "enum": [
+              "source-lines",
+              "reading"
+            ],
+            "title": "Layout Mode",
+            "type": "string"
+          },
+          "line_spacing": {
+            "default": 1.35,
+            "title": "Line Spacing",
+            "type": "number"
+          },
+          "margin_in": {
+            "default": 0.8,
+            "title": "Margin In",
+            "type": "number"
+          },
+          "normalize_double_oblique_hyphen": {
+            "default": false,
+            "title": "Normalize Double Oblique Hyphen",
+            "type": "boolean"
+          },
+          "normalize_long_s": {
+            "default": false,
+            "title": "Normalize Long S",
+            "type": "boolean"
+          },
+          "normalize_low_double_quote": {
+            "default": false,
+            "title": "Normalize Low Double Quote",
+            "type": "boolean"
+          },
+          "page_size": {
+            "default": "letter",
+            "enum": [
+              "letter",
+              "a4"
+            ],
+            "title": "Page Size",
+            "type": "string"
+          },
+          "spread_mode": {
+            "default": "split-spread",
+            "enum": [
+              "single",
+              "split-spread"
+            ],
+            "title": "Spread Mode",
+            "type": "string"
+          }
+        },
+        "title": "ExportPdfRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LineOrderSnapshot": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "line_order": {
+            "title": "Line Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "line_order"
+        ],
+        "title": "LineOrderSnapshot",
+        "type": "object"
+      },
+      "LineRestoreRequest": {
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/DeletedLineSnapshot"
+          },
+          "line_orders": {
+            "items": {
+              "$ref": "#/components/schemas/LineOrderSnapshot"
+            },
+            "title": "Line Orders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "line",
+          "line_orders"
+        ],
+        "title": "LineRestoreRequest",
+        "type": "object"
+      },
+      "LineRestoreResponse": {
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/ProjectLineRead"
+          }
+        },
+        "required": [
+          "line"
+        ],
+        "title": "LineRestoreResponse",
+        "type": "object"
+      },
+      "LineUpdateRequest": {
+        "properties": {
+          "corrected_text": {
+            "title": "Corrected Text",
+            "type": "string"
+          },
+          "line_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Order"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Id"
+          }
+        },
+        "required": [
+          "corrected_text"
+        ],
+        "title": "LineUpdateRequest",
+        "type": "object"
+      },
+      "LineUpdateResponse": {
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/ProjectLineRead"
+          }
+        },
+        "required": [
+          "line"
+        ],
+        "title": "LineUpdateResponse",
+        "type": "object"
+      },
+      "OCRConfigOverride": {
+        "properties": {
+          "binarization_threshold": {
+            "anyOf": [
+              {
+                "maximum": 256.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Binarization Threshold"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "disambiguate_ij": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disambiguate Ij"
+          },
+          "dpi": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dpi"
+          },
+          "ocr_model_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Model Path"
+          },
+          "strict_top_to_bottom": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strict Top To Bottom"
+          }
+        },
+        "title": "OCRConfigOverride",
+        "type": "object"
+      },
+      "OcrJobResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ocr_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Pages"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "project_json_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Json Path"
+          },
+          "rasterized_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rasterized Pages"
+          },
+          "segmented_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segmented Pages"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Pages"
+          },
+          "transcript_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Path"
+          },
+          "upload_id": {
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "project_id",
+          "upload_id",
+          "status",
+          "phase",
+          "progress",
+          "message",
+          "created_at"
+        ],
+        "title": "OcrJobResponse",
+        "type": "object"
+      },
+      "OcrJobStartRequest": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/OCRConfigOverride"
+          },
+          "upload_id": {
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id"
+        ],
+        "title": "OcrJobStartRequest",
+        "type": "object"
+      },
+      "OcrJobsListResponse": {
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/OcrJobResponse"
+            },
+            "title": "Jobs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "jobs"
+        ],
+        "title": "OcrJobsListResponse",
+        "type": "object"
+      },
+      "PdfDpiAnalysisResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unavailable"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "detected_max_dpi": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Max Dpi"
+          },
+          "detected_median_dpi": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Median Dpi"
+          },
+          "detected_min_dpi": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Min Dpi"
+          },
+          "filename": {
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "ignored_probable_watermark_images": {
+            "minimum": 0.0,
+            "title": "Ignored Probable Watermark Images",
+            "type": "integer"
+          },
+          "page_count": {
+            "minimum": 1.0,
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "pages_analyzed": {
+            "minimum": 0.0,
+            "title": "Pages Analyzed",
+            "type": "integer"
+          },
+          "pages_with_scan_estimate": {
+            "minimum": 0.0,
+            "title": "Pages With Scan Estimate",
+            "type": "integer"
+          },
+          "recommended_dpi": {
+            "minimum": 1.0,
+            "title": "Recommended Dpi",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "filename",
+          "page_count",
+          "pages_analyzed",
+          "pages_with_scan_estimate",
+          "recommended_dpi",
+          "confidence",
+          "ignored_probable_watermark_images"
+        ],
+        "title": "PdfDpiAnalysisResponse",
+        "type": "object"
+      },
+      "ProjectCreate": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProjectCreate",
+        "type": "object"
+      },
+      "ProjectLineRead": {
+        "properties": {
+          "bounding_box": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bounding Box"
+          },
+          "char_confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Confidence"
+          },
+          "char_positions": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Positions"
+          },
+          "corrected_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected Text"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "img_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Img Path"
+          },
+          "line_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Confidence"
+          },
+          "line_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Order"
+          },
+          "ocr_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Text"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Id"
+          },
+          "polygon_points": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Polygon Points"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ProjectLineRead",
+        "type": "object"
+      },
+      "ProjectPageRead": {
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "img_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Img Path"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectLineRead"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "page_number": {
+            "title": "Page Number",
+            "type": "integer"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotation"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "page_number",
+          "lines"
+        ],
+        "title": "ProjectPageRead",
+        "type": "object"
+      },
+      "ProjectPagesResponse": {
+        "properties": {
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectPageRead"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "pages"
+        ],
+        "title": "ProjectPagesResponse",
+        "type": "object"
+      },
+      "ProjectRead": {
+        "properties": {
+          "date_created": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Created"
+          },
+          "date_modified": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Modified"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ocr_last_elapsed_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Last Elapsed Seconds"
+          },
+          "ocr_last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Last Status"
+          },
+          "ocr_run_count": {
+            "default": 0,
+            "title": "Ocr Run Count",
+            "type": "integer"
+          },
+          "source_pdf_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Pdf Name"
+          },
+          "source_pdf_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Pdf Path"
+          }
+        },
+        "required": [
+          "name",
+          "id"
+        ],
+        "title": "ProjectRead",
+        "type": "object"
+      },
+      "ProjectUpdate": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProjectUpdate",
+        "type": "object"
+      },
+      "ProjectsListResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectRead"
+            },
+            "title": "Projects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "projects"
+        ],
+        "title": "ProjectsListResponse",
+        "type": "object"
+      },
+      "RestartCancelRequest": {
+        "properties": {
+          "restart_token": {
+            "title": "Restart Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "restart_token"
+        ],
+        "title": "RestartCancelRequest",
+        "type": "object"
+      },
+      "RestartPrepareRequest": {
+        "properties": {
+          "profile": {
+            "enum": [
+              "cool",
+              "balanced",
+              "fast"
+            ],
+            "title": "Profile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "RestartPrepareRequest",
+        "type": "object"
+      },
+      "UploadedPdfResponse": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "upload_id": {
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "project_id",
+          "filename",
+          "message"
+        ],
+        "title": "UploadedPdfResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "FastAPI",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Root  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root"
+      }
+    },
+    "/export/projects/{project_id}/pdf": {
+      "get": {
+        "operationId": "export_project_pdf_get_export_projects__project_id__pdf_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "layout_mode",
+            "required": false,
+            "schema": {
+              "default": "source-lines",
+              "enum": [
+                "source-lines",
+                "reading"
+              ],
+              "title": "Layout Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "font_family",
+            "required": false,
+            "schema": {
+              "default": "Times-Roman",
+              "enum": [
+                "Times-Roman",
+                "Helvetica",
+                "Courier"
+              ],
+              "title": "Font Family",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "font_size",
+            "required": false,
+            "schema": {
+              "default": 12.0,
+              "title": "Font Size",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "line_spacing",
+            "required": false,
+            "schema": {
+              "default": 1.35,
+              "title": "Line Spacing",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "margin_in",
+            "required": false,
+            "schema": {
+              "default": 0.8,
+              "title": "Margin In",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spread_mode",
+            "required": false,
+            "schema": {
+              "default": "split-spread",
+              "enum": [
+                "single",
+                "split-spread"
+              ],
+              "title": "Spread Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "join_historical_line_breaks",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Join Historical Line Breaks",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "normalize_low_double_quote",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Normalize Low Double Quote",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "normalize_long_s",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Normalize Long S",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "normalize_double_oblique_hyphen",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Normalize Double Oblique Hyphen",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fit_text_to_page",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Fit Text To Page",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": "letter",
+              "enum": [
+                "letter",
+                "a4"
+              ],
+              "title": "Page Size",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Project Pdf Get",
+        "tags": [
+          "export"
+        ]
+      },
+      "post": {
+        "operationId": "export_project_pdf_post_export_projects__project_id__pdf_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportPdfRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Project Pdf Post",
+        "tags": [
+          "export"
+        ]
+      }
+    },
+    "/export/projects/{project_id}/training-data": {
+      "get": {
+        "operationId": "export_project_training_data_export_projects__project_id__training_data_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Project Training Data",
+        "tags": [
+          "export"
+        ]
+      }
+    },
+    "/files/analyze-pdf-dpi": {
+      "post": {
+        "operationId": "analyze_uploaded_pdf_dpi_files_analyze_pdf_dpi_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_uploaded_pdf_dpi_files_analyze_pdf_dpi_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfDpiAnalysisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze Uploaded Pdf Dpi",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/files/projects/{project_id}/upload-pdf": {
+      "post": {
+        "operationId": "upload_pdf_for_project_files_projects__project_id__upload_pdf_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_pdf_for_project_files_projects__project_id__upload_pdf_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedPdfResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Pdf For Project",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/lines/restore": {
+      "post": {
+        "operationId": "restore_line_lines_restore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineRestoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineRestoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Line",
+        "tags": [
+          "lines"
+        ]
+      }
+    },
+    "/lines/{line_id}": {
+      "delete": {
+        "operationId": "delete_line_lines__line_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "title": "Line Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Line",
+        "tags": [
+          "lines"
+        ]
+      },
+      "patch": {
+        "operationId": "update_line_lines__line_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "title": "Line Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineUpdateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Line",
+        "tags": [
+          "lines"
+        ]
+      }
+    },
+    "/ocr/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_ocr_job_ocr_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Ocr Job",
+        "tags": [
+          "ocr"
+        ]
+      }
+    },
+    "/ocr/jobs/{job_id}/transcript": {
+      "get": {
+        "operationId": "get_ocr_job_transcript_ocr_jobs__job_id__transcript_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Ocr Job Transcript Ocr Jobs  Job Id  Transcript Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Ocr Job Transcript",
+        "tags": [
+          "ocr"
+        ]
+      }
+    },
+    "/ocr/projects/{project_id}/jobs": {
+      "get": {
+        "operationId": "list_project_ocr_jobs_ocr_projects__project_id__jobs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrJobsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Ocr Jobs",
+        "tags": [
+          "ocr"
+        ]
+      },
+      "post": {
+        "operationId": "start_ocr_job_ocr_projects__project_id__jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OcrJobStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Ocr Job",
+        "tags": [
+          "ocr"
+        ]
+      }
+    },
+    "/projects/": {
+      "get": {
+        "operationId": "list_projects_projects__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Projects",
+        "tags": [
+          "projects"
+        ]
+      },
+      "post": {
+        "operationId": "create_project_projects__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{project_id}": {
+      "delete": {
+        "operationId": "delete_project_projects__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Project",
+        "tags": [
+          "projects"
+        ]
+      },
+      "get": {
+        "operationId": "read_project_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Project",
+        "tags": [
+          "projects"
+        ]
+      },
+      "put": {
+        "operationId": "update_project_projects__project_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{project_id}/pages": {
+      "get": {
+        "operationId": "list_project_pages_projects__project_id__pages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectPagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Pages",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{project_id}/pages/{page_id}/image": {
+      "get": {
+        "operationId": "get_project_page_image_projects__project_id__pages__page_id__image_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "title": "Page Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Page Image",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{project_id}/source-pdf": {
+      "get": {
+        "operationId": "get_project_source_pdf_projects__project_id__source_pdf_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Source Pdf",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/system/cpu": {
+      "get": {
+        "operationId": "get_cpu_info_system_cpu_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Get Cpu Info System Cpu Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Cpu Info",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/system/restart/cancel": {
+      "post": {
+        "operationId": "cancel_backend_restart_system_restart_cancel_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestartCancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Cancel Backend Restart System Restart Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Backend Restart",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/system/restart/prepare": {
+      "post": {
+        "operationId": "prepare_backend_restart_system_restart_prepare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestartPrepareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "title": "Response Prepare Backend Restart System Restart Prepare Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Backend Restart",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/system/runtime": {
+      "get": {
+        "operationId": "get_runtime_info_system_runtime_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Runtime Info System Runtime Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Runtime Info",
+        "tags": [
+          "system"
+        ]
+      }
+    }
+  }
+}

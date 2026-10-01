@@ -9,8 +9,13 @@ permissions:
   contents: read
 
 jobs:
+  tests:
+    name: Release test gate
+    uses: ./.github/workflows/tests.yml
+
   build-macos:
     name: Build macOS (app + dmg)
+    needs: tests
     runs-on: macos-26
     timeout-minutes: 120
 
@@ -179,6 +184,7 @@ jobs:
 
   build-windows:
     name: Build Windows (nsis)
+    needs: tests
     runs-on: windows-2022
     timeout-minutes: 120
 

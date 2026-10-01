@@ -6,13 +6,15 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    setupFiles: ["src/test/setup.js"],
+    restoreMocks: true,
     include: ["src/**/*.{test,spec}.{js,ts}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
       reportsDirectory: "coverage/frontend",
       include: ["src/**/*.{js,vue}"],
-      exclude: ["src/main.js"],
+      exclude: ["src/main.js", "src/test/**", "src/**/*.{test,spec}.{js,ts}"],
     },
   },
 });

@@ -19,6 +19,11 @@ from backend.api.deps import get_db
 from backend.api.schemas import ExportPdfRequest
 from backend.exporting.reflow import build_source_regions, infer_reflow_paragraphs
 
+# Fallback constants keep route imports safe in environments where reportlab
+# is intentionally not installed (e.g., model-free/docs CI jobs).
+LETTER = (612.0, 792.0)
+A4 = (595.2755905511812, 841.8897637795277)
+
 try:
     from reportlab.lib.pagesizes import A4, LETTER
     from reportlab.pdfgen import canvas
