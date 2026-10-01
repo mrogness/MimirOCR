@@ -8,7 +8,7 @@ from backend.performance import get_active_limits  # noqa: F401 - initializes pr
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import router as api_router
+from backend.api.router import router as api_router
 from backend.database import Base, engine
 
 

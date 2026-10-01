@@ -16,6 +16,10 @@
     "sidecar:preflight": "node scripts/check_backend_sidecar_env.mjs",
     "build:sidecar": "yarn sidecar:clean && node scripts/build_backend_sidecar.mjs",
     "release:tag": "node scripts/release_version.mjs",
+    "docs:generate": "python scripts/generate_docs.py",
+    "docs:serve": "mkdocs serve",
+    "docs:build": "mkdocs build --strict",
+    "docs:check": "yarn docs:generate && yarn docs:build",
     "package": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build",
     "package:mac": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles dmg",
     "package:windows": "yarn sidecar:preflight && yarn build:sidecar && yarn tauri build --bundles nsis"
