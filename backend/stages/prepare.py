@@ -1,9 +1,6 @@
 import os
 from typing import Callable, List, Optional
 
-import fitz
-from PIL import Image
-
 from backend.models.page import Page
 from backend.models.project import Project
 from backend.models.project_config import ProjectConfig
@@ -16,6 +13,11 @@ def prepare_pages(
 ) -> List[Page]:
     """Serial pre-step: rasterize each PDF page to a PNG and return a list of
     fully-populated Page objects ready for multiprocessed pipeline stages."""
+    # Import rasterization dependencies lazily so module import remains safe in
+    # lightweight test/docs environments that intentionally omit these deps.
+    import fitz
+    from PIL import Image
+
     os.makedirs(config.temp_dir, exist_ok=True)
 
     doc = fitz.open(project.source_path)
