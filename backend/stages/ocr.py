@@ -1,9 +1,10 @@
 import os
 import sys
+from itertools import zip_longest
 from pathlib import Path
 import math
 from collections.abc import Iterable as IterableABC
-from typing import Any, Callable, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 
 from backend.models.page import Page
 from backend.models.project_config import ProjectConfig
@@ -37,9 +38,7 @@ def _resolve_model_path(raw_path: str) -> str:
 
 
 def create_predictor(config: ProjectConfig):
-    env_threads = os.getenv("MIMIR_OCR_THREADS")
-    max_threads = _safe_worker_count(env_threads if env_threads is not None else config.num_workers)
-    _configure_runtime_threads(max_threads)
+    max_threads = int(os.environ["MIMIR_OCR_THREADS"])
 
     # Canonical predictor import path for the current OCR stack.
     from calamari_ocr.ocr.predict.predictor import Predictor, PredictorParams
@@ -80,7 +79,9 @@ def ocr_with_predictor(
 
     # Keep predictions aligned with the original line ordering.
     samples = predictor.predict_raw(_line_generator(page))
-    for line, sample in zip(page.lines, samples):
+    for line, sample in zip_longest(page.lines, samples):
+        if line is None or sample is None:
+            raise RuntimeError("Calamari returned a different number of predictions than line crops")
         outputs = sample.outputs
         raw_text = outputs.sentence
         line.ocr_text = disambiguate_ij_text(raw_text) if disambiguate_ij else raw_text
@@ -489,40 +490,6 @@ def _coerce_confidence_sequence(value: Any) -> Optional[List[float]]:
     return cleaned if cleaned else None
 
 
-def ocr(page: Page, config: ProjectConfig) -> Page:
-    predictor = create_predictor(config)
-    return ocr_with_predictor(
-        page,
-        predictor,
-        disambiguate_ij=config.ocr.disambiguate_ij,
-    )
-
-
-def ocr_pages(
-    pages: List[Page],
-    config: ProjectConfig,
-    on_page_done: Optional[Callable[[int, int], None]] = None,
-) -> List[Page]:
-    if not pages:
-        return pages
-
-    predictor = create_predictor(config)
-    total = len(pages)
-    output: List[Page] = []
-    for idx, page in enumerate(pages, start=1):
-        output.append(
-            ocr_with_predictor(
-                page,
-                predictor,
-                disambiguate_ij=config.ocr.disambiguate_ij,
-            )
-        )
-        if on_page_done:
-            on_page_done(idx, total)
-
-    return output
-
-
 def _line_generator(page: Page):
     # Import imaging dependencies lazily so helper-only imports in lightweight
     # test/doc environments do not require Pillow/NumPy.
@@ -570,47 +537,3 @@ def _disable_pipeline_params(params: Any, max_threads: int) -> None:
     if isinstance(nested, Iterable) and not isinstance(nested, (str, bytes)):
         for child in nested:
             _disable_pipeline_params(child, max_threads)
-
-
-def _safe_worker_count(value: Any) -> int:
-    try:
-        workers = int(value)
-    except (TypeError, ValueError):
-        workers = 1
-    return max(1, workers)
-
-
-def _configure_runtime_threads(max_threads: int) -> None:
-    thread_count = str(max_threads)
-    os.environ["OMP_NUM_THREADS"] = thread_count
-    os.environ["OMP_THREAD_LIMIT"] = thread_count
-    os.environ["OPENBLAS_NUM_THREADS"] = thread_count
-    os.environ["MKL_NUM_THREADS"] = thread_count
-    os.environ["VECLIB_MAXIMUM_THREADS"] = thread_count
-    os.environ["NUMEXPR_NUM_THREADS"] = thread_count
-    os.environ["BLIS_NUM_THREADS"] = thread_count
-    os.environ["OMP_DYNAMIC"] = "FALSE"
-    os.environ["MKL_DYNAMIC"] = "FALSE"
-    os.environ["TF_NUM_INTRAOP_THREADS"] = thread_count
-    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-    os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-
-    try:
-        from threadpoolctl import threadpool_limits  # type: ignore
-
-        threadpool_limits(limits=max_threads)
-    except ImportError:
-        pass
-
-    # If TensorFlow is already imported, apply limits programmatically too.
-    try:
-        import tensorflow as tf  # type: ignore
-
-        try:
-            tf.config.threading.set_intra_op_parallelism_threads(max_threads)
-            tf.config.threading.set_inter_op_parallelism_threads(1)
-        except RuntimeError:
-            # TF runtime may already be initialized and disallow late changes.
-            pass
-    except ImportError:
-        pass

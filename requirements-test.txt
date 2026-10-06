@@ -1,6 +1,6 @@
 # Lightweight, model-free tests. Reuse the application's pins without installing
 # TensorFlow, PyTorch, Kraken, Calamari, or PyInstaller.
--c requirements.txt
+-c constraints.txt
 fastapi
 pydantic
 SQLAlchemy

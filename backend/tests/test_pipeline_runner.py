@@ -1,116 +1,65 @@
+import sys
 import pytest
 
 from backend.models.page import Page
 from backend.models.project import Project
 from backend.models.project_config import ProjectConfig
-from backend.pipeline import runner as runner_mod
+from backend.pipeline.runner import PipelineRunner
+from backend.workers import client as clients
 
 
-def _make_project(config: ProjectConfig) -> Project:
-    return Project(id="p1", name="Test", source_path="input.pdf", config=config)
+@pytest.fixture
+def fake_pipeline(monkeypatch):
+    from backend.stages import prepare, export
+    monkeypatch.setattr(clients, "worker_command", lambda role:
+                        [sys.executable, "-u", "-m", "backend.tests.fake_worker", role])
+    calls = []
+    monkeypatch.setattr(export, "export", lambda project, config: calls.append(project))
+    def setup(pages):
+        def prepare_pages(project, config, on_page_rasterized):
+            for idx in range(len(pages)):
+                on_page_rasterized(idx + 1, len(pages))
+            return pages
+        monkeypatch.setattr(prepare, "prepare_pages", prepare_pages)
+        return calls
+    return setup
 
 
-def _make_page(number: int) -> Page:
-    return Page(id=f"page-{number}", page_number=number)
-
-
-def test_parallel_segmentation_orders_pages_before_ocr(monkeypatch: pytest.MonkeyPatch):
-    import backend.stages.export as export_stage
-    import backend.stages.ocr as ocr_stage
-    import backend.stages.prepare as prepare_stage
-
-    config = ProjectConfig(num_workers=4)
-    progress_events = []
-    runner = runner_mod.PipelineRunner(
-        config,
-        progress_callback=lambda phase, progress, message, details=None: progress_events.append(
-            (phase, progress, message, details)
-        ),
-    )
-    runner.segmentation_workers = 2
+def test_parallel_workers_preserve_order_and_progress(fake_pipeline):
+    pages = [Page(id=str(n), page_number=n, metadata={"delay": 0.2 if n == 0 else 0}) for n in range(4)]
+    exported = fake_pipeline(pages)
+    config = ProjectConfig(num_workers=2)
+    project = Project(id="p", name="Test", source_path="input.pdf", config=config)
+    progress = []
+    runner = PipelineRunner(config, lambda *args: progress.append(args))
     runner.page_cooldown_seconds = 0
-
-    def fake_prepare_pages(_project, _config, on_page_rasterized=None):
-        pages = [_make_page(0), _make_page(1), _make_page(2)]
-        for idx in range(1, 4):
-            on_page_rasterized(idx, 3)
-        return pages
-
-    class FakePool:
-        def __init__(self, processes):
-            self.processes = processes
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def imap_unordered(self, _func, tasks):
-            for page, _cfg in reversed(tasks):
-                yield page
-
-    seen_ocr_order = []
-
-    def fake_ocr_pages(pages, _config, on_page_done=None):
-        seen_ocr_order.extend(page.page_number for page in pages)
-        total = len(pages)
-        for idx in range(1, total + 1):
-            on_page_done(idx, total)
-        return pages
-
-    monkeypatch.setattr(prepare_stage, "prepare_pages", fake_prepare_pages)
-    monkeypatch.setattr(ocr_stage, "ocr_pages", fake_ocr_pages)
-    monkeypatch.setattr(export_stage, "export", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(runner_mod, "Pool", FakePool)
-
-    project = _make_project(config)
     runner.process_project(project)
+    assert [p.page_number for p in project.pages] == [0, 1, 2, 3]
+    # One recognizer process handles every page, with one initialization.
+    assert len({p.metadata["pid"] for p in project.pages}) == 1
+    assert [p.metadata["calls"] for p in project.pages] == [1, 2, 3, 4]
+    assert len(exported) == 1
+    assert [p[1] for p in progress] == sorted(p[1] for p in progress)
+    assert progress[-1][:2] == ("completed", 100)
+    assert not clients._ACTIVE
 
-    assert seen_ocr_order == [0, 1, 2]
-    assert [page.page_number for page in project.pages] == [0, 1, 2]
-    assert progress_events[-1][0] == "completed"
-    assert progress_events[-1][1] == 100
+
+def test_failed_segmentation_stops_other_workers_before_cleanup(fake_pipeline):
+    exported = fake_pipeline([
+        Page(id="bad", page_number=0, metadata={"mode": "error"}),
+        Page(id="slow", page_number=1, metadata={"delay": 60}),
+    ])
+    project = Project(id="p", name="Test", source_path="input.pdf")
+    with pytest.raises(clients.WorkerError, match="fake inference failed"):
+        PipelineRunner(ProjectConfig(num_workers=2)).process_project(project)
+    assert not exported
+    assert not clients._ACTIVE
 
 
-def test_segmentation_failure_stops_before_ocr_and_export(monkeypatch: pytest.MonkeyPatch):
-    import backend.stages.export as export_stage
-    import backend.stages.ocr as ocr_stage
-    import backend.stages.prepare as prepare_stage
-
-    config = ProjectConfig(num_workers=1)
-    runner = runner_mod.PipelineRunner(config)
-    runner.segmentation_workers = 1
-    runner.page_cooldown_seconds = 0
-
-    def fake_prepare_pages(_project, _config, on_page_rasterized=None):
-        pages = [_make_page(0), _make_page(1)]
-        for idx in range(1, 3):
-            on_page_rasterized(idx, 2)
-        return pages
-
-    def fake_process_page(page, _stage_config):
-        if page.page_number == 1:
-            raise RuntimeError("segmentation failed")
-        return page
-
-    calls = {"ocr": 0, "export": 0}
-
-    def fake_ocr_pages(*_args, **_kwargs):
-        calls["ocr"] += 1
-        return []
-
-    def fake_export(*_args, **_kwargs):
-        calls["export"] += 1
-
-    monkeypatch.setattr(prepare_stage, "prepare_pages", fake_prepare_pages)
-    monkeypatch.setattr(runner_mod.PipelineRunner, "process_page", staticmethod(fake_process_page))
-    monkeypatch.setattr(ocr_stage, "ocr_pages", fake_ocr_pages)
-    monkeypatch.setattr(export_stage, "export", fake_export)
-
-    project = _make_project(config)
-    with pytest.raises(RuntimeError, match="segmentation failed"):
-        runner.process_project(project)
-
-    assert calls["ocr"] == 0
-    assert calls["export"] == 0
+def test_empty_document_does_not_launch_workers(fake_pipeline, monkeypatch):
+    exported = fake_pipeline([])
+    monkeypatch.setattr(clients, "worker_command", lambda role: pytest.fail("unnecessary worker"))
+    project = Project(id="p", name="Test", source_path="input.pdf")
+    PipelineRunner(ProjectConfig()).process_project(project)
+    assert project.pages == []
+    assert len(exported) == 1

@@ -6,7 +6,7 @@ Generated from current test files.
 
 | Layer | Files | Approx test count |
 |---|---:|---:|
-| Backend pytest | 12 | 46 |
+| Backend pytest | 13 | 58 |
 | Frontend vitest | 9 | 33 |
 | Rust unit tests | 9 | 10 |
 
@@ -14,9 +14,9 @@ Generated from current test files.
 
 | Area | Approx test count |
 |---|---:|
-| line routes and CRUD | 8 |
+| line routes and CRUD | 9 |
 | ocr and orchestration | 5 |
-| other | 29 |
+| other | 40 |
 | runtime and restart | 4 |
 
 ## Backend files
@@ -29,12 +29,13 @@ Generated from current test files.
 | backend/tests/test_ocr_routes.py | 4 |
 | backend/tests/test_page_model.py | 4 |
 | backend/tests/test_performance.py | 5 |
-| backend/tests/test_pipeline_runner.py | 2 |
+| backend/tests/test_pipeline_runner.py | 3 |
 | backend/tests/test_reflow.py | 6 |
-| backend/tests/test_route_imports.py | 1 |
+| backend/tests/test_route_imports.py | 2 |
 | backend/tests/test_runtime_gate.py | 4 |
 | backend/tests/test_stage_helpers.py | 4 |
 | backend/tests/test_system_routes.py | 7 |
+| backend/tests/test_worker_processes.py | 10 |
 
 ## Frontend files
 

@@ -25,6 +25,7 @@ __pycache__/
 # Virtual environments
 mimir/
 .venv/
+.venvs/
 venv/
 env/
 ENV/
@@ -94,3 +95,8 @@ src-tauri/resources/backend-runtime/*
 .env
 .env.*
 !.env.example
+
+src-tauri/resources/mimir-segmenter/*
+!src-tauri/resources/mimir-segmenter/.gitkeep
+src-tauri/resources/mimir-recognizer/*
+!src-tauri/resources/mimir-recognizer/.gitkeep

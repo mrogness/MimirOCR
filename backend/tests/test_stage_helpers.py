@@ -7,7 +7,6 @@ from backend.stages.ocr import _disable_pipeline_params
 from backend.stages.ocr import _extract_char_confidence_from_positions
 from backend.stages.ocr import _extract_char_positions
 from backend.stages.segment import _bbox_from_meta
-from backend.stages.segment import _filter_user_ignored_lines
 from backend.stages.segment import _sort_lines_within_regions
 
 
@@ -17,9 +16,6 @@ def test_segment_helpers_filter_and_sort_lines_by_region():
         {"id": "right", "boundary": [[20, 1], [21, 1], [21, 2], [20, 2]]},
         {"id": "left-bottom", "boundary": [[1, 10], [2, 10], [2, 11], [1, 11]]},
     ]
-
-    kept = _filter_user_ignored_lines(lines, [(0, 0, 5, 5)])
-    assert [line["id"] for line in kept] == ["right", "left-bottom"]
 
     seg = {
         "lines": lines,

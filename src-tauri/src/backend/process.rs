@@ -58,6 +58,11 @@ pub fn try_spawn_backend_sidecar(
         .stdin(Stdio::null())
         .stdout(Stdio::from(log_file))
         .stderr(Stdio::from(log_file_err));
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW; keep redirected stdio usable.
+    }
     #[cfg(unix)]
     cmd.process_group(0);
     cmd.spawn()
@@ -93,6 +98,11 @@ pub fn try_spawn_backend(
         cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     } else {
         cmd.stdout(Stdio::null()).stderr(Stdio::null());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW; keep redirected stdio usable.
     }
     #[cfg(unix)]
     cmd.process_group(0);

@@ -1,0 +1,10 @@
+# Versions are preserved in the shared constraints, not installed as a combined stack.
+-c ../constraints.txt
+fastapi
+uvicorn
+SQLAlchemy
+pydantic
+python-multipart
+pillow
+pymupdf
+reportlab

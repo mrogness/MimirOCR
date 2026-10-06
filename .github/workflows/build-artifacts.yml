@@ -54,124 +54,17 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Create venv and install backend packaging dependencies
-        run: |
-          python -m venv .venv
-          ./.venv/bin/python -m pip install --upgrade pip
-          ./.venv/bin/python -m pip install -r requirements-sidecar.txt
-          ./.venv/bin/python -m pip install pyinstaller==6.21.0
+      - name: Create isolated runtime environments
+        run: python scripts/setup_backend.py
 
-      - name: Verify sidecar Python imports
-        run: |
-          ./.venv/bin/python -c "import kraken, calamari_ocr, uvicorn; print('python sidecar deps ok')"
+      - name: Verify isolated dependencies
+        run: yarn sidecar:preflight
 
-      - name: Build macOS sidecar
-        env:
-          MIMIR_PYTHON: ${{ github.workspace }}/.venv/bin/python
-        run: |
-          yarn sidecar:preflight
-          yarn build:sidecar
+      - name: Build and smoke-test all three runtimes
+        run: yarn build:sidecar
 
-      - name: Build unsigned macOS artifacts
-        run: |
-          yarn tauri build --bundles app
-
-      - name: Replace duplicate TensorFlow library with symlink
-        run: |
-          set -euo pipefail
-
-          APP_DIR="$(find src-tauri/target/release/bundle/macos \
-            -maxdepth 1 -type d -name '*.app' | head -n 1)"
-
-          INTERNAL="$APP_DIR/Contents/Resources/backend-runtime/_internal"
-
-          rm -f "$INTERNAL/_pywrap_tensorflow_internal.so"
-
-          ln -s \
-            "tensorflow/python/_pywrap_tensorflow_internal.so" \
-            "$INTERNAL/_pywrap_tensorflow_internal.so"
-
-          test -L "$INTERNAL/_pywrap_tensorflow_internal.so"
-          test -e "$INTERNAL/_pywrap_tensorflow_internal.so"
-
-          ls -l "$INTERNAL/_pywrap_tensorflow_internal.so"
-
-      - name: Re-sign patched macOS app
-        run: |
-          set -euo pipefail
-
-          APP_DIR="$(find src-tauri/target/release/bundle/macos \
-            -maxdepth 1 \
-            -type d \
-            -name '*.app' \
-            | head -n 1)"
-
-          if [ -z "$APP_DIR" ]; then
-            echo "No app bundle found" >&2
-            exit 1
-          fi
-
-          # Remove extended attributes that can interfere with signing.
-          xattr -cr "$APP_DIR"
-
-          # Apply a fresh ad-hoc signature to the modified bundle.
-          codesign \
-            --force \
-            --deep \
-            --sign - \
-            "$APP_DIR"
-
-          codesign --verify --deep --strict --verbose=4 "$APP_DIR"
-
-      - name: Zip patched macOS app
-        run: |
-          node scripts/zip_macos_app_bundle.mjs
-        
-      - name: Create DMG from patched app
-        run: |
-          set -euo pipefail
-
-          APP_DIR="$(find src-tauri/target/release/bundle/macos \
-            -maxdepth 1 \
-            -type d \
-            -name '*.app' \
-            | head -n 1)"
-
-          if [ -z "$APP_DIR" ]; then
-            echo "No .app bundle found" >&2
-            exit 1
-          fi
-
-          APP_NAME="$(basename "$APP_DIR")"
-          DMG_DIR="src-tauri/target/release/bundle/dmg"
-          DMG_PATH="$DMG_DIR/MimirOCR.dmg"
-
-          rm -rf "$DMG_DIR"
-          mkdir -p "$DMG_DIR"
-
-          STAGING_DIR="$(mktemp -d)"
-
-          cleanup() {
-            rm -rf "$STAGING_DIR"
-          }
-
-          trap cleanup EXIT
-
-          # Preserve the symlink inside the app bundle.
-          ditto "$APP_DIR" "$STAGING_DIR/$APP_NAME"
-
-          # Add the standard Applications shortcut.
-          ln -s /Applications "$STAGING_DIR/Applications"
-
-          hdiutil create \
-            -volname "MimirOCR" \
-            -srcfolder "$STAGING_DIR" \
-            -format UDZO \
-            -ov \
-            "$DMG_PATH"
-
-          echo "Created DMG:"
-          ls -lh "$DMG_PATH"
+      - name: Package, verify, and smoke-test copied macOS app
+        run: node scripts/package_desktop.mjs darwin
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v5
@@ -223,43 +116,17 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Create venv and install backend packaging dependencies
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          python -m venv .venv
-          .\.venv\Scripts\python.exe -m pip install --upgrade pip
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m pip install -r requirements-sidecar.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m pip install kraken==4.3.13
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m pip install pyinstaller==6.21.0
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Create isolated runtime environments
+        run: python scripts/setup_backend.py
 
-      - name: Debug installed sidecar packages
-        shell: pwsh
-        run: |
-          .\.venv\Scripts\python.exe -m pip show kraken
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m pip show calamari-ocr
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify isolated dependencies
+        run: yarn sidecar:preflight
 
-      - name: Build Windows sidecar
-        shell: pwsh
-        env:
-          MIMIR_PYTHON: ${{ github.workspace }}/.venv/Scripts/python.exe
-        run: |
-          yarn sidecar:preflight
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          yarn build:sidecar
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and smoke-test all three runtimes
+        run: yarn build:sidecar
 
       - name: Build unsigned Windows installer
-        shell: pwsh
-        run: |
-          yarn tauri build --bundles nsis
+        run: node scripts/package_desktop.mjs win32
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v5

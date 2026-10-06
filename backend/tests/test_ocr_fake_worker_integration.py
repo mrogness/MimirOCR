@@ -1,4 +1,8 @@
 from types import SimpleNamespace
+from pathlib import Path
+import sys
+
+import pytest
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -6,13 +10,13 @@ from sqlalchemy.pool import StaticPool
 
 from backend.api.routes import ocr as ocr_routes
 from backend.database import Base, Page as DbPage, Project as DbProject
-from backend.models.line import Line
 from backend.models.page import Page
 from backend.pipeline.jobs import JobStore
 from backend.runtime_gate import RuntimeGate
 
 
-def test_run_ocr_job_with_fake_runner_persists_results(tmp_path, monkeypatch):
+@pytest.mark.parametrize("fail", [False, True])
+def test_run_ocr_job_with_fake_processes_persists_or_releases_gate(tmp_path, monkeypatch, fail):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -29,43 +33,20 @@ def test_run_ocr_job_with_fake_runner_persists_results(tmp_path, monkeypatch):
     monkeypatch.setattr(ocr_routes, "get_temp_dir", lambda: tmp_path / "tmp")
     monkeypatch.setattr(ocr_routes, "get_output_dir", lambda: tmp_path / "output")
 
-    class FakeRunner:
-        def __init__(self, _config, progress_callback=None):
-            self.progress_callback = progress_callback
+    from backend.stages import prepare
+    from backend.workers import client
 
-        def process_project(self, project):
-            if self.progress_callback:
-                self.progress_callback(
-                    "ocr",
-                    80,
-                    "Fake worker running",
-                    {
-                        "total_pages": 1,
-                        "rasterized_pages": 1,
-                        "segmented_pages": 1,
-                        "ocr_pages": 1,
-                    },
-                )
-            project.pages = [
-                Page(
-                    id="p-1",
-                    page_number=0,
-                    image_path="/does/not/exist/page.png",
-                    width=120,
-                    height=60,
-                    lines=[
-                        Line(
-                            id="line-1",
-                            bbox={"x_min": 1, "y_min": 2, "x_max": 40, "y_max": 12},
-                            image_path="/does/not/exist/line.png",
-                            ocr_text="Transcribed",
-                            confidence=0.95,
-                        )
-                    ],
-                )
-            ]
+    monkeypatch.setattr(client, "worker_command", lambda role:
+                        [sys.executable, "-u", "-m", "backend.tests.fake_worker", role])
 
-    monkeypatch.setattr(ocr_routes, "PipelineRunner", FakeRunner)
+    def fake_prepare(project, config, on_page_rasterized):
+        image = Path(config.temp_dir) / "page.png"
+        image.parent.mkdir(parents=True, exist_ok=True)
+        image.write_bytes(b"test image contents")
+        on_page_rasterized(1, 1)
+        return [Page(id="p-1", page_number=0, image_path=str(image), width=120, height=60,
+                     metadata={"mode": "error" if fail else "ok"})]
+    monkeypatch.setattr(prepare, "prepare_pages", fake_prepare)
 
     upload = ocr_routes.job_store.register_upload(
         project_id=1,
@@ -99,17 +80,26 @@ def test_run_ocr_job_with_fake_runner_persists_results(tmp_path, monkeypatch):
 
     saved_job = ocr_routes.job_store.get_job(job.job_id)
     assert saved_job is not None
-    assert saved_job.status == "succeeded"
-    assert saved_job.phase == "completed"
-    assert saved_job.ocr_pages == 1
+    assert saved_job.status == ("failed" if fail else "succeeded")
+    assert saved_job.phase == ("failed" if fail else "completed")
+    assert not client._ACTIVE
+    assert not (tmp_path / "tmp" / "project_1" / job.job_id).exists()
+    if fail:
+        assert "fake inference failed" in saved_job.error
+    else:
+        assert saved_job.ocr_pages == 1
+        assert Path(saved_job.transcript_path).read_text(encoding="utf-8") == "Æble, ø og Å — 日本語"
     assert ocr_routes.runtime_gate.snapshot()["runtime_state"] == "idle"
 
     with sessions() as db:
         db_project = db.get(DbProject, 1)
         assert db_project is not None
-        assert db_project.ocr_last_status == "succeeded"
+        assert db_project.ocr_last_status == ("failed" if fail else "succeeded")
         persisted_pages = db.query(DbPage).filter(DbPage.project_id == 1).all()
-        assert len(persisted_pages) == 1
-        assert len(persisted_pages[0].lines) == 1
+        assert len(persisted_pages) == (0 if fail else 1)
+        if not fail:
+            assert len(persisted_pages[0].lines) == 1
+            assert Path(persisted_pages[0].img_path).read_bytes() == b"test image contents"
+            assert Path(persisted_pages[0].lines[0].img_path).is_file()
 
     engine.dispose()

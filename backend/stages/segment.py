@@ -7,52 +7,29 @@ from backend.models.page import Page
 from backend.models.project_config import ProjectConfig
 
 
-def _safe_thread_count(value: object, fallback: int = 1) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        parsed = fallback
-    return max(1, parsed)
+def create_segmenter():
+    """Load the same Kraken 4.3 default model once per worker."""
+    from pathlib import Path
+    import kraken
+    from kraken.lib.vgsl import TorchVGSLModel
+
+    return TorchVGSLModel.load_model(str(Path(kraken.__file__).parent / "blla.mlmodel"))
 
 
-def _configure_segmentation_threads(config: ProjectConfig) -> None:
-    env_threads = os.getenv("MIMIR_SEGMENTATION_THREADS")
-    max_threads = _safe_thread_count(env_threads, fallback=config.num_workers)
-    thread_count = str(max_threads)
-
-    os.environ["OMP_NUM_THREADS"] = thread_count
-    os.environ["OMP_THREAD_LIMIT"] = thread_count
-    os.environ["OPENBLAS_NUM_THREADS"] = thread_count
-    os.environ["MKL_NUM_THREADS"] = thread_count
-    os.environ["VECLIB_MAXIMUM_THREADS"] = thread_count
-    os.environ["NUMEXPR_NUM_THREADS"] = thread_count
-    os.environ["BLIS_NUM_THREADS"] = thread_count
-    os.environ["OMP_DYNAMIC"] = "FALSE"
-    os.environ["MKL_DYNAMIC"] = "FALSE"
-
-    try:
-        from threadpoolctl import threadpool_limits  # type: ignore
-
-        threadpool_limits(limits=max_threads)
-    except ImportError:
-        pass
-
-    # Avoid runtime torch thread-pool reconfiguration here.
-    # PyTorch can abort if interop/intraop pools are reconfigured after work starts.
-
-def segment(page: Page, config: ProjectConfig) -> Page:
-    """Run BLLA segmentation and filter lines via dynamically scaled GUI coordinates."""
+def segment(page: Page, config: ProjectConfig, model: object) -> Page:
+    """Segment a page with the worker-owned BLLA model and save its line crops."""
     # Keep heavyweight OCR/segmentation dependencies lazy so helper-only imports
     # in lightweight test and docs environments do not require PIL/Kraken.
     from PIL import Image, ImageOps
     from kraken.blla import segment as segment_blla
     from kraken.lib.segmentation import extract_polygons
 
-    _configure_segmentation_threads(config)
-    image = Image.open(page.image_path)
+    with Image.open(page.image_path) as source:
+        image = source.copy()
     
     seg_payload = segment_blla(
         image,
+        model=model,
         device=config.device,
         mask=None,
         raise_on_error=config.segmentation.seg_raises_error,
@@ -65,39 +42,13 @@ def segment(page: Page, config: ProjectConfig) -> Page:
     if not isinstance(lines_payload, list):
         lines_payload = []
 
-    # If the payload contains GUI mask parameters and UI sizing info
-    if config.segmentation.mask and lines_payload:
-        # Pull your UI canvas size from the configuration layer
-        ui_w = config.segmentation.ui_canvas_width
-        ui_h = config.segmentation.ui_canvas_height
-        
-        # Calculate scaling ratios
-        scale_x = image.width / ui_w
-        scale_y = image.height / ui_h
-        
-        # Scale the boxes before passing them to the geometry engine
-        scaled_boxes = [
-            (
-                int(box["x_min"] * scale_x),
-                int(box["y_min"] * scale_y),
-                int(box["x_max"] * scale_x),
-                int(box["y_max"] * scale_y)
-            )
-            for box in config.segmentation.mask
-        ]
-        
-        seg["lines"] = _filter_user_ignored_lines(lines_payload, scaled_boxes)
-        lines_payload = seg.get("lines")
-        if not isinstance(lines_payload, list):
-            lines_payload = []
-        
     # 4. Sort columns cleanly if requested
     if config.segmentation.strict_top_to_bottom and lines_payload:
         seg["lines"] = _sort_lines_within_regions(seg)
 
     # Convert to grayscale and invert strictly for Kraken's extraction mapping requirements
     inv_img = ImageOps.invert(image.convert("L"))
-    polygons = list(extract_polygons(inv_img, seg))
+    polygons = extract_polygons(inv_img, seg)
 
     lines_dir = os.path.join(config.temp_dir, "lines", page.id)
     os.makedirs(lines_dir, exist_ok=True)
@@ -116,13 +67,9 @@ def segment(page: Page, config: ProjectConfig) -> Page:
 def _save_and_binarize_segmented_lines(polygons: Iterable[Any], page_id: str, lines_dir: str, threshold: int) -> list[Line]:
     from PIL import ImageOps
 
-    items = list(polygons)
-    line_count = len(items)
-    pad = max(3, len(str(line_count)))
-
     lines: list[Line] = []
-    for idx, (line_img, meta) in enumerate(items, start=1):
-        filename = f"{idx:0{pad}d}.png"
+    for idx, (line_img, meta) in enumerate(polygons, start=1):
+        filename = f"{idx:06d}.png"
         line_path = os.path.join(lines_dir, filename)
 
         # Re-invert to recover normal polarity (black text on white background)
@@ -163,25 +110,6 @@ def _line_boundary(line: dict[str, Any]) -> list[list[float] | tuple[float, floa
         return boundary
     return []
 
-
-def _filter_user_ignored_lines(lines: list[dict[str, Any]], ignore_boxes: list[tuple[int, int, int, int]]) -> list[dict[str, Any]]:
-    """Filters out lines whose anchors land inside user-drawn GUI boxes."""
-    clean_lines = []
-    for line in lines:
-        anchor = _line_anchor(line)
-        if anchor is None:
-            clean_lines.append(line)
-            continue
-        
-        ax, ay = anchor
-        ignored = False
-        for (x_min, y_min, x_max, y_max) in ignore_boxes:
-            if x_min <= ax <= x_max and y_min <= ay <= y_max:
-                ignored = True
-                break
-        if not ignored:
-            clean_lines.append(line)
-    return clean_lines
 
 def _line_sort_key(line: dict[str, Any]) -> tuple[float, float]:
     ''' 

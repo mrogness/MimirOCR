@@ -58,32 +58,26 @@ def resolve_performance_limits(profile: object, logical_cores: int | None = None
     )
 
 
-def _apply_environment(limits: PerformanceLimits) -> None:
-    # These values are process-lifetime settings. They are intentionally applied
-    # before the OCR/segmentation modules import their native runtimes.
-    native_threads = str(max(limits.segmentation_native_threads, limits.ocr_native_threads))
-    os.environ["MIMIR_PERFORMANCE_PROFILE"] = limits.profile
-    os.environ["MIMIR_SEGMENTATION_WORKERS"] = str(limits.segmentation_workers)
-    os.environ["MIMIR_SEGMENTATION_THREADS"] = str(limits.segmentation_native_threads)
-    os.environ["MIMIR_OCR_THREADS"] = str(limits.ocr_native_threads)
-    os.environ["MIMIR_PAGE_COOLDOWN_MS"] = str(limits.page_cooldown_ms)
-
-    os.environ["OMP_NUM_THREADS"] = native_threads
-    os.environ["OMP_THREAD_LIMIT"] = native_threads
-    os.environ["OPENBLAS_NUM_THREADS"] = native_threads
-    os.environ["MKL_NUM_THREADS"] = native_threads
-    os.environ["VECLIB_MAXIMUM_THREADS"] = native_threads
-    os.environ["NUMEXPR_NUM_THREADS"] = native_threads
-    os.environ["BLIS_NUM_THREADS"] = native_threads
-    os.environ["TF_NUM_INTRAOP_THREADS"] = str(limits.ocr_native_threads)
-    os.environ["TF_NUM_INTEROP_THREADS"] = str(limits.tensorflow_interop_threads)
-    os.environ["OMP_DYNAMIC"] = "FALSE"
-    os.environ["MKL_DYNAMIC"] = "FALSE"
-    os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+def worker_environment(role: str) -> dict[str, str]:
+    """Set native limits before a worker imports any numerical libraries."""
+    limits = ACTIVE_LIMITS
+    threads = (limits.segmentation_native_threads if role == "segmenter"
+               else limits.ocr_native_threads)
+    environment = {name: str(threads) for name in (
+        "OMP_NUM_THREADS", "OMP_THREAD_LIMIT", "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS", "BLIS_NUM_THREADS",
+    )}
+    environment.update({
+        "MIMIR_SEGMENTATION_THREADS": str(limits.segmentation_native_threads),
+        "MIMIR_OCR_THREADS": str(limits.ocr_native_threads),
+        "TF_NUM_INTRAOP_THREADS": str(limits.ocr_native_threads),
+        "TF_NUM_INTEROP_THREADS": str(limits.tensorflow_interop_threads),
+        "OMP_DYNAMIC": "FALSE", "MKL_DYNAMIC": "FALSE", "TF_ENABLE_ONEDNN_OPTS": "0",
+    })
+    return environment
 
 
 ACTIVE_LIMITS = resolve_performance_limits(os.getenv("MIMIR_PERFORMANCE_PROFILE", "balanced"))
-_apply_environment(ACTIVE_LIMITS)
 
 
 def get_active_limits() -> PerformanceLimits:

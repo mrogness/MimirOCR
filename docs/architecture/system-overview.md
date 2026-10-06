@@ -1,20 +1,9 @@
 # System Overview
 
-```mermaid
-flowchart LR
-  UI[Vue UI] --> TAURI[Tauri Host]
-  TAURI --> API[FastAPI Sidecar]
-  API --> PIPE[Pipeline Runner]
-  PIPE --> SEG[Segmentation Stage]
-  PIPE --> OCR[OCR Stage]
-  PIPE --> EXP[Export Stage]
+The Vue frontend talks to the local FastAPI backend launched by Tauri. The API
+owns the database, job state, rasterization and export. It launches isolated
+Kraken segmentation and Calamari recognition workers and exchanges JSON metadata
+and image paths with them. All three runtimes are bundled in one application.
 
-  API --> DB[(SQLite)]
-  API --> OUT[(Runtime Artifacts)]
-```
-
-## Notes
-
-- The sidecar backend is the runtime coordinator.
-- Pipeline state is tracked through OCR jobs and runtime gate constraints.
-- Persistence is database-backed for project/page/line state.
+See [isolated OCR runtimes](ocr-process-split.md) for development, packaging,
+process lifetime and failure handling, and the worker contracts for IPC details.

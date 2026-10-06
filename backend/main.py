@@ -1,9 +1,4 @@
-'''
-The entry point for the backend application. Performance limits are initialized
-before route modules can import TensorFlow, Torch, Kraken, or Calamari.
-'''
-
-from backend.performance import get_active_limits  # noqa: F401 - initializes process limits
+"""API entry point. Native ML runtimes live exclusively in worker processes."""
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,7 +34,15 @@ async def allow_private_network_requests(request: Request, call_next) -> Respons
 
 @app.on_event("startup")
 def startup_event() -> None:
+    from backend.parent_watchdog import start_parent_watchdog
+    start_parent_watchdog()
     Base.metadata.create_all(bind=engine)
+
+
+@app.on_event("shutdown")
+def shutdown_event() -> None:
+    from backend.workers.client import stop_workers
+    stop_workers()
 
 
 if __name__ == "__main__":

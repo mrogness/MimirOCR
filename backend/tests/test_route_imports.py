@@ -12,3 +12,14 @@ def test_individual_routes_do_not_load_ocr_or_pdf_runtimes():
         "assert not forbidden.intersection(sys.modules), forbidden.intersection(sys.modules)",
     ], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
+
+
+def test_api_and_worker_entrypoints_import_without_ml():
+    for module in ("backend.main", "backend.workers.segmenter", "backend.workers.recognizer"):
+        result = subprocess.run([
+            sys.executable, "-c",
+            f"import {module}; import sys; "
+            "forbidden = {'torch', 'tensorflow', 'kraken', 'calamari_ocr', 'coremltools'}; "
+            "assert not forbidden.intersection(sys.modules), forbidden.intersection(sys.modules)",
+        ], capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr

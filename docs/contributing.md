@@ -1,5 +1,7 @@
 # Contributing
 
+For desktop development and packaging, start with [isolated runtime setup](architecture/ocr-process-split.md).
+
 ## Local setup
 
 1. Python backend tests
