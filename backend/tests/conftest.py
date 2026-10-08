@@ -7,7 +7,7 @@ import pytest
 
 
 def pytest_configure(config):
-    # Fixtures run too late: database.py initializes its database during collection.
+    # Fixtures run too late: persistence/database.py initializes during collection.
     temporary = TemporaryDirectory(prefix="mimir-tests-")
     patch = pytest.MonkeyPatch()
     for name, directory in (
@@ -22,7 +22,7 @@ def pytest_configure(config):
 def pytest_unconfigure(config):
     runtime = getattr(config, "_mimir_test_runtime", None)
     if runtime is not None:
-        database = sys.modules.get("backend.database")
+        database = sys.modules.get("backend.persistence.database")
         if database is not None:
             database.engine.dispose()  # Release SQLite handles before Windows cleanup.
         temporary, patch = runtime
@@ -41,7 +41,7 @@ def line_client():
 
     from backend.api.deps import get_db
     from backend.api.routes.lines import router
-    from backend.database import Base, Line, Page, Project
+    from backend.persistence.models import Base, Line, Page, Project
 
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool

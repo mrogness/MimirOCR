@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from backend.api import crud
+from backend.persistence import repository
 from backend.api.deps import get_db
 from backend.api.schemas import (
     ProjectCreate,
@@ -18,8 +18,8 @@ from backend.api.schemas import (
     ProjectsListResponse,
     ProjectUpdate,
 )
-from backend.pipeline.jobs import job_store
-from backend.runtime_paths import get_output_dir, get_temp_dir, get_uploads_dir
+from backend.services.job_store import job_store
+from backend.runtime.paths import get_output_dir, get_temp_dir, get_uploads_dir
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -75,19 +75,19 @@ def _cleanup_project_artifacts(project_id: int, source_pdf_path: Optional[str]) 
 
 @router.post("/", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> ProjectRead:
-    project = crud.create_project(db, name=payload.name)
+    project = repository.create_project(db, name=payload.name)
     return project
 
 
 @router.get("/", response_model=ProjectsListResponse)
 def list_projects(db: Session = Depends(get_db)) -> ProjectsListResponse:
-    projects = crud.list_projects(db)
+    projects = repository.list_projects(db)
     return ProjectsListResponse(projects=projects)
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
 def read_project(project_id: int, db: Session = Depends(get_db)) -> ProjectRead:
-    project = crud.get_project(db, project_id=project_id)
+    project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
@@ -95,33 +95,33 @@ def read_project(project_id: int, db: Session = Depends(get_db)) -> ProjectRead:
 
 @router.put("/{project_id}", response_model=ProjectRead)
 def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db)) -> ProjectRead:
-    project = crud.get_project(db, project_id=project_id)
+    project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    updated = crud.update_project_name(db, project=project, name=payload.name)
+    updated = repository.update_project_name(db, project=project, name=payload.name)
     return updated
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: int, db: Session = Depends(get_db)) -> Response:
-    project = crud.get_project(db, project_id=project_id)
+    project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     job_store.clear_project_records(project.id)
     _cleanup_project_artifacts(project_id=project.id, source_pdf_path=project.source_pdf_path)
-    crud.delete_project(db, project=project)
+    repository.delete_project(db, project=project)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{project_id}/pages", response_model=ProjectPagesResponse)
 def list_project_pages(project_id: int, db: Session = Depends(get_db)) -> ProjectPagesResponse:
-    project = crud.get_project(db, project_id=project_id)
+    project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    page_rows = crud.list_project_pages(db, project_id)
+    page_rows = repository.list_project_pages(db, project_id)
     payload_pages = []
     for page in page_rows:
         ordered_lines = sorted(page.lines, key=lambda line: (line.line_order or 10**9, line.id))
@@ -157,11 +157,11 @@ def list_project_pages(project_id: int, db: Session = Depends(get_db)) -> Projec
 
 @router.get("/{project_id}/pages/{page_id}/image")
 def get_project_page_image(project_id: int, page_id: int, db: Session = Depends(get_db)) -> FileResponse:
-    project = crud.get_project(db, project_id=project_id)
+    project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    page = crud.get_project_page(db, project_id=project_id, page_id=page_id)
+    page = repository.get_project_page(db, project_id=project_id, page_id=page_id)
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
     if not page.img_path:
@@ -183,7 +183,7 @@ def get_project_page_image(project_id: int, page_id: int, db: Session = Depends(
 
 @router.get("/{project_id}/source-pdf")
 def get_project_source_pdf(project_id: int, db: Session = Depends(get_db)) -> FileResponse:
-    project = crud.get_project(db, project_id=project_id)
+    project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 

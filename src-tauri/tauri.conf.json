@@ -37,7 +37,9 @@
       "signingIdentity": "-"
     },
     "resources": {
-      "resources/backend-runtime/": "backend-runtime/"
+      "resources/backend-runtime/": "backend-runtime/",
+      "resources/mimir-segmenter/": "mimir-segmenter/",
+      "resources/mimir-recognizer/": "mimir-recognizer/"
     }
   }
 }

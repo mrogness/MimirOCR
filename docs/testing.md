@@ -15,10 +15,13 @@ python -m pytest
 python -m pytest --cov=backend --cov-branch --cov-report=term-missing
 ```
 
-`requirements-test.txt` uses the application's `requirements.txt` as constraints,
+`requirements-test.txt` uses the application's `constraints.txt` as constraints,
 not as installation requirements. This tests the same FastAPI/Pydantic/SQLAlchemy
-versions without installing the ML stack. `requirements-dev.txt` still installs
-the full application plus tests if you need both.
+versions without installing the ML stack. `requirements-dev.txt` installs the API plus tests. For all three isolated runtime
+environments, use `python scripts/setup_backend.py --dev`.
+
+ReportLab is included in the model-free test environment to exercise real PDF
+exports. It uses the existing application pin from `constraints.txt`.
 
 Coverage includes runtime job/restart exclusion, restart expiration and disk
 failure recovery, line update/delete/restore routes with a real SQLite database,
@@ -27,7 +30,7 @@ reflow/Fraktur normalization. API tests mount individual production routers and
 override only their database dependency; CRUD and response validation are real.
 
 `conftest.py` redirects runtime directories **before collection**, because
-`backend.database` creates a database at import time. Never remove that safeguard
+`backend.persistence.database` creates a database at import time. Never remove that safeguard
 or point test fixtures at an existing MimirOCR database. Each line API test uses
 its own in-memory database. Runtime-gate tests use fresh gates and a fake clock;
 they do not sleep for reservation expiry.
@@ -80,7 +83,7 @@ if you want to run them locally.
 ## GitHub Actions and the release gate
 
 `.github/workflows/tests.yml` runs on pull requests, pushes to `main`, and manual
-dispatch. It is also a reusable workflow. Backend tests run on Linux, macOS and
+dispatch. It is also a reusable workflow. Backend tests run on macOS and
 Windows; frontend tests and a production frontend build run on Linux; Rust tests
 run on macOS and Windows. Coverage and JUnit reports are uploaded even if tests
 fail. These checks need no release secrets or model downloads.
@@ -101,7 +104,7 @@ cannot change those settings.
 ## Generated Architecture Documentation
 
 For visual explanations of test topology and OCR job orchestration, see
-`docs/testing-architecture.md`. It includes Mermaid diagrams for suite layout,
+[the testing architecture](testing-architecture.md). It includes Mermaid diagrams for suite layout,
 backend lifecycle transitions, and frontend polling flow.
 
 Coverage reports deliberately include untested application code rather than
@@ -111,7 +114,31 @@ new behavior before setting a realistic coverage floor.
 
 These tests do not prove segmentation accuracy, Calamari CER, PDF rendering
 fidelity, GPU compatibility, signing, or bundled native-library compatibility.
-Keep the existing sidecar build/smoke checks. Add a separate packaged-app test and
-a small versioned, licensed OCR fixture corpus when the model distribution and
-platform runners are ready. A passing mocked network test is not evidence that
+The runtime build runs `scripts/smoke_workers.py` against the packaged API and
+real workers on a generated two-page PDF. It verifies launch, inference, and
+persistence. Add a licensed Fraktur fixture corpus for accuracy benchmarking. A passing mocked network test is not evidence that
 the packaged backend starts or that OCR quality improved.
+
+## Worker and build tests
+
+`test_worker_processes.py` and `test_pipeline_runner.py` launch real subprocesses
+with model-free test engines behind the production protocol. They exercise
+round trips, model reuse, Unicode/geometry/candidate preservation, failures,
+timeouts (including blocked stdin), parent death, and parallel-stage cleanup.
+The API integration test also runs the real runner with fake-engine subprocesses.
+
+`test_worker_helpers.py` covers confidence/character metadata and reading order
+under the owning worker packages. `test_worker_resources.py` protects model and
+lexicon discovery and the existing default runtime directories after source moves.
+`test_route_imports.py` verifies worker launchers and dependency boundaries, and
+that importing ORM definitions alone does not initialize a database.
+`test_export_routes.py` exercises real PDF rendering and training ZIP contents
+through HTTP with isolated SQLite records. Job route tests also cover release of
+the runtime reservation when thread launch fails. See
+[backend code organization](architecture/backend-organization.md) for ownership
+and the mapping from old internal imports.
+
+`yarn test:build` checks engine exclusions, onedir separation, pipe-compatible
+Windows builds, and all three Tauri resource mappings. These checks run in CI.
+`yarn build:sidecar` runs inference through the packaged API and both real ML
+workers. macOS CI repeats that smoke test inside the copied application bundle.

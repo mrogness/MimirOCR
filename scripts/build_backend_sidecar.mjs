@@ -1,158 +1,36 @@
 #!/usr/bin/env node
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import process from 'node:process'
 
 import { runCommand } from './lib/commands.mjs'
-import {
-  createPyInstallerArgs,
-  defaultSidecarProfile,
-  validateSidecarProfile,
-} from './lib/pyinstallerConfig.mjs'
-import {
-  getPythonExecutable,
-  resolvePyInstaller,
-  resolvePython,
-  runPython,
-} from './lib/python.mjs'
+import { createPyInstallerArgs } from './lib/pyinstallerConfig.mjs'
 import { scriptProjectRootFrom } from './lib/projectPaths.mjs'
-import {
-  cleanPathIfExists,
-  deduplicateTensorFlowBinary,
-  runSidecarSmokeTestWithPolicy,
-  sidecarExecutablePath,
-  signSidecarIfNeeded,
-} from './lib/sidecarBundle.mjs'
+import { deduplicateTensorFlowBinary } from './lib/sidecarBundle.mjs'
+import { RUNTIMES, runtimePython, executable } from './lib/runtimes.mjs'
 
-const ROOT_DIR = scriptProjectRootFrom(import.meta.url)
-const SIDECAR_BUNDLE_NAME = 'backend-runtime'
-const SIDECAR_OUTPUT_DIR = path.join('src-tauri', 'resources')
-process.chdir(ROOT_DIR)
-
-function resolveKrakenBllaModelPath(python) {
-  if (!python) {
-    return ''
-  }
-
-  const code = [
-    'from pathlib import Path',
-    'import kraken',
-    'p = Path(kraken.__file__).resolve().parent / "blla.mlmodel"',
-    'print(str(p) if p.exists() else "")',
-  ].join('; ')
-
-  const result = runPython(python, ['-c', code])
-  return result ? String(result.stdout || '').trim() : ''
-}
-
-function cleanPreviousOutputs() {
-  mkdirSync(SIDECAR_OUTPUT_DIR, { recursive: true })
-  cleanPathIfExists(path.join(SIDECAR_OUTPUT_DIR, SIDECAR_BUNDLE_NAME))
-  cleanPathIfExists(
-    path.join(SIDECAR_OUTPUT_DIR, `${SIDECAR_BUNDLE_NAME}.exe`),
-  )
-}
-
-function finalizeSidecar() {
-  const sidecarRootDir = path.join(
-    SIDECAR_OUTPUT_DIR,
-    SIDECAR_BUNDLE_NAME,
-  )
-  const executablePath = sidecarExecutablePath(
-    SIDECAR_OUTPUT_DIR,
-    SIDECAR_BUNDLE_NAME,
-  )
-  const bundledIjLexiconPath = path.join(
-    sidecarRootDir,
-    '_internal',
-    'backend',
-    'resources',
-    'fraktur_ij_lexicon.txt',
-  )
-
-  if (!existsSync(bundledIjLexiconPath)) {
-    throw new Error(`Bundled Fraktur I/J lexicon is missing: ${bundledIjLexiconPath}`)
-  }
-
-  deduplicateTensorFlowBinary(sidecarRootDir)
-
-  if (process.platform !== 'win32') {
-    chmodSync(executablePath, 0o755)
-  }
-
-  runSidecarSmokeTestWithPolicy(executablePath)
-  signSidecarIfNeeded(executablePath)
-
-  // Keep the generated resource directory present in clean source checkouts.
-  writeFileSync(path.join(sidecarRootDir, '.gitkeep'), '', 'utf8')
-
-  console.log(`Built sidecar runtime at ${sidecarRootDir}`)
-}
-
-function main() {
-  const profile = defaultSidecarProfile()
-  validateSidecarProfile(profile)
-
-  const python = resolvePython(ROOT_DIR)
-  const pyInstaller = resolvePyInstaller(python)
-  if (!pyInstaller) {
-    throw new Error(
-      'pyinstaller is required. Install with: pip install pyinstaller',
-    )
-  }
-
-  const pythonExecutable = python ? getPythonExecutable(python) : null
-  if (pythonExecutable) {
-    console.log(`Using Python interpreter: ${pythonExecutable}`)
-  }
-
-  const calamariModelsSrc = path.join(
-    ROOT_DIR,
-    'backend',
-    'ml',
-    'calamari',
-  )
-  const ijLexiconSrc = path.join(
-    ROOT_DIR,
-    'backend',
-    'resources',
-    'fraktur_ij_lexicon.txt',
-  )
-  const krakenBllaModelSrc = resolveKrakenBllaModelPath(python)
-
-  cleanPreviousOutputs()
-
-  const pyinstallerArgs = createPyInstallerArgs({
-    profile,
-    rootDir: ROOT_DIR,
-    outDir: SIDECAR_OUTPUT_DIR,
-    bundleName: SIDECAR_BUNDLE_NAME,
-    calamariModelsSrc,
-    calamariModelsDest: path.join('backend', 'ml', 'calamari'),
-    ijLexiconSrc,
-    ijLexiconDest: path.join('backend', 'resources'),
-    krakenBllaModelSrc,
-    krakenBllaModelDest: 'kraken',
-  })
-
-  console.log(`Building sidecar with profile: ${profile}`)
-  runCommand(
-    pyInstaller.command,
-    [...pyInstaller.prefixArgs, ...pyinstallerArgs],
-    { stdio: 'inherit' },
-  )
-
-  finalizeSidecar()
-
-  console.log(
-    `Built deterministic sidecar resource ` +
-      `${path.join(SIDECAR_OUTPUT_DIR, SIDECAR_BUNDLE_NAME)} ` +
-      `(profile: ${profile})`,
-  )
-}
-
+const root = scriptProjectRootFrom(import.meta.url)
+process.chdir(root)
 try {
-  main()
+  for (const [role, runtime] of Object.entries(RUNTIMES)) {
+    const python = runtimePython(root, role)
+    const directory = path.dirname(executable(root, role))
+    rmSync(directory, { recursive: true, force: true })
+    mkdirSync(directory, { recursive: true })
+    let model = ''
+    if (role === 'segmenter') {
+      model = runCommand(python, ['-c',
+        'from pathlib import Path; import kraken; print(Path(kraken.__file__).parent / "blla.mlmodel")'
+      ]).stdout.trim()
+      if (!existsSync(model)) throw new Error(`Missing Kraken default model: ${model}`)
+    }
+    console.log(`Building ${role} from ${python}`)
+    runCommand(python, ['-m', 'PyInstaller', ...createPyInstallerArgs(root, role, model)], { stdio: 'inherit' })
+    if (role === 'recognizer') deduplicateTensorFlowBinary(directory)
+    runCommand(executable(root, role), ['--help'])
+    writeFileSync(path.join(directory, '.gitkeep'), '')
+  }
+  // Real inference and sibling-runtime discovery, not just an import/--help check.
+  runCommand(runtimePython(root, 'backend'), ['scripts/smoke_workers.py'], { stdio: 'inherit' })
 } catch (error) {
   console.error(String(error?.message || error))
   process.exit(1)

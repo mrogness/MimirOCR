@@ -1,0 +1,11 @@
+# Versions are preserved in the shared constraints, not installed as a combined stack.
+-c ../constraints.txt
+pydantic
+numpy
+pillow
+kraken
+torch
+torchvision
+coremltools
+protobuf
+scikit-learn

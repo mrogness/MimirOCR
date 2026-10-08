@@ -1,8 +1,8 @@
 import pytest
 
-from backend.models.line import Line
-from backend.models.page import Page
-from backend.models.project_config import ProjectConfig
+from backend.domain.line import Line
+from backend.domain.page import Page
+from backend.domain.project_config import ProjectConfig
 
 
 def line(identifier, x=0, y=0, **kwargs):

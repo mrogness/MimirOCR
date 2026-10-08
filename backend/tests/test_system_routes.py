@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.api.routes import system as system_routes
-from backend.runtime_gate import RuntimeGate
+from backend.runtime.gate import RuntimeGate
 
 
 @pytest.fixture(autouse=True)

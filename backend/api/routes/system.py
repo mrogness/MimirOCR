@@ -8,9 +8,9 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.performance import get_active_limits
-from backend.runtime_gate import RESTART_RESERVATION_SECONDS, runtime_gate
-from backend.runtime_paths import get_app_data_dir
+from backend.runtime.performance import get_active_limits
+from backend.runtime.gate import RESTART_RESERVATION_SECONDS, runtime_gate
+from backend.runtime.paths import get_app_data_dir
 
 
 router = APIRouter(prefix="/system", tags=["system"])

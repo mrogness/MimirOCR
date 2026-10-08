@@ -10,17 +10,20 @@ from sqlalchemy.pool import StaticPool
 
 from backend.api.deps import get_db
 from backend.api.routes import ocr as ocr_routes
-from backend.database import Base, Project
-from backend.pipeline.jobs import JobStore
-from backend.runtime_gate import RuntimeGate
+from backend.services import ocr_jobs
+from backend.persistence.models import Base, Project
+from backend.services.job_store import JobStore
+from backend.runtime.gate import RuntimeGate
 
 
 @pytest.fixture(autouse=True)
 def reset_ocr_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(ocr_routes, "runtime_gate", RuntimeGate())
-    monkeypatch.setattr(ocr_routes, "job_store", JobStore())
-    monkeypatch.setattr(ocr_routes, "get_temp_dir", lambda: tmp_path / "tmp")
-    monkeypatch.setattr(ocr_routes, "get_output_dir", lambda: tmp_path / "output")
+    monkeypatch.setattr(ocr_jobs, "runtime_gate", RuntimeGate())
+    store = JobStore()
+    monkeypatch.setattr(ocr_routes, "job_store", store)
+    monkeypatch.setattr(ocr_jobs, "job_store", store)
+    monkeypatch.setattr(ocr_jobs, "get_temp_dir", lambda: tmp_path / "tmp")
+    monkeypatch.setattr(ocr_jobs, "get_output_dir", lambda: tmp_path / "output")
 
 
 @pytest.fixture(name="ocr_api_client")
@@ -66,7 +69,7 @@ def test_start_job_and_list_and_get_job(ocr_api_client, monkeypatch: pytest.Monk
         def start(self):
             return None
 
-    monkeypatch.setattr(ocr_routes, "Thread", NoopThread)
+    monkeypatch.setattr(ocr_jobs, "Thread", NoopThread)
 
     upload = _register_upload(project_id=1)
     start = ocr_api_client.post(
@@ -99,7 +102,7 @@ def test_start_job_rejects_concurrent_runs(ocr_api_client, monkeypatch: pytest.M
         def start(self):
             return None
 
-    monkeypatch.setattr(ocr_routes, "Thread", HoldThread)
+    monkeypatch.setattr(ocr_jobs, "Thread", HoldThread)
 
     first_upload = _register_upload(project_id=1)
     first = ocr_api_client.post(
@@ -130,6 +133,21 @@ def test_start_job_upload_validation_errors(ocr_api_client):
         json={"upload_id": wrong_upload.upload_id, "config": {}},
     )
     assert mismatch.status_code == 400
+
+
+def test_failed_thread_start_releases_runtime(ocr_api_client, monkeypatch):
+    class FailingThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            raise RuntimeError("thread start failed")
+
+    monkeypatch.setattr(ocr_jobs, "Thread", FailingThread)
+    upload = _register_upload()
+    with pytest.raises(RuntimeError, match="thread start failed"):
+        ocr_api_client.post("/ocr/projects/1/jobs", json={"upload_id": upload.upload_id, "config": {}})
+    assert ocr_jobs.runtime_gate.snapshot()["runtime_state"] == "idle"
 
 
 def test_transcript_endpoint_requires_success_and_existing_file(ocr_api_client, tmp_path: Path):

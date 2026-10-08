@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from backend.database import Line
+from backend.persistence.models import Line
 
 
 def snapshot():

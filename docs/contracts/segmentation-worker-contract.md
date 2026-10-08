@@ -1,49 +1,26 @@
-# Segmentation Worker Contract
+# Segmentation worker contract
 
-## Request envelope
+Transport is UTF-8 JSON Lines over stdin/stdout. Each request and response carries
+integer `version: 1` and an incrementing integer `id`. Unsupported versions fail;
+there is no backward-compatibility adapter. Only one request is outstanding per
+worker. stderr is for diagnostics.
 
-```json
-{
-  "version": "v1",
-  "job_id": "string",
-  "project_id": "string",
-  "config": {
-    "strict_top_to_bottom": false,
-    "mask": []
-  },
-  "pages": [
-    {
-      "id": "page-1",
-      "image_path": "..."
-    }
-  ]
-}
-```
+First send `{"version":1,"id":1,"op":"init","config":{...}}`, with the JSON
+representation of `ProjectConfig`. The worker loads its model once and replies
+`{"version":1,"id":1,"type":"ready","role":"segmenter"}`.
 
-## Response envelope
+Then send `{"version":1,"id":2,"op":"page","page":{...}}`, where `page` is a
+`Page` with ID, page number, absolute image path, dimensions, and metadata. The
+response is `{"version":1,"id":2,"type":"result","page":{...}}`. The returned
+page keeps its ID/number and contains `Line` records with IDs, bounding boxes,
+absolute crop paths, and baseline metadata including `source_order`.
 
-```json
-{
-  "version": "v1",
-  "job_id": "string",
-  "status": "succeeded",
-  "pages": [
-    {
-      "id": "page-1",
-      "lines": [
-        {
-          "id": "page-1_line_1",
-          "bbox": { "x_min": 1, "y_min": 2, "x_max": 30, "y_max": 12 },
-          "image_path": "...",
-          "baseline_info": { "source_order": 1 }
-        }
-      ]
-    }
-  ]
-}
-```
+Images never travel through the pipe. NumPy geometry values are converted to
+JSON numbers/lists at serialization. The API validates returned page identity
+and restores page order across parallel workers.
 
-## Error contract
-
-- Non-zero worker exits must return a structured failure payload.
-- Orchestrator must preserve page ordering after parallel completion.
+An engine exception returns `type: "error"` with an `error` string, then exits
+nonzero. A native abort may produce no response; EOF is an error. Malformed JSON,
+wrong IDs/types, crashes and per-request deadlines fail the job and stop sibling
+workers. Worker lifetime and timeout details are in
+[the runtime architecture](../architecture/ocr-process-split.md).

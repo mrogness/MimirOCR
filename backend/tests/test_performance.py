@@ -1,6 +1,6 @@
 import pytest
 
-from backend.performance import normalize_profile, resolve_performance_limits
+from backend.runtime.performance import normalize_profile, resolve_performance_limits
 
 
 def test_normalize_profile_falls_back_to_balanced() -> None:

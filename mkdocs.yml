@@ -1,6 +1,6 @@
 site_name: MimirOCR Contributor Docs
 site_description: Architecture, contracts, testing, and contributor guidance for MimirOCR
-repo_url: https://github.com/mattbrinck/MimirOCR
+repo_url: https://github.com/mrogness/MimirOCR
 repo_name: MimirOCR
 
 theme:
@@ -27,6 +27,7 @@ nav:
   - Contributing: contributing.md
   - Architecture:
       - System Overview: architecture/system-overview.md
+      - Backend Code Organization: architecture/backend-organization.md
       - OCR Process Split: architecture/ocr-process-split.md
   - Contracts:
       - OCR Worker Contract: contracts/ocr-worker-contract.md

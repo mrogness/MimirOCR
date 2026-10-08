@@ -4,7 +4,7 @@ from threading import Barrier
 
 import pytest
 
-import backend.runtime_gate as runtime
+import backend.runtime.gate as runtime
 
 
 def test_job_lifecycle_rejects_stale_owners_and_hides_reservation():

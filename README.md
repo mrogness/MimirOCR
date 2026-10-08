@@ -20,7 +20,25 @@ Many Norwegian Americans who emigrated in the 19th century continued to read and
 ### Tooling and Technical Specifications
 MimirOCR uses a combination of two major OCR libraries to perform transcription. The actual OCR (Optical Character Recognition) is performed by a model trained using [Calamari-OCR](https://github.com/Calamari-OCR/calamari). The training process was completed by combining one of Calamari's 19th century Fraktur models and training data collected from hand transcribed Dano-Norwegian Fraktur texts owned by Preus Library at Luther College. This approach is possible because of Calamari-OCR's warmstart training feature, which made it possible to use their 19th century Fraktur model as a springboard to go from general Fraktur transcription to Dano-Norwegian Fraktur transcription by providing samples of Dano-Norwegian specific characters and language conventions. 
 
-In order to obtain images of the lines of text within input pdfs, page layout information, and other relevant data, MimirOCR makes use of [Kraken](https://github.com/mittagessen/kraken), which has been developed for historical texts in particular. These two models are contained and coordinated by a localhost FastAPI that is bundled as a sidecar process in the Tauri app. This means that transcription occurs locally. This was an intentional design decision, as hosting the backend on a performant enough server would cost more money than is feasible as a Student Researcher.
+In order to obtain images of the lines of text within input pdfs, page layout information, and other relevant data, MimirOCR makes use of [Kraken](https://github.com/mittagessen/kraken), which has been developed for historical texts in particular. These two models run in separate bundled worker processes, coordinated by a localhost FastAPI sidecar in the Tauri app. This means that transcription occurs locally. This was an intentional design decision, as hosting the backend on a performant enough server would cost more money than is feasible as a Student Researcher.
+
+## Development and packaging
+
+Use Python 3.10 (CI: 3.10.11) to create the API, Kraken, and Calamari environments:
+
+```sh
+python scripts/setup_backend.py --dev
+yarn install --frozen-lockfile
+yarn tauri:dev:auto
+```
+
+`yarn build:sidecar` builds three independent PyInstaller onedir runtimes and
+smoke-tests real inference. `yarn package:mac` / `yarn package:windows` include
+all three in one desktop app. See [runtime setup and architecture](docs/architecture/ocr-process-split.md)
+for interpreter selection, packaging, deadlines and dependency management.
+
+For the backend package layout and where to make changes, see
+[backend code organization](docs/architecture/backend-organization.md).
 
 ## Testing
 
