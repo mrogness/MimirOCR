@@ -7,8 +7,8 @@ from threading import Thread
 
 import pytest
 
-from backend.models.page import Page
-from backend.models.project_config import ProjectConfig
+from backend.domain.page import Page
+from backend.domain.project_config import ProjectConfig
 from backend.workers import client as module
 from backend.workers.client import WorkerClient, WorkerError
 from backend.workers.protocol import VERSION

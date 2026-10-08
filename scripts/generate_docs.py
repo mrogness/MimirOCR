@@ -68,7 +68,7 @@ def _generate_openapi_docs() -> None:
     md_lines.extend(
         [
             "",
-            "Raw schema: docs/generated/backend-openapi.json",
+            "Raw schema: [backend-openapi.json](backend-openapi.json)",
         ]
     )
 
@@ -104,7 +104,11 @@ def _generate_test_inventory() -> None:
 
     backend_by_area: dict[str, int] = defaultdict(int)
     for path, count in backend_by_file:
-        if "ocr" in path.name:
+        if "worker" in path.name or "pipeline" in path.name:
+            backend_by_area["workers and pipeline"] += count
+        elif "export" in path.name or "reflow" in path.name:
+            backend_by_area["exports"] += count
+        elif "ocr" in path.name:
             backend_by_area["ocr and orchestration"] += count
         elif "runtime" in path.name:
             backend_by_area["runtime and restart"] += count

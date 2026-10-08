@@ -19,7 +19,7 @@ def _lexicon_path() -> Path:
     if meipass:
         candidates.append(Path(meipass) / relative_path)
 
-    candidates.append(Path(__file__).resolve().parents[1] / "resources" / LEXICON_FILENAME)
+    candidates.append(Path(__file__).resolve().parents[2] / "resources" / LEXICON_FILENAME)
 
     for candidate in candidates:
         if candidate.is_file():

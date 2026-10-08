@@ -2,7 +2,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from backend.models.line import Line
+from backend.domain.line import Line
 
 
 class Page(BaseModel):

@@ -4,6 +4,13 @@ The API owns jobs, PDF rasterization, progress, database writes and exports.
 Kraken and Calamari run only in child processes, never inside FastAPI. They do
 not run HTTP servers. All processing remains local.
 
+The source packages follow these runtime boundaries. Each worker's launcher,
+engine implementation, and engine-specific helpers live together under
+`backend/workers/segmenter/` or `backend/workers/recognizer/`. Shared JSON payload
+objects live under `backend/domain/`; the API owns `backend/persistence/` and
+`backend/services/ocr_jobs.py`. See [backend code organization](backend-organization.md)
+for the full source map and refactor notes.
+
 | Runtime | Environment | Packaged onedir directory |
 |---|---|---|
 | API | `.venvs/backend` | `backend-runtime/` |
@@ -40,6 +47,11 @@ interpreters. `yarn tauri dev` also discovers the default API environment.
 Optional absolute interpreter overrides are `MIMIR_PYTHON`,
 `MIMIR_SEGMENTER_PYTHON`, and `MIMIR_RECOGNIZER_PYTHON`. The packaged API always
 uses bundled executables, ignoring those development overrides.
+
+The worker source commands remain `python -m backend.workers.segmenter` and
+`python -m backend.workers.recognizer` using each role's interpreter. PyInstaller
+now builds their package `__main__.py` files. Bundle directory names and model
+asset destinations are unchanged.
 
 ```sh
 yarn sidecar:preflight

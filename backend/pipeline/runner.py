@@ -2,10 +2,10 @@ from collections.abc import Callable
 from pathlib import Path
 import time
 
-from backend.models.project_config import ProjectConfig
-from backend.models.project import Project
-from backend.performance import get_active_limits
-from backend.pipeline.workers import run_stage
+from backend.domain.project_config import ProjectConfig
+from backend.domain.project import Project
+from backend.runtime.performance import get_active_limits
+from backend.pipeline.dispatch import run_stage
 
 
 class PipelineRunner:
@@ -25,8 +25,8 @@ class PipelineRunner:
             self.progress_callback(phase, progress, message, details)
 
     def process_project(self, project: Project):
-        from backend.stages.export import export
-        from backend.stages.prepare import prepare_pages
+        from backend.pipeline.artifacts import export
+        from backend.pipeline.prepare import prepare_pages
 
         def report(phase, completed, total, offset, label):
             counts = {

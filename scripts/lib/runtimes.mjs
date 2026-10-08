@@ -4,10 +4,10 @@ export const RUNTIMES = {
   backend: { name: 'backend-runtime', entry: 'backend/sidecar_main.py',
     imports: ['fastapi', 'uvicorn', 'sqlalchemy', 'pydantic', 'multipart', 'PIL', 'fitz', 'reportlab'],
     forbidden: ['kraken', 'calamari_ocr', 'torch', 'tensorflow', 'coremltools'] },
-  segmenter: { name: 'mimir-segmenter', entry: 'backend/workers/segmenter.py',
+  segmenter: { name: 'mimir-segmenter', entry: 'backend/workers/segmenter/__main__.py',
     imports: ['pydantic', 'PIL', 'numpy', 'kraken', 'torch', 'torchvision', 'coremltools'],
     forbidden: ['calamari_ocr', 'tensorflow', 'fastapi'] },
-  recognizer: { name: 'mimir-recognizer', entry: 'backend/workers/recognizer.py',
+  recognizer: { name: 'mimir-recognizer', entry: 'backend/workers/recognizer/__main__.py',
     imports: ['pydantic', 'PIL', 'numpy', 'calamari_ocr', 'tensorflow'],
     forbidden: ['kraken', 'torch', 'coremltools', 'fastapi'] },
 }

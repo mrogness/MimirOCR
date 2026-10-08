@@ -7,3 +7,6 @@ and image paths with them. All three runtimes are bundled in one application.
 
 See [isolated OCR runtimes](ocr-process-split.md) for development, packaging,
 process lifetime and failure handling, and the worker contracts for IPC details.
+
+See [backend code organization](backend-organization.md) for package ownership,
+entry points, and the relationship between domain objects and database models.

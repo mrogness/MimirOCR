@@ -2,7 +2,7 @@
 import os
 import sys
 import time
-from backend.models.line import Line
+from backend.domain.line import Line
 from backend.workers.server import serve
 
 

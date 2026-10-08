@@ -8,11 +8,11 @@ from typing_extensions import Annotated
 from fastapi.params import File
 from sqlalchemy.orm import Session
 
-from backend.api import crud
+from backend.persistence import repository
 from backend.api.deps import get_db
 from backend.api.schemas import PdfDpiAnalysisResponse, UploadedPdfResponse
-from backend.pipeline.jobs import job_store
-from backend.runtime_paths import get_output_dir, get_temp_dir, get_uploads_dir
+from backend.services.job_store import job_store
+from backend.runtime.paths import get_output_dir, get_temp_dir, get_uploads_dir
 from backend.services.pdf_dpi import PdfDpiAnalysisError, analyze_pdf_dpi
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -79,7 +79,7 @@ async def upload_pdf_for_project(
     file: Annotated[UploadFile, File(description="A PDF file")],
     db: Session = Depends(get_db),
 ) -> UploadedPdfResponse:
-    project = crud.get_project(db, project_id=project_id)
+    project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -89,7 +89,7 @@ async def upload_pdf_for_project(
     previous_source_path = project.source_pdf_path or ""
     # New upload replaces the project's previous OCR dataset entirely.
     job_store.clear_project_records(project_id)
-    crud.replace_project_pages_and_lines(db, project, [])
+    repository.replace_project_pages_and_lines(db, project, [])
     project.ocr_last_status = None
     project.ocr_last_elapsed_seconds = None
     db.commit()
@@ -112,7 +112,7 @@ async def upload_pdf_for_project(
         stored_path=str(out_path),
     )
 
-    crud.update_project_source_pdf(
+    repository.update_project_source_pdf(
         db,
         project=project,
         source_pdf_name=safe_name,

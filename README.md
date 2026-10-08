@@ -37,6 +37,9 @@ smoke-tests real inference. `yarn package:mac` / `yarn package:windows` include
 all three in one desktop app. See [runtime setup and architecture](docs/architecture/ocr-process-split.md)
 for interpreter selection, packaging, deadlines and dependency management.
 
+For the backend package layout and where to make changes, see
+[backend code organization](docs/architecture/backend-organization.md).
+
 ## Testing
 
 Unit and component tests run on pull requests and gate tagged release builds.

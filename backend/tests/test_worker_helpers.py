@@ -3,11 +3,11 @@ from typing import cast
 
 import pytest
 
-from backend.stages.ocr import _disable_pipeline_params
-from backend.stages.ocr import _extract_char_confidence_from_positions
-from backend.stages.ocr import _extract_char_positions
-from backend.stages.segment import _bbox_from_meta
-from backend.stages.segment import _sort_lines_within_regions
+from backend.workers.recognizer.engine import _disable_pipeline_params
+from backend.workers.recognizer.predictions import _extract_char_confidence_from_positions
+from backend.workers.recognizer.predictions import _extract_char_positions
+from backend.workers.segmenter.reading_order import _bbox_from_meta
+from backend.workers.segmenter.reading_order import _sort_lines_within_regions
 
 
 def test_segment_helpers_filter_and_sort_lines_by_region():

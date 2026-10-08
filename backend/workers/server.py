@@ -4,9 +4,9 @@ import os
 import sys
 import traceback
 
-from backend.models.page import Page
-from backend.models.project_config import ProjectConfig
-from backend.parent_watchdog import start_parent_watchdog
+from backend.domain.page import Page
+from backend.domain.project_config import ProjectConfig
+from backend.runtime.parent_watchdog import start_parent_watchdog
 from backend.workers.protocol import VERSION, decode, encode
 
 

@@ -7,9 +7,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from backend.database import Line, Page, Project
-from backend.models.page import Page as PipelinePage
-from backend.runtime_paths import get_output_dir
+from backend.persistence.models import Line, Page, Project
+from backend.domain.page import Page as PipelinePage
+from backend.runtime.paths import get_output_dir
 
 
 def _utcnow():

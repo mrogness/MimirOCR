@@ -1,20 +1,20 @@
 import sys
 import pytest
 
-from backend.models.page import Page
-from backend.models.project import Project
-from backend.models.project_config import ProjectConfig
+from backend.domain.page import Page
+from backend.domain.project import Project
+from backend.domain.project_config import ProjectConfig
 from backend.pipeline.runner import PipelineRunner
 from backend.workers import client as clients
 
 
 @pytest.fixture
 def fake_pipeline(monkeypatch):
-    from backend.stages import prepare, export
+    from backend.pipeline import prepare, artifacts
     monkeypatch.setattr(clients, "worker_command", lambda role:
                         [sys.executable, "-u", "-m", "backend.tests.fake_worker", role])
     calls = []
-    monkeypatch.setattr(export, "export", lambda project, config: calls.append(project))
+    monkeypatch.setattr(artifacts, "export", lambda project, config: calls.append(project))
     def setup(pages):
         def prepare_pages(project, config, on_page_rasterized):
             for idx in range(len(pages)):

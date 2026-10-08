@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Response, status
 from sqlalchemy.orm import Session
 
-from backend.api import crud
+from backend.persistence import repository
 from backend.api.deps import get_db
 from backend.api.schemas import (
     LineRestoreRequest,
@@ -38,20 +38,20 @@ def _line_to_read_payload(line) -> ProjectLineRead:
 
 @router.patch("/{line_id}", response_model=LineUpdateResponse)
 def update_line(line_id: int, payload: LineUpdateRequest, db: Session = Depends(get_db)) -> LineUpdateResponse:
-    line = crud.get_line(db, line_id)
+    line = repository.get_line(db, line_id)
     if not line and payload.page_id is not None and payload.line_order is not None:
-        line = crud.get_line_by_page_and_order(db, payload.page_id, payload.line_order)
+        line = repository.get_line_by_page_and_order(db, payload.page_id, payload.line_order)
     if not line:
         raise HTTPException(status_code=404, detail="Line not found")
 
-    updated = crud.update_line(db, line, payload.corrected_text, payload.line_order)
+    updated = repository.update_line(db, line, payload.corrected_text, payload.line_order)
     return LineUpdateResponse(line=_line_to_read_payload(updated))
 
 
 @router.post("/restore", response_model=LineRestoreResponse)
 def restore_line(payload: LineRestoreRequest, db: Session = Depends(get_db)) -> LineRestoreResponse:
     try:
-        restored = crud.restore_deleted_line(db, payload.line, payload.line_orders)
+        restored = repository.restore_deleted_line(db, payload.line, payload.line_orders)
     except LookupError as error:
         if str(error) == "page-not-found":
             raise HTTPException(status_code=404, detail="Page not found") from error
@@ -68,9 +68,9 @@ def restore_line(payload: LineRestoreRequest, db: Session = Depends(get_db)) -> 
 
 @router.delete("/{line_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_line(line_id: int, db: Session = Depends(get_db)) -> Response:
-    line = crud.get_line(db, line_id)
+    line = repository.get_line(db, line_id)
     if not line:
         raise HTTPException(status_code=404, detail="Line not found")
 
-    crud.delete_line(db, line)
+    repository.delete_line(db, line)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

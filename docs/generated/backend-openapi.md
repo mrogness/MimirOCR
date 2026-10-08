@@ -31,4 +31,4 @@ Generated from current backend routes.
 | POST | /system/restart/prepare | Prepare Backend Restart | system |
 | GET | /system/runtime | Get Runtime Info | system |
 
-Raw schema: docs/generated/backend-openapi.json
+Raw schema: [backend-openapi.json](backend-openapi.json)

@@ -4,7 +4,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.router import router as api_router
-from backend.database import Base, engine
+from backend.persistence.database import engine
+from backend.persistence.models import Base
 
 
 app = FastAPI()
@@ -34,7 +35,7 @@ async def allow_private_network_requests(request: Request, call_next) -> Respons
 
 @app.on_event("startup")
 def startup_event() -> None:
-    from backend.parent_watchdog import start_parent_watchdog
+    from backend.runtime.parent_watchdog import start_parent_watchdog
     start_parent_watchdog()
     Base.metadata.create_all(bind=engine)
 

@@ -1,9 +1,9 @@
 import os
 from typing import Callable, List, Optional
 
-from backend.models.page import Page
-from backend.models.project import Project
-from backend.models.project_config import ProjectConfig
+from backend.domain.page import Page
+from backend.domain.project import Project
+from backend.domain.project_config import ProjectConfig
 
 
 def prepare_pages(

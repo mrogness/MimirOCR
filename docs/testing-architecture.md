@@ -1,6 +1,6 @@
 # Testing Architecture (Generated)
 
-Generated: 2026-10-01
+Updated: 2026-10-08
 
 This document summarizes how tests are organized across backend, frontend, and
 Tauri components, and how OCR runtime orchestration is validated without model
@@ -17,8 +17,9 @@ flowchart TD
   B --> B1[Route and CRUD behavior]
   B --> B2[Runtime gate and restart safety]
   B --> B3[Pipeline orchestration]
-  B --> B4[Stage helper normalization]
+  B --> B4[Worker helpers and resource discovery]
   B --> B5[Fake-worker OCR integration]
+  B --> B6[PDF and training-data exports]
 
   C --> C1[Review composables]
   C --> C2[Projects upload and polling]

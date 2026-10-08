@@ -1,6 +1,9 @@
 # Contributing
 
 For desktop development and packaging, start with [isolated runtime setup](architecture/ocr-process-split.md).
+For source navigation, see [backend code organization](architecture/backend-organization.md).
+The [testing guide](testing.md) explains isolation and coverage; the
+[test inventory](generated/test-inventory.md) lists the current test files.
 
 ## Local setup
 

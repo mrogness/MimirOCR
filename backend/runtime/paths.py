@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 
-_REPO_BACKEND_DIR = Path(__file__).resolve().parent
+_REPO_BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 def _env_path(name: str) -> Path | None:

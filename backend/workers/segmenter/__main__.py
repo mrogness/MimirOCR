@@ -5,7 +5,7 @@ from backend.workers.server import serve
 def initialize(config):
     import os
     import torch
-    from backend.stages.segment import create_segmenter, segment
+    from backend.workers.segmenter.engine import create_segmenter, segment
 
     torch.set_num_threads(int(os.environ["MIMIR_SEGMENTATION_THREADS"]))
     torch.set_num_interop_threads(1)

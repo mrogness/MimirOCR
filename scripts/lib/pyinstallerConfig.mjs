@@ -14,19 +14,18 @@ export function createPyInstallerArgs(root, role, krakenModel) {
   }
   if (role === 'segmenter') {
     args.push('--exclude-module', 'backend.workers.recognizer',
-      '--exclude-module', 'backend.stages.ocr', '--collect-all', 'kraken',
+      '--collect-all', 'kraken',
       '--add-data', `${krakenModel}${separator}kraken`)
   } else if (role === 'recognizer') {
     args.push('--exclude-module', 'backend.workers.segmenter',
-      '--exclude-module', 'backend.stages.segment', '--collect-all', 'calamari_ocr',
+      '--collect-all', 'calamari_ocr',
       '--hidden-import', 'tensorflow.python.profiler.trace',
       '--collect-submodules', 'tensorflow.compiler.tf2tensorrt',
       '--add-data', `${path.join(root, 'backend/ml/calamari')}${separator}backend/ml/calamari`,
       '--add-data', `${path.join(root, 'backend/resources/fraktur_ij_lexicon.txt')}${separator}backend/resources`)
   } else {
     args.push('--exclude-module', 'backend.workers.segmenter',
-      '--exclude-module', 'backend.workers.recognizer',
-      '--exclude-module', 'backend.stages.segment', '--exclude-module', 'backend.stages.ocr')
+      '--exclude-module', 'backend.workers.recognizer')
   }
   args.push(path.join(root, runtime.entry))
   return args

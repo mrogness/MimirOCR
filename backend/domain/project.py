@@ -3,9 +3,9 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from backend.models.project_config import ProjectConfig
+from backend.domain.project_config import ProjectConfig
 
-from backend.models.page import Page
+from backend.domain.page import Page
 
 # 1. The data we expect from Vue.js to CREATE a project
 class ProjectCreate(BaseModel):

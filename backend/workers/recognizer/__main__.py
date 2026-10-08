@@ -5,7 +5,7 @@ from backend.workers.server import serve
 def initialize(config):
     import os
     import tensorflow as tf
-    from backend.stages.ocr import create_predictor, ocr_with_predictor
+    from backend.workers.recognizer.engine import create_predictor, ocr_with_predictor
 
     tf.config.threading.set_intra_op_parallelism_threads(int(os.environ["MIMIR_OCR_THREADS"]))
     tf.config.threading.set_inter_op_parallelism_threads(1)

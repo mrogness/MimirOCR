@@ -10,8 +10,8 @@ import sys
 import tempfile
 from threading import Lock, Thread
 
-from backend.models.page import Page
-from backend.performance import worker_environment
+from backend.domain.page import Page
+from backend.runtime.performance import worker_environment
 from backend.workers.protocol import VERSION, decode, encode
 
 ROOT = Path(__file__).resolve().parents[2]
