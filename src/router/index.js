@@ -1,43 +1,43 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-import defaultView from '../views/defaultView.vue'
-import projectsView from '../views/projectsView.vue'
-import projectReviewView from '../views/projectReviewView.vue'
-import infoView from '../views/infoView.vue'
-import settingsView from '../views/settingsView.vue'
+import DashboardView from '../features/projects/DashboardView.vue'
+import ProjectsView from '../features/projects/ProjectsView.vue'
+import ProjectReviewView from '../features/review/ProjectReviewView.vue'
+import InfoView from '../features/help/InfoView.vue'
+import SettingsView from '../features/settings/SettingsView.vue'
 
 const routes = [
   {
     path: '/',
     name: 'home',
-    component: defaultView
+    component: DashboardView
   },
   {
     path: '/projects',
     name: 'projects',
-    component: projectsView
+    component: ProjectsView
   },
   {
     path: '/projects/:id/review',
     name: 'projectReview',
-    component: projectReviewView,
+    component: ProjectReviewView,
     props: true
   },
   {
     path: '/projects/:id',
     name: 'projectDetail',
-    component: projectsView,
+    component: ProjectsView,
     props: true
   },
   {
     path: '/info',
     name: 'info',
-    component: infoView
+    component: InfoView
   },
   {
     path: '/settings',
     name: 'settings',
-    component: settingsView
+    component: SettingsView
   }
 ]
 

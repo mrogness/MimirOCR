@@ -38,7 +38,10 @@ def _cleanup_project_artifacts(project_id: int, source_pdf_path: Optional[str]) 
                 continue
 
             name = child.name
-            if name.startswith(f"project_{project_id}") or name.startswith(f"project{project_id}"):
+            # Match the whole ID, including only the supported underscore suffix.
+            if name in (f"project_{project_id}", f"project{project_id}") or name.startswith(
+                (f"project_{project_id}_", f"project{project_id}_")
+            ):
                 shutil.rmtree(child, ignore_errors=True)
 
         lines_root = tmp_root / "lines"

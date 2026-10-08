@@ -28,6 +28,7 @@ nav:
   - Architecture:
       - System Overview: architecture/system-overview.md
       - Backend Code Organization: architecture/backend-organization.md
+      - Frontend Code Organization: architecture/frontend-organization.md
       - OCR Process Split: architecture/ocr-process-split.md
   - Contracts:
       - OCR Worker Contract: contracts/ocr-worker-contract.md

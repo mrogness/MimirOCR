@@ -57,9 +57,24 @@ Tests use Vitest, Vue Test Utils, and jsdom. They cover settings isolation and
 validation; history snapshots and retention; correction-save debouncing, stale
 responses, undo, deletion, and errors; suspicious-character analysis; and actual
 rendered review-control interactions. Vue components are mounted, not mocked.
+Review geometry tests also cover observed coordinate spans, neighbor-constrained
+marker widening, fallback placement, reactive page/scale/toggle changes, and
+scaled SVG output and selection events through the real page overlay component.
 The editing composable's injected `backendFetch` is mocked at the I/O boundary.
 Fake timers make debounce tests deterministic. Shared setup unmounts components
 and clears browser storage after each test.
+
+Tests live beside their owning components, composables, or geometry module in
+`src/features/<feature>/**/__tests__/`. App-shell tests live in `src/__tests__/`
+and shared-service tests in `src/shared/services/__tests__/`. Vitest and coverage
+already discover these paths recursively, so their commands and CI configuration
+are unchanged. See [frontend code organization](architecture/frontend-organization.md)
+for the source map and the [test inventory](generated/test-inventory.md) for
+current test paths. To run the review geometry and overlay tests alone:
+
+```sh
+yarn test:unit src/features/review/__tests__/geometry.spec.js src/features/review/composables/__tests__/useReviewGeometry.spec.js src/features/review/components/__tests__/PageImageOverlay.spec.js
+```
 
 Prefer assertions about visible text, disabled controls, emitted events,
 persistence payloads, and state transitions over large HTML snapshots or CSS
@@ -101,7 +116,7 @@ cannot change those settings.
 
 ## Scope and future additions
 
-## Generated Architecture Documentation
+## Architecture Documentation
 
 For visual explanations of test topology and OCR job orchestration, see
 [the testing architecture](testing-architecture.md). It includes Mermaid diagrams for suite layout,
@@ -142,3 +157,16 @@ and the mapping from old internal imports.
 Windows builds, and all three Tauri resource mappings. These checks run in CI.
 `yarn build:sidecar` runs inference through the packaged API and both real ML
 workers. macOS CI repeats that smoke test inside the copied application bundle.
+
+## Project deletion and artifact isolation
+
+`test_project_routes.py` exercises real project routes, SQLite cascades, file
+responses, and isolated job/upload records. `test_project_artifact_cleanup.py`
+protects both project deletion and PDF replacement against project-ID prefix
+collisions: deleting project `1` must preserve directories for projects `10`
+and `100`. Cleanup accepts exact `project_1`/`project1` names or names followed
+by an underscore suffix, such as `project_1_run`.
+
+```sh
+python -m pytest backend/tests/test_project_routes.py backend/tests/test_project_artifact_cleanup.py
+```
