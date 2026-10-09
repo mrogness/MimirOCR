@@ -150,3 +150,5 @@ wrapt==1.14.2
 xlrd==1.2.0
 xlsxwriter==3.2.9
 yarl==1.24.5
+# API runtime only. Workers have separate environments; see docs/architecture/ocr-process-split.md.
+-r requirements/backend.txt

@@ -1,0 +1,43 @@
+site_name: MimirOCR Contributor Docs
+site_description: Architecture, contracts, testing, and contributor guidance for MimirOCR
+repo_url: https://github.com/mrogness/MimirOCR
+repo_name: MimirOCR
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - Contributing: contributing.md
+  - Architecture:
+      - System Overview: architecture/system-overview.md
+      - Backend Code Organization: architecture/backend-organization.md
+      - OCR Process Split: architecture/ocr-process-split.md
+  - Contracts:
+      - OCR Worker Contract: contracts/ocr-worker-contract.md
+      - Segmentation Worker Contract: contracts/segmentation-worker-contract.md
+  - Maintenance:
+      - Documentation Automation: maintenance/automation.md
+  - Testing:
+      - Testing Guide: testing.md
+      - Testing Architecture: testing-architecture.md
+      - Generated Test Inventory: generated/test-inventory.md
+  - Generated API:
+      - Generated Docs Notes: generated/README.md
+      - Backend OpenAPI Summary: generated/backend-openapi.md

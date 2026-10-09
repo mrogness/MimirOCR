@@ -1,4 +1,6 @@
 <script setup>
+import SuspiciousCharacterHint from './SuspiciousCharacterHint.vue'
+
 const props = defineProps({
   line: { type: Object, required: true },
   index: { type: Number, required: true },
@@ -87,16 +89,15 @@ function onCommitOrder(event) {
     />
     <div
       v-if="showSuspiciousHints && lineHasSuspiciousChars"
-      class="mt-1 rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] leading-4 text-brand-900"
+      class="mt-1 rounded border border-brand-200 bg-white px-1.5 pt-0.5 pb-0.75 text-[11px] leading-4 text-brand-900"
     >
-      <span
+      <template
         v-for="segment in suspiciousSegments"
         :key="segment.id"
-        :title="segment.confidenceLabel"
-        :class="segment.suspicious ? 'bg-red-200 text-red-900 underline decoration-red-500 decoration-2 underline-offset-2' : ''"
       >
-        {{ segment.ch }}
-      </span>
+        <SuspiciousCharacterHint v-if="segment.suspicious" :segment="segment" />
+        <span v-else>{{ segment.ch }}</span>
+      </template>
     </div>
     <p v-if="lineSaveState[line.id]?.status === 'error'" class="mt-1 text-[11px] text-red-700">
       {{ lineSaveState[line.id]?.message }}

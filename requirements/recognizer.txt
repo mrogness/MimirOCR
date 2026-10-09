@@ -1,0 +1,10 @@
+# Versions are preserved in the shared constraints, not installed as a combined stack.
+-c ../constraints.txt
+pydantic
+numpy
+pillow
+calamari_ocr
+tensorflow
+tensorflow-estimator
+keras
+protobuf

@@ -1,138 +1,32 @@
 import path from 'node:path'
+import { RUNTIMES } from './runtimes.mjs'
 
-export function defaultSidecarProfile() {
-  return 'standard'
-}
-
-export function validateSidecarProfile(profile) {
-  if (!['standard', 'lean'].includes(profile)) {
-    throw new Error(`Unsupported sidecar profile '${profile}'. Use 'standard' or 'lean'.`)
+export function createPyInstallerArgs(root, role, krakenModel) {
+  const runtime = RUNTIMES[role]
+  const separator = process.platform === 'win32' ? ';' : ':'
+  const args = ['--noconfirm', '--clean', '--onedir', '--console',
+    '--paths', root, '--name', runtime.name,
+    '--distpath', path.join(root, 'src-tauri', 'resources'),
+    '--workpath', path.join(root, '.pyinstaller', role, 'build'),
+    '--specpath', path.join(root, '.pyinstaller', role, 'spec')]
+  for (const name of [...runtime.forbidden, 'backend.tests']) {
+    args.push('--exclude-module', name)
   }
-}
-
-function profileOptions(profile) {
-  if (profile !== 'lean') {
-    return []
-  }
-
-  const excludes = [
-    'matplotlib',
-    'matplotlib.pyplot',
-    'IPython',
-    'ipykernel',
-    'jupyter_client',
-    'jupyter_core',
-    'debugpy',
-    'pandas',
-    'openpyxl',
-    'xlsxwriter',
-    'tkinter',
-    'tensorboard',
-    'tensorboard_data_server',
-    'tensorboard_plugin_wit',
-    'tensorflow.compiler.tf2tensorrt',
-    'tensorflow.lite',
-    'tensorflow.python.data.experimental.service',
-  ]
-
-  const args = ['--strip']
-  for (const moduleName of new Set(excludes)) {
-    args.push('--exclude-module', moduleName)
-  }
-
-  return args
-}
-
-function packageCollectionArgs(profile) {
-  const useSubmodules = profile === 'lean'
-  const args = ['--collect-submodules', 'backend']
-
-  if (useSubmodules) {
-    args.push(
-      '--collect-submodules',
-      'kraken',
-      '--collect-submodules',
-      'calamari_ocr',
-    )
+  if (role === 'segmenter') {
+    args.push('--exclude-module', 'backend.workers.recognizer',
+      '--collect-all', 'kraken',
+      '--add-data', `${krakenModel}${separator}kraken`)
+  } else if (role === 'recognizer') {
+    args.push('--exclude-module', 'backend.workers.segmenter',
+      '--collect-all', 'calamari_ocr',
+      '--hidden-import', 'tensorflow.python.profiler.trace',
+      '--collect-submodules', 'tensorflow.compiler.tf2tensorrt',
+      '--add-data', `${path.join(root, 'backend/ml/calamari')}${separator}backend/ml/calamari`,
+      '--add-data', `${path.join(root, 'backend/resources/fraktur_ij_lexicon.txt')}${separator}backend/resources`)
   } else {
-    args.push(
-      '--collect-all',
-      'kraken',
-      '--collect-all',
-      'calamari_ocr',
-    )
+    args.push('--exclude-module', 'backend.workers.segmenter',
+      '--exclude-module', 'backend.workers.recognizer')
   }
-
+  args.push(path.join(root, runtime.entry))
   return args
-}
-
-export function createPyInstallerArgs({
-  profile,
-  rootDir,
-  outDir,
-  bundleName,
-  calamariModelsSrc,
-  calamariModelsDest,
-  ijLexiconSrc,
-  ijLexiconDest,
-  krakenBllaModelSrc,
-  krakenBllaModelDest,
-}) {
-  const dataSeparator = process.platform === 'win32' ? ';' : ':'
-
-  return [
-    '--noconfirm',
-    '--clean',
-    '--onedir',
-    ...(process.platform === 'win32' ? ['--noconsole'] : []),
-
-    '--paths',
-    rootDir,
-
-    ...packageCollectionArgs(profile),
-
-    '--hidden-import',
-    'kraken.blla',
-
-    '--hidden-import',
-    'kraken.lib.segmentation',
-
-    '--hidden-import',
-    'tensorflow.python.profiler.trace',
-
-    '--hidden-import',
-    'tensorflow.compiler.tf2tensorrt._pywrap_py_utils',
-
-    '--collect-submodules',
-    'tensorflow.compiler.tf2tensorrt',
-
-    '--add-data',
-    `${calamariModelsSrc}${dataSeparator}${calamariModelsDest}`,
-
-    '--add-data',
-    `${ijLexiconSrc}${dataSeparator}${ijLexiconDest}`,
-
-    ...(krakenBllaModelSrc
-      ? [
-          '--add-data',
-          `${krakenBllaModelSrc}${dataSeparator}${krakenBllaModelDest}`,
-        ]
-      : []),
-
-    '--name',
-    bundleName,
-
-    '--distpath',
-    outDir,
-
-    '--workpath',
-    path.join('.pyinstaller', 'build'),
-
-    '--specpath',
-    path.join('.pyinstaller', 'spec'),
-
-    ...profileOptions(profile),
-
-    path.join('backend', 'sidecar_main.py'),
-  ]
 }

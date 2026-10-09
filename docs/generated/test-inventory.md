@@ -1,0 +1,56 @@
+# Test Inventory
+
+Generated from current test files.
+
+## Summary
+
+| Layer | Files | Approx test count |
+|---|---:|---:|
+| Backend pytest | 15 | 71 |
+| Frontend vitest | 9 | 33 |
+| Rust unit tests | 9 | 10 |
+
+## Backend by area
+
+| Area | Approx test count |
+|---|---:|
+| exports | 11 |
+| line routes and CRUD | 6 |
+| ocr and orchestration | 5 |
+| other | 23 |
+| runtime and restart | 4 |
+| workers and pipeline | 22 |
+
+## Backend files
+
+| File | Approx test count |
+|---|---:|
+| backend/tests/test_export_routes.py | 5 |
+| backend/tests/test_health_routes.py | 2 |
+| backend/tests/test_line_routes.py | 6 |
+| backend/tests/test_ocr_fake_worker_integration.py | 1 |
+| backend/tests/test_ocr_routes.py | 5 |
+| backend/tests/test_page_model.py | 4 |
+| backend/tests/test_performance.py | 5 |
+| backend/tests/test_pipeline_runner.py | 3 |
+| backend/tests/test_reflow.py | 6 |
+| backend/tests/test_route_imports.py | 5 |
+| backend/tests/test_runtime_gate.py | 4 |
+| backend/tests/test_system_routes.py | 7 |
+| backend/tests/test_worker_helpers.py | 4 |
+| backend/tests/test_worker_processes.py | 10 |
+| backend/tests/test_worker_resources.py | 4 |
+
+## Frontend files
+
+| File | Approx test count |
+|---|---:|
+| src/components/__tests__/App.spec.js | 2 |
+| src/components/__tests__/PredictedLineRow.spec.js | 3 |
+| src/components/__tests__/ReviewTopBar.spec.js | 3 |
+| src/composables/review/__tests__/useLineEditing.spec.js | 9 |
+| src/composables/review/__tests__/useReviewHistory.spec.js | 3 |
+| src/composables/review/__tests__/useSuspiciousAnalysis.spec.js | 4 |
+| src/composables/views/projects/__tests__/useProjectsOcrPolling.spec.js | 3 |
+| src/composables/views/projects/__tests__/useProjectsUploadActions.spec.js | 3 |
+| src/services/__tests__/appSettings.spec.js | 3 |

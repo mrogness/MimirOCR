@@ -1,0 +1,84 @@
+from pathlib import Path
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from backend.api.routes import system as system_routes
+from backend.runtime.gate import RuntimeGate
+
+
+@pytest.fixture(autouse=True)
+def reset_runtime_gate_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(system_routes, "runtime_gate", RuntimeGate())
+    monkeypatch.setattr(system_routes, "get_app_data_dir", lambda: tmp_path)
+
+
+def _client() -> TestClient:
+    app = FastAPI()
+    app.include_router(system_routes.router)
+    return TestClient(app)
+
+
+def test_get_cpu_info_has_expected_shape() -> None:
+    response = _client().get("/system/cpu")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_cores"] >= 1
+    assert payload["default_worker_count"] >= 1
+
+
+def test_prepare_then_cancel_restart_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(system_routes, "get_app_data_dir", lambda: tmp_path)
+
+    prepare = _client().post("/system/restart/prepare", json={"profile": "balanced"})
+    assert prepare.status_code == 200
+
+    restart_token = prepare.json()["restart_token"]
+    reservation_file = tmp_path / system_routes.RESTART_RESERVATION_FILE
+    assert reservation_file.exists()
+
+    cancel = _client().post("/system/restart/cancel", json={"restart_token": restart_token})
+    assert cancel.status_code == 200
+    assert cancel.json() == {"cancelled": True}
+    assert not reservation_file.exists()
+
+
+def test_cancel_with_invalid_token_returns_conflict() -> None:
+    response = _client().post("/system/restart/cancel", json={"restart_token": "invalid-token"})
+
+    assert response.status_code == 409
+
+
+def test_restart_is_blocked_during_ocr() -> None:
+    system_routes.runtime_gate.try_begin_job(1)
+    response = _client().post("/system/restart/prepare", json={"profile": "fast"})
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "runtime_busy"
+
+
+def test_restart_write_failure_releases_reservation(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_write(*args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(system_routes, "_write_reservation", fail_write)
+    response = _client().post("/system/restart/prepare", json={"profile": "cool"})
+    assert response.status_code == 500
+    assert system_routes.runtime_gate.snapshot()["runtime_state"] == "idle"
+    assert system_routes.runtime_gate.try_begin_job(1) is not None
+
+
+def test_invalid_profile_does_not_reserve_restart() -> None:
+    response = _client().post("/system/restart/prepare", json={"profile": "turbo"})
+    assert response.status_code == 422
+    assert system_routes.runtime_gate.snapshot()["runtime_state"] == "idle"
+
+
+def test_invalid_cancel_keeps_valid_reservation(tmp_path: Path) -> None:
+    prepared = _client().post("/system/restart/prepare", json={"profile": "fast"})
+    token = prepared.json()["restart_token"]
+    response = _client().post("/system/restart/cancel", json={"restart_token": "wrong"})
+    assert response.status_code == 409
+    assert (tmp_path / system_routes.RESTART_RESERVATION_FILE).exists()
+    assert system_routes.runtime_gate.cancel_restart(token)

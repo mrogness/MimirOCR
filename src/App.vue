@@ -22,16 +22,19 @@ const toggleSidebar = () => {
       </div>
 
       <!-- Navigation Links -->
-      <nav class="flex-1 p-2 space-y-2">
-        <router-link to="/" class="flex items-center space-x-4 p-3 rounded hover:bg-brand-800">
-          <span>🏠</span>
-          <span v-if="!isCollapsed">Dashboard</span>
-        </router-link>
-        <router-link to="/info" class="flex items-center space-x-4 p-3 rounded hover:bg-brand-800">
-          <span>📄</span>
-          <span v-if="!isCollapsed">Info</span>
-        </router-link>
-        <router-link to="/settings" class="flex items-center space-x-4 p-3 rounded hover:bg-brand-800">
+      <nav class="flex min-h-0 flex-1 flex-col p-2">
+        <div class="space-y-2">
+          <router-link to="/" class="flex items-center space-x-4 rounded p-3 hover:bg-brand-800">
+            <span>🏠</span>
+            <span v-if="!isCollapsed">Dashboard</span>
+          </router-link>
+
+          <router-link to="/info" class="flex items-center space-x-4 rounded p-3 hover:bg-brand-800">
+            <span>📄</span>
+            <span v-if="!isCollapsed">Help & Information</span>
+          </router-link>
+        </div>
+        <router-link to="/settings" class="mt-auto flex items-center space-x-4 rounded p-3 hover:bg-brand-800">
           <span>⚙️</span>
           <span v-if="!isCollapsed">Settings</span>
         </router-link>

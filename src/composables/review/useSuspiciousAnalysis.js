@@ -30,8 +30,8 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     }
 
     if (Array.isArray(raw)) {
-      const cleaned = raw.map((v) => normalizeConfidence(v)).filter((v) => v != null)
-      return cleaned.length ? cleaned : null
+      const cleaned = raw.map((v) => normalizeConfidence(v))
+      return cleaned.some((v) => v != null) ? cleaned : null
     }
 
     if (typeof raw !== 'string') {
@@ -41,8 +41,8 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     try {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) {
-        const cleaned = parsed.map((v) => normalizeConfidence(v)).filter((v) => v != null)
-        return cleaned.length ? cleaned : null
+        const cleaned = parsed.map((v) => normalizeConfidence(v))
+        return cleaned.some((v) => v != null) ? cleaned : null
       }
     } catch (_err) {
       // fall through to delimited parsing
@@ -56,7 +56,7 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     return delimited.length ? delimited : null
   }
 
-  function parseCharConfidenceFromPositions(line) {
+  function parseCharPositions(line) {
     const raw = line?.char_positions
     if (!raw) {
       return null
@@ -75,11 +75,34 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
       return null
     }
 
-    const values = positions
-      .map((pos) => normalizeConfidence(pos?.probability))
-      .filter((v) => v != null)
+    return positions
+  }
 
-    return values.length ? values : null
+  function normalizeCandidates(position) {
+    if (!Array.isArray(position?.candidates)) {
+      return []
+    }
+
+    const candidatesByChar = new Map()
+    for (const candidate of position.candidates) {
+      const ch = typeof candidate?.char === 'string' ? candidate.char : ''
+      const confidence = normalizeConfidence(candidate?.probability)
+      if (!ch || confidence == null) {
+        continue
+      }
+
+      const existing = candidatesByChar.get(ch)
+      if (!existing || confidence > existing.confidence) {
+        candidatesByChar.set(ch, {
+          ch,
+          confidence,
+          confidenceLabel: `${Math.round(confidence * 100)}%`,
+        })
+      }
+    }
+
+    return [...candidatesByChar.values()]
+      .sort((left, right) => right.confidence - left.confidence)
   }
 
   function isPotentiallyConfusableGlyph(ch) {
@@ -93,26 +116,38 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
       return []
     }
 
-    const charConf = parseCharConfidence(line) || parseCharConfidenceFromPositions(line)
+    const charPositions = parseCharPositions(line)
+    const charConf = parseCharConfidence(line)
     const lineConfidence = normalizeConfidence(line?.line_confidence)
     const hasLineConfidence = Number.isFinite(lineConfidence)
     const lowLineConfidence = hasLineConfidence && lineConfidence < suspiciousThreshold.value
 
     return chars.map((ch, index) => {
-      const conf = charConf && Number.isFinite(charConf[index]) ? charConf[index] : null
+      const position = charPositions?.[index]
+      const storedConfidence = normalizeConfidence(position?.probability)
+      const conf = storedConfidence != null
+        ? storedConfidence
+        : charConf && Number.isFinite(charConf[index])
+          ? charConf[index]
+          : null
       const lowCharConfidence = conf != null && conf < suspiciousThreshold.value
       const fallbackSuspicious = conf == null && lowLineConfidence && isPotentiallyConfusableGlyph(ch)
+      const confidenceKind = conf != null ? 'character' : hasLineConfidence ? 'line' : 'none'
 
       return {
         id: `${line.id}-${index}`,
         ch,
         suspicious: lowCharConfidence || fallbackSuspicious,
+        confidence: conf ?? (hasLineConfidence ? lineConfidence : null),
+        confidenceKind,
         confidenceLabel:
           conf != null
             ? `${Math.round(conf * 100)}%`
             : hasLineConfidence
               ? `line ${Math.round(lineConfidence * 100)}%`
               : 'no conf',
+        modelCharacter: typeof position?.char === 'string' ? position.char : null,
+        candidates: normalizeCandidates(position),
       }
     })
   }

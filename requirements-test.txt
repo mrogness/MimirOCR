@@ -1,0 +1,11 @@
+# Lightweight, model-free tests. Reuse the application's pins without installing
+# TensorFlow, PyTorch, Kraken, Calamari, or PyInstaller.
+-c constraints.txt
+fastapi
+pydantic
+SQLAlchemy
+python-multipart
+reportlab
+pytest==8.4.2
+pytest-cov==6.2.1
+httpx==0.28.1

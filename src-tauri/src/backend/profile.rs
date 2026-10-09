@@ -113,3 +113,135 @@ pub fn consume_restart_reservation(
 
     fs::remove_file(path).map_err(|error| error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static NEXT_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
+
+    // No new dependency is needed for these isolated filesystem tests. Every test
+    // gets a uniquely created directory, removed on drop even after an assertion.
+    struct TestRuntime(BackendRuntimePaths);
+
+    impl TestRuntime {
+        fn new() -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "mimir-profile-test-{}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos(),
+                NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed),
+            ));
+            fs::create_dir(&root).unwrap();
+            Self(BackendRuntimePaths {
+                app_data_dir: root.clone(),
+                cache_dir: root.join("cache"),
+                temp_dir: root.join("tmp"),
+            })
+        }
+
+        fn reservation(&self, token: &str, profile: &str, expires: u64) -> PathBuf {
+            let path = self.0.app_data_dir.join(RESTART_RESERVATION_FILE);
+            fs::write(&path, serde_json::to_vec(&serde_json::json!({
+                "restart_token": token,
+                "profile": profile,
+                "expires_unix_seconds": expires,
+            })).unwrap()).unwrap();
+            path
+        }
+    }
+
+    impl Drop for TestRuntime {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0.app_data_dir);
+        }
+    }
+
+    #[test]
+    fn missing_corrupt_and_unknown_settings_use_balanced() {
+        let runtime = TestRuntime::new();
+        assert_eq!(load_profile(&runtime.0).as_str(), "balanced");
+        for contents in ["not json", r#"{"performance_profile":"turbo"}"#, "{}"] {
+            fs::write(settings_path(&runtime.0), contents).unwrap();
+            assert_eq!(load_profile(&runtime.0).as_str(), "balanced");
+        }
+    }
+
+    #[test]
+    fn saving_profiles_replaces_settings_and_leaves_no_temporary_file() {
+        let runtime = TestRuntime::new();
+        for profile in [PerformanceProfile::Cool, PerformanceProfile::Fast, PerformanceProfile::Balanced] {
+            save_profile(&runtime.0, profile).unwrap();
+            assert_eq!(load_profile(&runtime.0).as_str(), profile.as_str());
+            assert!(!settings_path(&runtime.0).with_extension("json.tmp").exists());
+        }
+    }
+
+    #[test]
+    fn restart_reservations_are_single_use() {
+        let runtime = TestRuntime::new();
+        let path = runtime.reservation("token", "fast", u64::MAX);
+        consume_restart_reservation(&runtime.0, "token", PerformanceProfile::Fast).unwrap();
+        assert!(!path.exists());
+        assert!(consume_restart_reservation(&runtime.0, "token", PerformanceProfile::Fast).is_err());
+    }
+
+    #[test]
+    fn wrong_token_or_profile_does_not_consume_reservation() {
+        let runtime = TestRuntime::new();
+        let path = runtime.reservation("token", "fast", u64::MAX);
+        assert!(consume_restart_reservation(&runtime.0, "wrong", PerformanceProfile::Fast).is_err());
+        assert!(path.exists());
+        assert!(consume_restart_reservation(&runtime.0, "token", PerformanceProfile::Cool).is_err());
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn expired_reservations_are_rejected_and_removed() {
+        let runtime = TestRuntime::new();
+        let path = runtime.reservation("token", "fast", 0);
+        let error = consume_restart_reservation(&runtime.0, "token", PerformanceProfile::Fast).unwrap_err();
+        assert!(error.contains("expired"));
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn malformed_reservation_is_rejected() {
+        let runtime = TestRuntime::new();
+        fs::write(runtime.0.app_data_dir.join(RESTART_RESERVATION_FILE), "not json").unwrap();
+        assert!(consume_restart_reservation(&runtime.0, "token", PerformanceProfile::Fast).is_err());
+    }
+
+    #[test]
+    fn profile_parse_accepts_supported_values() {
+        assert!(matches!(
+            PerformanceProfile::parse("cool"),
+            Ok(PerformanceProfile::Cool)
+        ));
+        assert!(matches!(
+            PerformanceProfile::parse("  balanced  "),
+            Ok(PerformanceProfile::Balanced)
+        ));
+        assert!(matches!(
+            PerformanceProfile::parse("FAST"),
+            Ok(PerformanceProfile::Fast)
+        ));
+    }
+
+    #[test]
+    fn profile_parse_rejects_unknown_value() {
+        let error = PerformanceProfile::parse("turbo").expect_err("expected parse to fail");
+        assert!(error.contains("cool, balanced, or fast"));
+    }
+
+    #[test]
+    fn profile_as_str_matches_expected_wire_values() {
+        assert_eq!(PerformanceProfile::Cool.as_str(), "cool");
+        assert_eq!(PerformanceProfile::Balanced.as_str(), "balanced");
+        assert_eq!(PerformanceProfile::Fast.as_str(), "fast");
+    }
+}

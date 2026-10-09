@@ -7,7 +7,6 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 
-import { runCommand } from './commands.mjs'
 
 function lstatExists(targetPath) {
   try {
@@ -73,51 +72,4 @@ export function deduplicateTensorFlowBinary(bundleDir) {
     duplicateRelativePath: '_pywrap_tensorflow_internal.so',
     canonicalRelativePath: 'tensorflow/python/_pywrap_tensorflow_internal.so',
   })
-}
-
-export function cleanPathIfExists(targetPath) {
-  if (existsSync(targetPath)) {
-    rmSync(targetPath, { recursive: true, force: true })
-  }
-}
-
-export function sidecarExecutablePath(outDir, bundleName) {
-  const executableName =
-    process.platform === 'win32' ? `${bundleName}.exe` : bundleName
-  return path.join(outDir, bundleName, executableName)
-}
-
-function runSidecarSmokeTest(binaryPath) {
-  runCommand(binaryPath, ['--help'], { stdio: 'pipe' })
-}
-
-export function runSidecarSmokeTestWithPolicy(binaryPath) {
-  const strictSmoke = (process.env.CI || '').toLowerCase() === 'true'
-
-  try {
-    runSidecarSmokeTest(binaryPath)
-  } catch (error) {
-    const message = String(error?.message || error)
-    const protobufDescriptorCollision =
-      message.includes(
-        'File already exists in database: tensorflow/core/protobuf/replay_log.proto',
-      ) ||
-      message.includes(
-        'GeneratedDatabase()->Add(encoded_file_descriptor, size)',
-      )
-
-    if (protobufDescriptorCollision && !strictSmoke) {
-      console.warn(
-        'Sidecar smoke test hit known TensorFlow/protobuf descriptor collision; continuing build outside CI.',
-      )
-      return
-    }
-
-    throw error
-  }
-}
-
-export function signSidecarIfNeeded(binaryPath) {
-  // Intentionally disabled: default behavior does not re-sign sidecar binaries.
-  void binaryPath
 }

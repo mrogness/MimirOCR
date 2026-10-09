@@ -5,8 +5,6 @@ use std::process::{Command, Stdio};
 
 use tauri::{path::BaseDirectory, Manager};
 
-const DEFAULT_DEVELOPMENT_PYTHON: &str =
-    "/Users/matthew/personal-projects/fraktur/mimir-venv/venv/bin/python";
 const PACKAGED_BACKEND_DIRECTORY: &str = "backend-runtime";
 const PACKAGED_BACKEND_NAME: &str = "backend-runtime";
 
@@ -17,7 +15,7 @@ pub fn find_open_port() -> std::io::Result<u16> {
     Ok(port)
 }
 
-pub fn python_candidates(_project_root: &PathBuf) -> Vec<String> {
+pub fn python_candidates(project_root: &PathBuf) -> Vec<String> {
     if let Ok(custom) = env::var("MIMIR_PYTHON") {
         let custom = custom.trim();
         if !custom.is_empty() {
@@ -25,7 +23,12 @@ pub fn python_candidates(_project_root: &PathBuf) -> Vec<String> {
         }
     }
 
-    vec![DEFAULT_DEVELOPMENT_PYTHON.to_string()]
+    let executable = if cfg!(target_os = "windows") {
+        "Scripts/python.exe"
+    } else {
+        "bin/python"
+    };
+    vec![project_root.join(".venvs").join("backend").join(executable).display().to_string()]
 }
 
 pub fn has_uvicorn(python_bin: &str, project_root: &PathBuf) -> bool {

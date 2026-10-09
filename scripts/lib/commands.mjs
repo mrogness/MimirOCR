@@ -21,22 +21,3 @@ export function runCommand(command, args = [], options = {}) {
 
   return result
 }
-
-export function tryCommand(command, args = [], options = {}) {
-  const result = spawnSync(command, args, {
-    stdio: 'pipe',
-    encoding: 'utf8',
-    shell: false,
-    ...options,
-  })
-
-  if (result.error || result.status !== 0) {
-    return null
-  }
-
-  return result
-}
-
-export function commandExists(command, args = ['--version']) {
-  return tryCommand(command, args, { stdio: 'ignore' }) !== null
-}
