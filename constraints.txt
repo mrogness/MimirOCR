@@ -133,7 +133,7 @@ tensorflow-io-gcs-filesystem==0.37.1
 termcolor==3.3.0
 threadpoolctl==3.6.0
 tifffile==2025.5.10
-torch==2.0.1
+torch==2.13.0
 torchmetrics==1.9.0
 torchvision==0.15.2
 tqdm==4.69.0
