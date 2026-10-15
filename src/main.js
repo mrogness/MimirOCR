@@ -2,7 +2,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import "./styles/style.css";
-import { applyBrandTheme, getSavedBrandTheme } from "./services/appSettings";
+import { applyBrandTheme, getSavedBrandTheme } from "./shared/services/appSettings";
 
 applyBrandTheme(getSavedBrandTheme())
 

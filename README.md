@@ -39,12 +39,14 @@ for interpreter selection, packaging, deadlines and dependency management.
 
 For the backend package layout and where to make changes, see
 [backend code organization](docs/architecture/backend-organization.md).
+For frontend feature ownership, shared helpers, and review geometry, see
+[frontend code organization](docs/architecture/frontend-organization.md).
 
 ## Testing
 
 Unit and component tests run on pull requests and gate tagged release builds.
 See [the testing guide](docs/testing.md) for coverage, isolation, CI behavior, and
-guidelines for adding tests. See [generated testing architecture diagrams](docs/testing-architecture.md)
+guidelines for adding tests. See [testing architecture diagrams](docs/testing-architecture.md)
 for a visual map of test flows.
 
 - Python backend: `pytest`, `pytest-cov`, `fastapi.testclient`

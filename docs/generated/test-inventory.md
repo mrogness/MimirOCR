@@ -6,8 +6,8 @@ Generated from current test files.
 
 | Layer | Files | Approx test count |
 |---|---:|---:|
-| Backend pytest | 15 | 71 |
-| Frontend vitest | 9 | 33 |
+| Backend pytest | 17 | 91 |
+| Frontend vitest | 12 | 45 |
 | Rust unit tests | 9 | 10 |
 
 ## Backend by area
@@ -17,7 +17,7 @@ Generated from current test files.
 | exports | 11 |
 | line routes and CRUD | 6 |
 | ocr and orchestration | 5 |
-| other | 23 |
+| other | 43 |
 | runtime and restart | 4 |
 | workers and pipeline | 22 |
 
@@ -33,6 +33,8 @@ Generated from current test files.
 | backend/tests/test_page_model.py | 4 |
 | backend/tests/test_performance.py | 5 |
 | backend/tests/test_pipeline_runner.py | 3 |
+| backend/tests/test_project_artifact_cleanup.py | 1 |
+| backend/tests/test_project_routes.py | 19 |
 | backend/tests/test_reflow.py | 6 |
 | backend/tests/test_route_imports.py | 5 |
 | backend/tests/test_runtime_gate.py | 4 |
@@ -45,12 +47,15 @@ Generated from current test files.
 
 | File | Approx test count |
 |---|---:|
-| src/components/__tests__/App.spec.js | 2 |
-| src/components/__tests__/PredictedLineRow.spec.js | 3 |
-| src/components/__tests__/ReviewTopBar.spec.js | 3 |
-| src/composables/review/__tests__/useLineEditing.spec.js | 9 |
-| src/composables/review/__tests__/useReviewHistory.spec.js | 3 |
-| src/composables/review/__tests__/useSuspiciousAnalysis.spec.js | 4 |
-| src/composables/views/projects/__tests__/useProjectsOcrPolling.spec.js | 3 |
-| src/composables/views/projects/__tests__/useProjectsUploadActions.spec.js | 3 |
-| src/services/__tests__/appSettings.spec.js | 3 |
+| src/__tests__/App.spec.js | 2 |
+| src/features/projects/composables/__tests__/useOcrPolling.spec.js | 3 |
+| src/features/projects/composables/__tests__/useUploadActions.spec.js | 3 |
+| src/features/review/__tests__/geometry.spec.js | 7 |
+| src/features/review/components/__tests__/PageImageOverlay.spec.js | 2 |
+| src/features/review/components/__tests__/PredictedLineRow.spec.js | 3 |
+| src/features/review/components/__tests__/ReviewTopBar.spec.js | 3 |
+| src/features/review/composables/__tests__/useLineEditing.spec.js | 9 |
+| src/features/review/composables/__tests__/useReviewGeometry.spec.js | 3 |
+| src/features/review/composables/__tests__/useReviewHistory.spec.js | 3 |
+| src/features/review/composables/__tests__/useSuspiciousAnalysis.spec.js | 4 |
+| src/shared/services/__tests__/appSettings.spec.js | 3 |

@@ -16,4 +16,6 @@ runtime behavior, and worker-process contracts.
 - Runtime model and process boundaries: see
   [Architecture](architecture/system-overview.md).
 - Worker payload and behavior requirements: see [Contracts](contracts/ocr-worker-contract.md).
+- Frontend feature ownership and source paths: see
+  [Frontend Code Organization](architecture/frontend-organization.md).
 - Test strategy and quality gates: see [Testing Guide](testing.md).

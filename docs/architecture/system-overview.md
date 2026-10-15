@@ -10,3 +10,6 @@ process lifetime and failure handling, and the worker contracts for IPC details.
 
 See [backend code organization](backend-organization.md) for package ownership,
 entry points, and the relationship between domain objects and database models.
+
+See [frontend code organization](frontend-organization.md) for feature ownership,
+shared services, and the separation between review geometry and overlay rendering.
