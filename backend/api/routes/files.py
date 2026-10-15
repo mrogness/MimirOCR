@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 from pathlib import Path
 import shutil
 from uuid import uuid4
@@ -89,16 +90,9 @@ async def upload_pdf_for_project(
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
 
-    previous_source_path = project.source_pdf_path or ""
-    # New upload replaces the project's previous OCR dataset entirely.
-    job_store.clear_project_records(project_id)
-    repository.replace_project_pages_and_lines(db, project, [])
-    project.ocr_last_status = None
-    project.ocr_last_elapsed_seconds = None
-    db.commit()
-    db.refresh(project)
-    _cleanup_project_artifacts(project_id, previous_source_path)
-
+    # Read and save the replacement before changing the existing project dataset.
+    # A failed read, directory creation, or write must preserve prior corrections.
+    pdf_bytes = await file.read()
     upload_dir = get_uploads_dir()
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -106,8 +100,23 @@ async def upload_pdf_for_project(
     stored_name = f"{project_id}_{uuid4()}_{safe_name}"
     out_path = upload_dir / stored_name
 
-    pdf_bytes = await file.read()
-    out_path.write_bytes(pdf_bytes)
+    try:
+        out_path.write_bytes(pdf_bytes)
+    except OSError:
+        # A failed write can leave an incomplete file behind.
+        with suppress(OSError):
+            out_path.unlink(missing_ok=True)
+        raise
+
+    previous_source_path = project.source_pdf_path or ""
+    # A successfully saved upload replaces the project's previous OCR dataset.
+    job_store.clear_project_records(project_id)
+    repository.replace_project_pages_and_lines(db, project, [])
+    project.ocr_last_status = None
+    project.ocr_last_elapsed_seconds = None
+    db.commit()
+    db.refresh(project)
+    _cleanup_project_artifacts(project_id, previous_source_path)
 
     upload_record = job_store.register_upload(
         project_id=project_id,

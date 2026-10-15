@@ -170,3 +170,11 @@ by an underscore suffix, such as `project_1_run`.
 ```sh
 python -m pytest backend/tests/test_project_routes.py backend/tests/test_project_artifact_cleanup.py
 ```
+
+`test_file_routes.py` covers upload storage, replacement isolation, MIME and
+multipart validation, and the DPI route's analyzer interface. Reading and saving
+a replacement happens before clearing the old dataset. Fault-injection tests
+verify that read, directory-creation, and write failures preserve corrections,
+pages, artifacts, and job/upload records, and that partially written replacement
+files are removed. DPI analyzer internals are mocked in this route suite; it does
+not measure scan-resolution detection accuracy.
