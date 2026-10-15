@@ -8,6 +8,7 @@ export function useOcrPolling({
   onRecoveredRunNotice,
 }) {
   let pollTimer = null
+  let pollingGeneration = 0
 
   function asUserMessage(error, fallback) {
     if (error instanceof TypeError) {
@@ -38,6 +39,7 @@ export function useOcrPolling({
   }
 
   function stopPolling() {
+    pollingGeneration += 1
     if (pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
@@ -49,12 +51,14 @@ export function useOcrPolling({
   }
 
   async function pollJob(jobId) {
+    const generation = pollingGeneration
     const response = await backendFetch(`/ocr/jobs/${jobId}`, {}, { retries: 2 })
     if (!response.ok) {
       throw new Error(`Unable to fetch OCR job (${response.status})`)
     }
 
     const data = await response.json()
+    if (generation !== pollingGeneration) return null
     state.ocrPhase.value = data.phase || data.status || 'running'
     state.ocrProgress.value = typeof data.progress === 'number' ? data.progress : 0
     state.uploadMessage.value = data.message || ''
@@ -81,7 +85,7 @@ export function useOcrPolling({
       persistence.clearPersistedActiveJob()
       state.uploadError.value = data.error || 'OCR job failed.'
       await reloadProject()
-      return
+      return data
     }
 
     if (data.status === 'succeeded') {
@@ -92,16 +96,24 @@ export function useOcrPolling({
       state.uploadMessage.value = 'OCR processing complete.'
       await reloadProject()
     }
+    return data
   }
 
   function startPolling(jobId) {
     stopPolling()
+    const generation = pollingGeneration
+    let requestPending = false
     pollTimer = setInterval(async () => {
+      if (requestPending || generation !== pollingGeneration) return
+      requestPending = true
       try {
         await pollJob(jobId)
       } catch (error) {
+        if (generation !== pollingGeneration) return
         stopPolling()
         state.uploadError.value = asUserMessage(error, 'Lost connection while polling OCR status.')
+      } finally {
+        requestPending = false
       }
     }, 1200)
   }
@@ -113,6 +125,7 @@ export function useOcrPolling({
 
     const persisted = persistence.readPersistedActiveJob()
     if (persisted?.jobId) {
+      const previousJobId = state.currentJobId.value
       state.currentJobId.value = persisted.jobId
       if (persisted.startedAtMs) {
         state.processingStartMs.value = persisted.startedAtMs
@@ -121,8 +134,9 @@ export function useOcrPolling({
       }
 
       try {
-        await pollJob(persisted.jobId)
-        const shouldShowNotice = state.currentJobId.value !== persisted.jobId
+        const recoveredJob = await pollJob(persisted.jobId)
+        if (!recoveredJob || ['succeeded', 'failed'].includes(recoveredJob.status)) return
+        const shouldShowNotice = previousJobId !== persisted.jobId
         if (shouldShowNotice && isRecoverableRunningPhase(state.ocrPhase.value)) {
           onRecoveredRunNotice('Recovered active OCR run after reload.')
         }
@@ -150,6 +164,7 @@ export function useOcrPolling({
         return
       }
 
+      const previousJobId = state.currentJobId.value
       state.currentJobId.value = latestJob.job_id
       state.ocrPhase.value = latestJob.phase || latestJob.status || 'running'
       state.ocrProgress.value = typeof latestJob.progress === 'number' ? latestJob.progress : 0
@@ -167,7 +182,7 @@ export function useOcrPolling({
       }
 
       persistence.persistActiveJob(latestJob.job_id, startedAtMs)
-      const shouldShowNotice = state.currentJobId.value !== latestJob.job_id
+      const shouldShowNotice = previousJobId !== latestJob.job_id
       if (shouldShowNotice) {
         onRecoveredRunNotice('Reconnected to in-progress OCR run.')
       }

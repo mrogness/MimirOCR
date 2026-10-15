@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { afterEach, beforeEach, vi } from 'vitest'
+import { deferred, jsonResponse } from '../../../../test/helpers'
 import { useLineEditing } from '../useLineEditing'
 
 function ok(text) {
@@ -13,12 +14,13 @@ function harness() {
   ] }])
   const selectedLineId = ref(101)
   const activeLineId = ref(101)
+  const refreshPagesPreservingSelection = vi.fn(async () => {})
   const backendFetch = vi.fn(async (_url, options) => ok(JSON.parse(options.body || '{}').corrected_text))
   const editing = useLineEditing({
     pages, selectedPage: ref(pages.value[0]), selectedLineId, activeLineId, backendFetch,
-    refreshPagesPreservingSelection: vi.fn(), selectPageById: vi.fn(),
+    refreshPagesPreservingSelection, selectPageById: vi.fn(),
   })
-  return { ...editing, pages, selectedLineId, activeLineId, backendFetch, line: pages.value[0].lines[0] }
+  return { ...editing, pages, selectedLineId, activeLineId, backendFetch, refreshPagesPreservingSelection, line: pages.value[0].lines[0] }
 }
 
 describe('line editing persistence', () => {
@@ -135,4 +137,95 @@ describe('line editing persistence', () => {
     expect(editor.pages.value[0].lines.map(line => line.id)).toEqual([101, 102])
     expect(editor.canUndo.value).toBe(false)
   })
+
+  it('persists a moved order and restores it on undo', async () => {
+    editor.moveLine(editor.line, 1)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(editor.pages.value[0].lines.map(l => l.id)).toEqual([102, 101])
+    expect(editor.backendFetch.mock.calls.map(([, options]) => JSON.parse(options.body).line_order)).toEqual([1, 2])
+    expect(editor.undoStack.value[0].type).toBe('reorder')
+    await editor.undoLastAction()
+    expect(editor.pages.value[0].lines.map(l => [l.id, l.line_order])).toEqual([[101, 1], [102, 2]])
+    expect(editor.canUndo.value).toBe(false)
+  })
+
+  it('rolls back a partially persisted reorder without adding history', async () => {
+    editor.backendFetch.mockResolvedValueOnce(ok('Second')).mockResolvedValueOnce({ ok: false, status: 500 })
+    editor.moveLine(editor.line, 1)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(editor.pages.value[0].lines.map(l => [l.id, l.line_order])).toEqual([[101, 1], [102, 2]])
+    expect(editor.backendFetch).toHaveBeenCalledTimes(3)
+    expect(JSON.parse(editor.backendFetch.mock.lastCall[1].body).line_order).toBe(2)
+    expect(editor.undoStack.value).toHaveLength(0)
+    expect(editor.undoErrorMessage.value).toContain('Restored previous order')
+  })
+
+  it('retains a reorder history entry when undo fails', async () => {
+    editor.commitLineOrderInput(editor.line, '2')
+    await vi.advanceTimersByTimeAsync(0)
+    editor.backendFetch.mockResolvedValueOnce({ ok: false, status: 500 })
+    await editor.undoLastAction()
+    expect(editor.pages.value[0].lines.map(l => l.id)).toEqual([102, 101])
+    expect(editor.canUndo.value).toBe(true)
+    expect(editor.undoErrorMessage.value).toContain('Undo failed')
+  })
+
+  it('ignores invalid and unchanged line-order input', async () => {
+    editor.commitLineOrderInput(editor.line, 'no')
+    editor.commitLineOrderInput(editor.line, '-10')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(editor.backendFetch).not.toHaveBeenCalled()
+  })
+
+  it('flushes a queued correction before export without waiting for the debounce', async () => {
+    editor.onLineInput(editor.line, 'Latest correction')
+    await editor.flushPendingSaves()
+    expect(editor.backendFetch).toHaveBeenCalledOnce()
+    expect(JSON.parse(editor.backendFetch.mock.calls[0][1].body).corrected_text).toBe('Latest correction')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(editor.backendFetch).toHaveBeenCalledOnce()
+  })
+
+  it('waits for an in-flight save before flushing the newer correction', async () => {
+    const pending = deferred()
+    editor.backendFetch.mockReturnValueOnce(pending.promise)
+    editor.onLineInput(editor.line, 'Older')
+    await vi.advanceTimersByTimeAsync(350)
+    editor.onLineInput(editor.line, 'Newest')
+    const flushing = editor.flushPendingSaves()
+    expect(editor.backendFetch).toHaveBeenCalledOnce()
+    pending.resolve(ok('Older'))
+    await flushing
+    expect(editor.line.corrected_text).toBe('Newest')
+    expect(JSON.parse(editor.backendFetch.mock.lastCall[1].body).corrected_text).toBe('Newest')
+  })
+
+  it('refuses export when a pending correction could not be saved', async () => {
+    editor.backendFetch.mockResolvedValueOnce(jsonResponse({}, 500))
+    editor.onLineInput(editor.line, 'Keep my draft')
+    await expect(editor.flushPendingSaves()).rejects.toThrow(/unsaved/i)
+    expect(editor.line.corrected_text).toBe('Keep my draft')
+    expect(editor.lineSaveState.value[101].status).toBe('error')
+  })
+
+  it('refreshes and retries a missing line once while preserving the correction', async () => {
+    editor.backendFetch.mockResolvedValueOnce(jsonResponse({}, 404))
+    editor.onLineInput(editor.line, 'Ændret')
+    await vi.advanceTimersByTimeAsync(350)
+    expect(editor.refreshPagesPreservingSelection).toHaveBeenCalledOnce()
+    expect(editor.backendFetch).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(editor.backendFetch.mock.lastCall[1].body).corrected_text).toBe('Ændret')
+    expect(editor.lineSaveState.value[101].status).toBe('saved')
+  })
+
+  it('surfaces a repeated 404 without retrying indefinitely', async () => {
+    editor.backendFetch.mockResolvedValue(jsonResponse({}, 404))
+    editor.onLineInput(editor.line, 'Keep this draft')
+    await vi.advanceTimersByTimeAsync(350)
+    expect(editor.backendFetch).toHaveBeenCalledTimes(2)
+    expect(editor.line.corrected_text).toBe('Keep this draft')
+    expect(editor.lineSaveState.value[101].status).toBe('error')
+  })
+
+
 })

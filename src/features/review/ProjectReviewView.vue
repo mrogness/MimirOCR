@@ -31,7 +31,7 @@ const {
   exportSettings,
   exportProjectPdf,
   exportTrainingData,
-} = useExportPdf({ projectId, backendFetch })
+} = useExportPdf({ projectId, backendFetch, beforeExport: () => flushPendingSaves() })
 
 const {
   renderedImageWidth,
@@ -206,6 +206,7 @@ const {
   undoLastAction,
   clearUndoHistory,
   clearPendingTimers,
+  flushPendingSaves,
 } = useLineEditing({
   selectedPage,
   pages,

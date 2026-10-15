@@ -2,6 +2,7 @@
 from io import BytesIO
 import json
 import zipfile
+import fitz
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -102,3 +103,25 @@ def test_pdf_dependency_error_precedes_project_lookup(export_client, monkeypatch
     response = export_client.get("/export/projects/999/pdf")
     assert response.status_code == 500
     assert "PDF export dependency missing" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("layout", ["source-lines", "reading"])
+def test_pdf_contains_corrected_text_instead_of_original_prediction(export_client, layout):
+    response = export_client.get("/export/projects/1/pdf", params={"layout_mode": layout, "spread_mode": "single", "page_size": "a4"})
+    assert response.status_code == 200
+    with fitz.open(stream=response.content, filetype="pdf") as document:
+        assert document.page_count == 1
+        text = "".join(page.get_text() for page in document)
+        assert "Æble, ø og Å" in text
+        assert "wrong" not in text
+        assert "First" in text
+        assert document[0].rect.width == pytest.approx(595.28, abs=0.1)
+
+
+def test_source_layout_preserves_both_sides_of_a_spread(export_client):
+    response = export_client.get("/export/projects/1/pdf", params={"spread_mode": "split-spread"})
+    assert response.status_code == 200
+    with fitz.open(stream=response.content, filetype="pdf") as document:
+        assert document.page_count == 2
+        assert "Æble" in document[0].get_text()
+        assert document[1].get_text().strip() == ""

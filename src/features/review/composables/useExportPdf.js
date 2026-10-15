@@ -2,7 +2,7 @@ import { ref } from 'vue'
 
 import { getProjectSettings } from '../../../shared/services/appSettings'
 
-export function useExportPdf({ projectId, backendFetch }) {
+export function useExportPdf({ projectId, backendFetch, beforeExport = async () => {} }) {
   const isExporting = ref(false)
   const showExportSettings = ref(false)
   const exportErrorMessage = ref('')
@@ -29,7 +29,11 @@ export function useExportPdf({ projectId, backendFetch }) {
 
     const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
     if (utfMatch?.[1]) {
-      return decodeURIComponent(utfMatch[1]).replace(/[\r\n]/g, '')
+      try {
+        return decodeURIComponent(utfMatch[1]).replace(/[\r\n]/g, '')
+      } catch (_error) {
+        // A malformed header must not prevent downloading the export.
+      }
     }
 
     const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
@@ -67,29 +71,34 @@ export function useExportPdf({ projectId, backendFetch }) {
     }
 
     const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
     const filename =
       extractFilenameFromHeader(response.headers.get('Content-Disposition')) ||
       defaultFilename
 
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    try {
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+    } finally {
+      link.remove()
+      URL.revokeObjectURL(url)
+    }
 
     exportSuccessMessage.value = `${successPrefix} ${filename}`
     showExportSettings.value = false
   }
 
   async function exportProjectPdf() {
+    if (isExporting.value) return
     isExporting.value = true
     exportErrorMessage.value = ''
     exportSuccessMessage.value = ''
 
     try {
+      await beforeExport()
       const query = new URLSearchParams({
         ...exportSettings.value,
         spread_mode: getProjectSettings(projectId.value).spreadMode,
@@ -112,11 +121,13 @@ export function useExportPdf({ projectId, backendFetch }) {
   }
 
   async function exportTrainingData() {
+    if (isExporting.value) return
     isExporting.value = true
     exportErrorMessage.value = ''
     exportSuccessMessage.value = ''
 
     try {
+      await beforeExport()
       await downloadExportFromEndpoint({
         path: `/export/projects/${projectId.value}/training-data`,
         method: 'GET',
