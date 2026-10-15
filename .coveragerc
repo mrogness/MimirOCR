@@ -3,7 +3,16 @@ branch = True
 source = backend
 omit =
     backend/tests/*
+    backend/**/__init__.py
+    # Tiny entry points; protocol, engines and lifecycle remain measured.
+    backend/sidecar_main.py
+    backend/workers/*/__main__.py
 
 [report]
 show_missing = True
 include_namespace_packages = True
+omit =
+    backend/tests/*
+    backend/**/__init__.py
+    backend/sidecar_main.py
+    backend/workers/*/__main__.py

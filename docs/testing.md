@@ -20,8 +20,9 @@ not as installation requirements. This tests the same FastAPI/Pydantic/SQLAlchem
 versions without installing the ML stack. `requirements-dev.txt` installs the API plus tests. For all three isolated runtime
 environments, use `python scripts/setup_backend.py --dev`.
 
-ReportLab is included in the model-free test environment to exercise real PDF
-exports. It uses the existing application pin from `constraints.txt`.
+ReportLab, PyMuPDF and Pillow are included in the model-free test environment to
+exercise real PDF exports, source-resolution analysis and rasterization. They use
+the existing application pins from `constraints.txt`; no ML dependencies are added.
 
 Coverage includes runtime job/restart exclusion, restart expiration and disk
 failure recovery, line update/delete/restore routes with a real SQLite database,
@@ -122,10 +123,20 @@ For visual explanations of test topology and OCR job orchestration, see
 [the testing architecture](testing-architecture.md). It includes Mermaid diagrams for suite layout,
 backend lifecycle transitions, and frontend polling flow.
 
-Coverage reports deliberately include untested application code rather than
-claiming whole-app coverage from a narrow selection. There is no arbitrary
-global percentage gate yet. Expand the suite with regression tests for bugs and
-new behavior before setting a realistic coverage floor.
+Coverage reports include untested application logic. The frontend excludes test
+infrastructure, the bootstrap and declarative route map, and six static help-text
+components explicitly listed in `vitest.config.js`. Interactive help, settings,
+preview controls, screen orchestration and backend services remain measured.
+Python excludes test infrastructure, package initializers and tiny executable
+entry points; inference engines, preparation, prediction metadata and runtime
+lifecycle code remain measured. These exclusions change the denominator, so
+compare results using the same configuration. No ML code is hidden to raise a score.
+
+The frontend emits `coverage/frontend/coverage-summary.json` as well as HTML and
+LCOV reports. Use the per-file results to prioritize missing behaviors; aggregate
+Vue branch coverage can look high even when a component is never mounted.
+Vitest enforces regression floors of 70% lines/statements/functions and 75%
+branches. These are suite guardrails, not proof of complete workflow coverage.
 
 These tests do not prove segmentation accuracy, Calamari CER, PDF rendering
 fidelity, GPU compatibility, signing, or bundled native-library compatibility.
@@ -176,5 +187,38 @@ multipart validation, and the DPI route's analyzer interface. Reading and saving
 a replacement happens before clearing the old dataset. Fault-injection tests
 verify that read, directory-creation, and write failures preserve corrections,
 pages, artifacts, and job/upload records, and that partially written replacement
-files are removed. DPI analyzer internals are mocked in this route suite; it does
-not measure scan-resolution detection accuracy.
+files are removed. DPI analyzer internals are mocked in the route suite;
+`test_pdf_dpi.py` separately uses generated scans with known source resolutions,
+vector-only pages, a repeated logo, rotation, encryption and invalid PDFs.
+
+## Frontend workflow and recovery regressions
+
+`ProjectReviewView.spec.js` mounts the real review screen, composables and child
+components with an in-memory router. It checks edit/save/remount, immediate export
+of pending corrections, overlay-to-row selection, page navigation, keyboard undo,
+route changes and empty/error states. `ProjectsView.spec.js` exercises file
+selection, upload, job progress, completion, review navigation and upload retry;
+only its PDF.js canvas preview is replaced, since that has a dedicated test suite.
+
+Composable/service tests cover reorder persistence and partial rollback, undo
+failure, serialized save flushing, terminal-job recovery, slow polls, cleanup,
+project-scoped job storage, stale project loads, rename/delete behavior, shared
+runtime polling, connection caching/retry, restart reservations and reconnection.
+Export tests verify query settings, filenames, object-URL cleanup and failures.
+Preview tests run the real grayscale/threshold loops on tiny known pixel arrays;
+PDF.js and canvas I/O are mocked to exercise cancellation, caching and stale-load
+behavior without browser rendering dependencies. These are deterministic component
+and integration tests, not a desktop end-to-end or visual-fidelity test.
+
+`test_pdf_preparation.py` rasterizes real PDFs and checks dimensions/progress.
+`test_prediction_metadata.py` and `test_ij_disambiguation.py` use model-shaped
+fixtures without loading inference runtimes. PDF route tests parse the generated
+PDF to verify corrected text, paper size and spread page counts. The existing
+packaged runtime smoke tests remain responsible for real model inference.
+
+The regressions also protect several fixes: terminal recovered jobs no longer
+restart polling, periodic OCR status requests do not overlap, cleanup invalidates
+late poll responses, and old review/runtime responses cannot overwrite a newer
+project or backend restart. PDF and training-data exports flush queued and
+in-flight correction saves first and report save failures instead of exporting
+older text. Download URLs are released even if the browser download fails.

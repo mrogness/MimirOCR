@@ -15,6 +15,7 @@ export function useLineEditing({
 }) {
   const lineSaveState = ref({})
   const lineSaveTimers = new Map()
+  const inFlightTextSaves = new Map()
   const lineRequestTokens = new Map()
   const pendingTextEdits = new Map()
   const pendingSequence = ref(0)
@@ -443,21 +444,12 @@ export function useLineEditing({
     pendingUndoCount.value = 0
   }
 
-  function queueLineSave(line) {
+  function persistTextSave(line, requestToken) {
     const lineId = line.id
-    setLineSaveState(lineId, 'pending')
-
-    const previousTimer = lineSaveTimers.get(lineId)
-    if (previousTimer) {
-      clearTimeout(previousTimer)
-      lineSaveTimers.delete(lineId)
-    }
-
-    const requestToken = bumpLineRequestToken(lineId)
-    const timer = setTimeout(async () => {
-      lineSaveTimers.delete(lineId)
-      updatePendingUndoCount()
-
+    const previous = inFlightTextSaves.get(lineId)
+    const saving = (async () => {
+      if (previous) await previous
+      if (requestToken !== getLineRequestToken(lineId)) return
       setLineSaveState(lineId, 'saving')
       try {
         const result = await saveLineToApi(line, { requestToken })
@@ -489,6 +481,50 @@ export function useLineEditing({
       } finally {
         updatePendingUndoCount()
       }
+    })()
+    inFlightTextSaves.set(lineId, saving)
+    void saving.finally(() => {
+      if (inFlightTextSaves.get(lineId) === saving) inFlightTextSaves.delete(lineId)
+    })
+    return saving
+  }
+
+  async function flushPendingSaves() {
+    // Finish older requests first so the newest correction is the final write.
+    while (lineSaveTimers.size || inFlightTextSaves.size) {
+      const queuedIds = [...lineSaveTimers.keys()]
+      for (const id of queuedIds) {
+        clearTimeout(lineSaveTimers.get(id))
+        lineSaveTimers.delete(id)
+      }
+      updatePendingUndoCount()
+      await Promise.all([...inFlightTextSaves.values()])
+      await Promise.all(queuedIds.map((id) => {
+        const session = pendingTextEdits.get(id)
+        const line = session && findLineById(session.pageId, id)
+        return line ? persistTextSave(line, getLineRequestToken(id)) : undefined
+      }))
+    }
+    if (Object.values(lineSaveState.value).some((state) => state.status === 'error')) {
+      throw new Error('Unable to export while line changes are unsaved. Retry the failed edit first.')
+    }
+  }
+
+  function queueLineSave(line) {
+    const lineId = line.id
+    setLineSaveState(lineId, 'pending')
+
+    const previousTimer = lineSaveTimers.get(lineId)
+    if (previousTimer) {
+      clearTimeout(previousTimer)
+      lineSaveTimers.delete(lineId)
+    }
+
+    const requestToken = bumpLineRequestToken(lineId)
+    const timer = setTimeout(() => {
+      lineSaveTimers.delete(lineId)
+      updatePendingUndoCount()
+      void persistTextSave(line, requestToken)
     }, TEXT_SAVE_DEBOUNCE_MS)
 
     lineSaveTimers.set(lineId, timer)
@@ -754,6 +790,7 @@ export function useLineEditing({
       clearTimeout(timer)
     }
     lineSaveTimers.clear()
+    for (const id of lineRequestTokens.keys()) bumpLineRequestToken(id)
     pendingTextEdits.clear()
     pendingUndoCount.value = 0
   }
@@ -773,5 +810,6 @@ export function useLineEditing({
     undoLastAction,
     clearUndoHistory: clearUndoAndPendingTextEdits,
     clearPendingTimers,
+    flushPendingSaves,
   }
 }

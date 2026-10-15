@@ -15,12 +15,14 @@ const runtimeError = ref('')
 let pollTimer = null
 let subscriberCount = 0
 let refreshPromise = null
+let runtimeGeneration = 0
 
 async function refreshBackendRuntime() {
   if (refreshPromise) {
     return refreshPromise
   }
 
+  const generation = runtimeGeneration
   refreshPromise = (async () => {
     try {
       const response = await backendFetch('/system/runtime', {}, { retries: 1 })
@@ -28,6 +30,7 @@ async function refreshBackendRuntime() {
         throw new Error(`Unable to load backend runtime (${response.status})`)
       }
       const data = await response.json()
+      if (generation !== runtimeGeneration) return data
       backendConnection.value = 'connected'
       backendInstanceId.value = data.backend_instance_id || ''
       activeJob.value = data.active_job || null
@@ -36,6 +39,7 @@ async function refreshBackendRuntime() {
       runtimeError.value = ''
       return data
     } catch (error) {
+      if (generation !== runtimeGeneration) throw error
       if (backendConnection.value !== 'restarting') {
         backendConnection.value = 'disconnected'
       }
@@ -101,6 +105,7 @@ function stopBackendRuntimePolling() {
 }
 
 function markBackendRestarting() {
+  runtimeGeneration += 1
   backendConnection.value = 'restarting'
   activeJob.value = null
   runtimeError.value = ''
@@ -111,6 +116,7 @@ function markBackendRestarting() {
 }
 
 function applyBackendRuntime(data) {
+  runtimeGeneration += 1
   backendConnection.value = 'connected'
   backendInstanceId.value = data.backend_instance_id || ''
   activeJob.value = data.active_job || null

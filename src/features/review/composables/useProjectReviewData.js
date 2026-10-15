@@ -9,6 +9,7 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
   const pageInputValue = ref('1')
   const activeLineId = ref(null)
   const selectedLineId = ref(null)
+  let loadGeneration = 0
 
   const selectedPage = computed(() => pages.value[selectedPageIndex.value] || null)
   const selectedPageLines = computed(() => {
@@ -43,8 +44,8 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     }))
   }
 
-  async function fetchProjectPages() {
-    const response = await backendFetch(`/projects/${projectId.value}/pages`)
+  async function fetchProjectPages(id = projectId.value) {
+    const response = await backendFetch(`/projects/${id}/pages`)
     if (!response.ok) {
       throw new Error(`Unable to load project review data (${response.status})`)
     }
@@ -54,12 +55,17 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
   }
 
   async function loadReviewData() {
+    const generation = ++loadGeneration
+    const requestedProjectId = projectId.value
     isLoading.value = true
     errorMessage.value = ''
 
     try {
-      backendBaseUrl.value = await getBackendBaseUrl()
-      pages.value = await fetchProjectPages()
+      const baseUrl = await getBackendBaseUrl()
+      const freshPages = await fetchProjectPages(requestedProjectId)
+      if (generation !== loadGeneration) return
+      backendBaseUrl.value = baseUrl
+      pages.value = freshPages
       selectedPageIndex.value = 0
       pageInputValue.value = '1'
       selectedLineId.value = null
@@ -68,18 +74,21 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
         resetViewportState()
       }
     } catch (error) {
-      errorMessage.value = String(error)
+      if (generation === loadGeneration) errorMessage.value = String(error)
     } finally {
-      isLoading.value = false
+      if (generation === loadGeneration) isLoading.value = false
     }
   }
 
   async function refreshPagesPreservingSelection() {
+    const generation = loadGeneration
+    const requestedProjectId = projectId.value
     const selectedPageId = selectedPage.value?.id
     const selectedId = selectedLineId.value
     const activeId = activeLineId.value
 
-    const freshPages = await fetchProjectPages()
+    const freshPages = await fetchProjectPages(requestedProjectId)
+    if (generation !== loadGeneration || requestedProjectId !== projectId.value) return
     pages.value = freshPages
 
     if (selectedPageId != null) {
