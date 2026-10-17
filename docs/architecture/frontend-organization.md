@@ -2,8 +2,8 @@
 
 Frontend source is grouped by the screen or workflow that owns it. Start in
 `src/features/` when changing a user workflow; start in `src/shared/` when changing
-behavior used by several features. The app shell, router, global styles, and test
-setup stay at the top level of `src/`.
+behavior used by several features. The app shell, router, global styles, and
+shared test setup stay at the top level of `src/`.
 
 ## Ownership
 
@@ -16,12 +16,15 @@ setup stay at the top level of `src/`.
 | `src/shared/components/` | Help popovers and resizable split panes |
 | `src/shared/composables/` | Image viewport controls, app version lookup, and backend runtime status/restart access |
 | `src/shared/services/` | Backend transport and persisted application settings |
-| `src/App.vue`, `src/main.js`, `src/router/` | App shell, startup, and route registration |
+| `src/App.vue`, `src/main.js`, `src/router/` | App shell, startup bootstrap, and route registration |
+| `src/styles/` | Global and theme styling |
+| `src/test/` | Vitest setup and shared test utilities |
 
 Each feature keeps its views at its root and its components and composables in
-their respective subdirectories. Put component and composable tests in a nearby
-`__tests__/` directory. The app shell test lives in `src/__tests__/`; shared service
-tests live in `src/shared/services/__tests__/`.
+their respective subdirectories. Place component/composable tests in nearby
+`__tests__/` directories. App shell tests live in `src/__tests__/`; shared
+component, composable, and service tests live under matching `src/shared/**/__tests__/`
+paths.
 
 Features can use shared code. Shared code should not depend on a feature, and a
 feature should not reach into another feature's internals. Move a helper into

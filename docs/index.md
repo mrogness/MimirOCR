@@ -1,14 +1,12 @@
 # MimirOCR Contributor Documentation
 
-This portal is the contributor-first reference for architecture, testing,
-runtime behavior, and worker-process contracts.
+This is meant to serve as documentation about the technical specifications that make up MimirOCR. 
 
-## Goals
+## Documentation goals
 
-- Provide fast onboarding for backend, frontend, and Tauri contributors.
-- Keep process-boundary behavior explicit as segmentation and OCR split into
-  separate runtimes.
-- Keep docs updated through CI generation + validation.
+- Provide clarity on structure for backend, frontend, and Tauri contributors.
+- Explain process-boundary behavior explicitly.
+- Keep docs updated through CI generation + validation where possible.
 
 ## Where to start
 

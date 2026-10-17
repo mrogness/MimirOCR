@@ -1,7 +1,6 @@
 # Documentation Automation
 
-This project uses a mixed docs workflow: generated artifacts plus hand-written
-architecture/runbook content.
+Much of the documentation in this project is manually maintained, but select pieces are automatically generated.
 
 ## What updates automatically in CI
 
@@ -10,7 +9,7 @@ to main.
 
 It performs these steps:
 
-1. Regenerates derived docs with scripts/generate_docs.py.
+1. Regenerates generated docs with `scripts/generate_docs.py`.
 2. Fails the workflow if docs/generated output changed but was not committed.
 3. Builds the MkDocs site in strict mode.
 4. Deploys the built site to GitHub Pages on pushes to main.
@@ -32,13 +31,13 @@ yarn docs:build
 
 ## Regeneration triggers
 
-Run scripts/generate_docs.py when:
+Run `scripts/generate_docs.py` when:
 
-- backend route surface changes
+- backend routes change
 - test files are added/removed/renamed
-- test architecture changes in a way that should be reflected in inventory docs
+- test architecture changes in a way that should be reflected in the test inventory docs
 
 ## Extending automation
 
 To include additional generated references over time, extend
-scripts/generate_docs.py and add resulting outputs under docs/generated.
+`scripts/generate_docs.py` and add resulting outputs under docs/generated.
