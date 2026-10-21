@@ -53,6 +53,6 @@ mkdocs serve
 ## PR expectations
 
 - Add or update tests for behavior changes.
-- Update contract docs when process-boundary payloads or lifecycle behavior
+- Update worker contract docs when process-boundary JSON payloads or lifecycle behavior
   changes.
-- Run docs generation when API route surface or test topology changes.
+- Run docs generation when API routes or tests changes.
