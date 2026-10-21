@@ -129,7 +129,8 @@ tensorboard-data-server==0.7.2
 tensorflow==2.15.1
 tensorflow-addons==0.23.0
 tensorflow-estimator==2.15.0
-tensorflow-io-gcs-filesystem==0.37.1
+tensorflow-io-gcs-filesystem==0.31.0; sys_platform == "win32"
+tensorflow-io-gcs-filesystem==0.37.1; sys_platform != "win32"
 termcolor==3.3.0
 threadpoolctl==3.6.0
 tifffile==2025.5.10
