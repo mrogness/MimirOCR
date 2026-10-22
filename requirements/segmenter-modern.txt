@@ -1,0 +1,4 @@
+# Development experiment: keep Kraken 7 independent of the legacy constraints.
+# Install into .venvs/segmenter-modern and set MIMIR_SEGMENTER_PYTHON.
+kraken==7.1.1
+pydantic>=2,<3
