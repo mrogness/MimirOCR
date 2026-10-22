@@ -9,7 +9,7 @@ try {
     const python = runtimePython(root, role)
     console.log(`Checking ${role}: ${python}`)
     runCommand(python, ['-c', `
-import importlib.util, sys
+import importlib, importlib.util, sys
 assert sys.version_info[:2] == (3, 10), 'Use Python 3.10 for the pinned ML stack'
 required = ${JSON.stringify(runtime.imports.concat('PyInstaller'))}
 forbidden = ${JSON.stringify(runtime.forbidden)}
@@ -17,6 +17,8 @@ missing = [x for x in required if importlib.util.find_spec(x) is None]
 unexpected = [x for x in forbidden if importlib.util.find_spec(x) is not None]
 assert not missing, f'Missing packages: {missing}'
 assert not unexpected, f'Cross-runtime packages installed: {unexpected}; recreate this venv'
+for name in required:
+    importlib.import_module(name)
 `], { stdio: 'inherit' })
     runCommand(python, ['-m', 'pip', 'check'], { stdio: 'inherit' })
   }

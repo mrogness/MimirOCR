@@ -13,9 +13,13 @@ jobs:
     name: Release test gate
     uses: ./.github/workflows/tests.yml
 
+  ml-tests:
+    name: Release ML runtime gate
+    uses: ./.github/workflows/ml-runtime-tests.yml
+
   build-macos:
     name: Build macOS (app + dmg)
-    needs: tests
+    needs: [tests, ml-tests]
     runs-on: macos-26
     timeout-minutes: 120
 
@@ -77,7 +81,7 @@ jobs:
 
   build-windows:
     name: Build Windows (nsis)
-    needs: tests
+    needs: [tests, ml-tests]
     runs-on: windows-2022
     timeout-minutes: 120
 

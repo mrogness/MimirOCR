@@ -24,7 +24,8 @@
     "package:mac": "yarn sidecar:preflight && yarn build:sidecar && node scripts/package_desktop.mjs darwin",
     "package:windows": "yarn sidecar:preflight && yarn build:sidecar && node scripts/package_desktop.mjs win32",
     "backend:setup": "python scripts/setup_backend.py --dev",
-    "test:build": "node --test scripts/tests/*.test.mjs"
+    "test:build": "node --test scripts/tests/*.test.mjs",
+    "test:ml": "node scripts/test_ml_runtimes.mjs"
   },
   "dependencies": {
     "@floating-ui/vue": "^2.0.1",

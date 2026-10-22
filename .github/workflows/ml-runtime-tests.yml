@@ -1,0 +1,68 @@
+name: ML runtime tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "constraints.txt"
+      - "requirements*.txt"
+      - "requirements/**"
+      - "backend/**"
+      - "scripts/**"
+      - "tests/ml/**"
+      - "pytest*.ini"
+      - "public/fonts/*.ttf"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - "constraints.txt"
+      - "requirements*.txt"
+      - "requirements/**"
+      - "backend/**"
+      - "scripts/**"
+      - "tests/ml/**"
+      - "pytest*.ini"
+      - "public/fonts/*.ttf"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  runtimes:
+    name: Real ML workflow (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10.11"
+          cache: pip
+          cache-dependency-path: |
+            constraints.txt
+            requirements/*.txt
+            requirements-test.txt
+      # Cache downloads only. Each job resolves and installs all production roles
+      # into fresh environments, so a pre-existing venv cannot conceal a bad pin.
+      - name: Install all three production runtimes and the test driver
+        run: python scripts/setup_backend.py --dev
+      - name: Import packages and run real CPU inference
+        run: node scripts/test_ml_runtimes.mjs
+      - name: Upload ML results and source workflow log
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ml-tests-${{ matrix.os }}
+          path: test-results/ml/
+          if-no-files-found: warn
+          retention-days: 14

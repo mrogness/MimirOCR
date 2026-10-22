@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the packaged API and both real ML workers in a temporary project."""
+"""Exercise the source or packaged API and both real ML workers in a temporary project."""
 import argparse
 from io import BytesIO
 import json
@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 from urllib.error import URLError
@@ -19,10 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runtime-dir", type=Path, default=ROOT / "src-tauri/resources")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--runtime-dir", type=Path, default=ROOT / "src-tauri/resources")
+    mode.add_argument("--source", action="store_true", help="Use this Python and the source worker environments")
     args = parser.parse_args()
     binary = args.runtime_dir.resolve() / "backend-runtime" / (
         "backend-runtime.exe" if os.name == "nt" else "backend-runtime")
+    command = [sys.executable, "-m", "backend.sidecar_main"] if args.source else [str(binary)]
     with tempfile.TemporaryDirectory(prefix="mimir packaged smoke ") as directory:
         work = Path(directory)
         env = os.environ.copy()
@@ -42,7 +46,7 @@ def main():
                 return json.load(response)
 
         with (work / "backend.log").open("w+b") as log:
-            process = subprocess.Popen([str(binary), "--port", str(port)], cwd=work, env=env,
+            process = subprocess.Popen([*command, "--port", str(port)], cwd=ROOT if args.source else work, env=env,
                                        stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
             try:
@@ -87,7 +91,8 @@ def main():
                     assert any(line["ocr_text"] for line in page["lines"]), "OCR produced no text"
                     assert all(Path(line["img_path"]).is_file() for line in page["lines"])
                 assert request(f'/ocr/jobs/{job["job_id"]}/transcript')["transcript"]
-                print("Packaged API -> segmentation -> OCR -> persisted results: passed")
+                mode_name = "Source" if args.source else "Packaged"
+                print(f"{mode_name} API -> segmentation -> OCR -> persisted results: passed")
             except BaseException:
                 log.flush()
                 log.seek(0)
