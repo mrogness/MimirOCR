@@ -72,11 +72,28 @@ stderr inside workers; only JSON responses use the reserved protocol pipe.
 
 ## Dependencies
 
-`constraints.txt` preserves the original `requirements.txt` pins unchanged.
-`requirements/backend.txt`, `segmenter.txt`, and `recognizer.txt` select each
-runtime's dependencies against those pins. `requirements/build.txt` selects the
-existing PyInstaller version. Constraints do not install unused packages.
+`requirements/backend.txt` and `requirements/recognizer.txt` use the legacy
+`constraints.txt` pins. `requirements/segmenter.txt` uses its own
+`requirements/constraints-segmenter.txt` for Kraken 7.1.1 and the matching Torch,
+torchvision, CoreMLTools, and scientific libraries. `segmenter-modern.txt` is an
+alias of this same specification for existing experimental environments.
+`requirements/build.txt` pins PyInstaller and its hooks directly, without
+applying legacy ML constraints to the segmenter. Constraints do not install unused packages.
 `requirements.txt` now installs only the API; there is no combined ML environment.
+
+When upgrading an existing Kraken 4 environment, recreate just the segmenter
+before setup to remove obsolete dependencies (the command clears that venv):
+
+```sh
+python3.10 -m venv --clear .venvs/segmenter
+python3.10 scripts/setup_backend.py --dev
+```
+
+On Windows use `py -3.10` in place of `python3.10`. Remove any old
+`MIMIR_SEGMENTER_PYTHON` override to use `.venvs/segmenter`, or recreate the
+overridden environment from `requirements/segmenter.txt` and
+`requirements/build.txt` with Python 3.10 as well. Preflight verifies the Kraken
+version and imports the task/configuration APIs used by the adapter.
 
 ## Execution and ownership
 

@@ -1,0 +1,3 @@
+# Compatibility entry point for existing experimental environments.
+# Development, CI, and packaging all use the same Kraken 7 requirements.
+-r segmenter.txt

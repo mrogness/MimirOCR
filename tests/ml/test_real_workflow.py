@@ -3,6 +3,7 @@
 Run through `yarn test:ml` after `python scripts/setup_backend.py --dev`.
 These tests deliberately fail if a dependency or model is missing.
 """
+import json
 import math
 from pathlib import Path
 import subprocess
@@ -68,7 +69,9 @@ def character_error_rate(expected, actual):
     return previous[-1] / len(expected)
 
 
-def test_real_segmenter_geometry_crops_reading_order_and_blank_page(config, tmp_path):
+@pytest.mark.parametrize("strict_order", [False, True], ids=["kraken-order", "strict-order"])
+def test_real_segmenter_geometry_crops_reading_order_and_blank_page(config, tmp_path, strict_order):
+    config.segmentation.strict_top_to_bottom = strict_order
     image = Image.new("L", (1600, 1000), 255)
     draw = ImageDraw.Draw(image)
     for row, text in enumerate(TEXT):
@@ -109,6 +112,36 @@ def test_real_segmenter_geometry_crops_reading_order_and_blank_page(config, tmp_
         assert blank.metadata["segmentation"]["line_count"] == 0
         assert worker.process.pid == pid and worker.process.poll() is None
     assert worker.process.poll() is not None
+
+
+def test_real_segmenter_two_column_reading_order(config, tmp_path):
+    """Exercise Kraken's own order against fixed page-space ground truth."""
+    fixture = json.loads((ROOT / "tests/ml/fixtures/two-column-fraktur.json").read_text(encoding="utf-8"))
+    image = Image.new("L", tuple(fixture["size"]), 255)
+    draw = ImageDraw.Draw(image)
+    expected = fixture["lines"]
+    for item in expected:
+        draw.text(tuple(item["origin"]), item["text"], font=font(fixture["font_size"]), fill=0)
+    image_path = tmp_path / "two-column.png"
+    image.save(image_path)
+    config.segmentation.strict_top_to_bottom = False
+    page = Page(id="two-column", page_number=0, image_path=str(image_path),
+                width=image.width, height=image.height)
+    with WorkerClient("segmenter", timeout=180) as worker:
+        worker.initialize(config)
+        result = worker.process_page(page)
+
+    assert len(result.lines) == len(expected), result.model_dump()
+    actual_order = []
+    for line in result.lines:
+        box = line.bbox
+        # Match by location instead of OCR, keeping this independent of Calamari.
+        match = min(expected, key=lambda item: math.hypot(
+            box["x_min"] - item["origin"][0], box["y_min"] - item["origin"][1]))
+        assert abs(box["x_min"] - match["origin"][0]) < 80, box
+        assert abs(box["y_min"] - match["origin"][1]) < 80, box
+        actual_order.append(match["id"])
+    assert actual_order == [item["id"] for item in expected], actual_order
 
 
 def test_real_recognizer_known_crops_accuracy_metadata_and_reuse(config, tmp_path):

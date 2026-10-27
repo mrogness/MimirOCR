@@ -9,16 +9,25 @@ try {
     const python = runtimePython(root, role)
     console.log(`Checking ${role}: ${python}`)
     runCommand(python, ['-c', `
-import importlib, importlib.util, sys
+import importlib, importlib.metadata, importlib.util, sys
 assert sys.version_info[:2] == (3, 10), 'Use Python 3.10 for the pinned ML stack'
+print(f'Interpreter: {sys.executable}', flush=True)
 required = ${JSON.stringify(runtime.imports.concat('PyInstaller'))}
 forbidden = ${JSON.stringify(runtime.forbidden)}
 missing = [x for x in required if importlib.util.find_spec(x) is None]
 unexpected = [x for x in forbidden if importlib.util.find_spec(x) is not None]
 assert not missing, f'Missing packages: {missing}'
 assert not unexpected, f'Cross-runtime packages installed: {unexpected}; recreate this venv'
+for name, expected in ${JSON.stringify(runtime.versions || {})}.items():
+    actual = importlib.metadata.version(name)
+    print(f'{name}: {actual} (expected {expected})', flush=True)
+    assert actual == expected, f'{name} {actual} is incompatible with this adapter; expected {expected}. Recreate .venvs/${role} with scripts/setup_backend.py'
 for name in required:
     importlib.import_module(name)
+${role === 'segmenter' ? `from kraken.tasks import SegmentationTaskModel
+from kraken.configs import SegmentationInferenceConfig
+from kraken.lib.segmentation import extract_polygons
+from kraken.ketos.util import to_ptl_device` : ''}
 `], { stdio: 'inherit' })
     runCommand(python, ['-m', 'pip', 'check'], { stdio: 'inherit' })
   }

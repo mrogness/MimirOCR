@@ -6,6 +6,7 @@ export const RUNTIMES = {
     forbidden: ['kraken', 'calamari_ocr', 'torch', 'tensorflow', 'coremltools'] },
   segmenter: { name: 'mimir-segmenter', entry: 'backend/workers/segmenter/__main__.py',
     imports: ['pydantic', 'PIL', 'numpy', 'kraken', 'torch', 'torchvision', 'coremltools'],
+    versions: { kraken: '7.1.1' },
     forbidden: ['calamari_ocr', 'tensorflow', 'fastapi'] },
   recognizer: { name: 'mimir-recognizer', entry: 'backend/workers/recognizer/__main__.py',
     imports: ['pydantic', 'PIL', 'numpy', 'calamari_ocr', 'tensorflow'],

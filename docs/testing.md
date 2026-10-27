@@ -167,9 +167,10 @@ yarn test:ml
 
 The driver uses the backend environment's pytest and the existing
 `MIMIR_SEGMENTER_PYTHON` / `MIMIR_RECOGNIZER_PYTHON` overrides. ML packages are
-imported only in their owning runtime processes. Preflight now actually imports
-required modules, rather than only checking that import specifications exist,
-and runs `pip check` for every environment.
+imported only in their owning runtime processes. Preflight prints each runtime's
+interpreter, verifies Kraken 7.1.1, imports the task/configuration/extraction APIs
+used by the adapter, and runs `pip check` for every environment. The segmenter
+and shared build requirements do not apply the legacy Calamari constraints.
 
 `pytest-ml.ini` keeps the real-model tests out of the default model-free
 suite and its coverage report. To select a test after preflight:
@@ -181,9 +182,13 @@ node scripts/test_ml_runtimes.mjs -k recognizer
 The real-model suite deliberately fails on missing runtimes or weights; it does
 not skip tests or substitute fake engines. It covers:
 
-- Kraken on a six-line synthetic Fraktur page: plausible line count, page-space
-  geometry, top-to-bottom order, usable binary crops, and a subsequent blank
-  page in the same worker without stale results.
+- Kraken on a six-line synthetic Fraktur page in both strict and native reading
+  order modes: plausible line count, page-space geometry, top-to-bottom order,
+  usable binary crops, and a subsequent blank page in the same worker without
+  stale results.
+- A fixed two-column Fraktur layout from `tests/ml/fixtures/`, with the strict
+  override disabled: detected lines must follow the fixture's left-column then
+  right-column ground truth. This compares geometry independently of OCR.
 - Calamari on three independently rendered known crops, processed twice by one
   worker: preserved identities/geometry, nonempty predictions, finite confidence,
   character metadata, and character error rate at most 30% on each crop.

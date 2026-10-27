@@ -1,2 +1,3 @@
--c ../constraints.txt
-pyinstaller
+# Shared build tooling must not impose the API/Calamari ML pins on Kraken 7.
+pyinstaller==6.21.0
+pyinstaller-hooks-contrib==2026.6

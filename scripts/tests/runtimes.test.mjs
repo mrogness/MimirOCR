@@ -1,8 +1,43 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { RUNTIMES } from '../lib/runtimes.mjs'
 import { createPyInstallerArgs } from '../lib/pyinstallerConfig.mjs'
+
+test('segmenter and build installation cannot inherit the legacy ML constraints', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url))
+  function constraintsFor(...files) {
+    const constraints = new Set()
+    const seen = new Set()
+    function visit(file) {
+      if (seen.has(file)) return
+      seen.add(file)
+      for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+        const include = line.match(/^\s*(-[rc])\s+(\S+)/)
+        if (!include) continue
+        const target = path.resolve(path.dirname(file), include[2])
+        if (include[1] === '-c') constraints.add(path.relative(root, target).split(path.sep).join('/'))
+        visit(target)
+      }
+    }
+    files.forEach(file => visit(path.join(root, file)))
+    return [...constraints].sort()
+  }
+  for (const spec of ['requirements/segmenter.txt', 'requirements/segmenter-modern.txt']) {
+    assert.deepEqual(constraintsFor(spec, 'requirements/build.txt'),
+      ['requirements/constraints-segmenter.txt'])
+  }
+  for (const role of ['backend', 'recognizer']) {
+    assert.deepEqual(constraintsFor(`requirements/${role}.txt`, 'requirements/build.txt'),
+      ['constraints.txt'])
+  }
+  const pins = readFileSync(path.join(root, 'requirements/constraints-segmenter.txt'), 'utf8')
+  const kraken = pins.match(/^kraken==(.+)$/m)[1].trim()
+  assert.equal(RUNTIMES.segmenter.versions.kraken, kraken,
+    'Preflight and setup must agree on the Kraken version')
+})
 
 test('each onedir build has a distinct name, work directory, and entry point', () => {
   const names = new Set()

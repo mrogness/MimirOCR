@@ -92,10 +92,12 @@ def _count_rust_tests(file_path: Path) -> int:
 
 def _generate_test_inventory() -> None:
     backend_files = sorted((ROOT / "backend" / "tests").glob("test_*.py"))
+    ml_files = sorted((ROOT / "tests" / "ml").glob("test_*.py"))
     frontend_files = sorted((ROOT / "src").glob("**/__tests__/*.spec.js"))
     rust_files = sorted((ROOT / "src-tauri" / "src").glob("**/*.rs"))
 
     backend_total = sum(_count_pytest_tests(path) for path in backend_files)
+    ml_total = sum(_count_pytest_tests(path) for path in ml_files)
     frontend_total = sum(_count_vitest_tests(path) for path in frontend_files)
     rust_total = sum(_count_rust_tests(path) for path in rust_files)
 
@@ -127,6 +129,7 @@ def _generate_test_inventory() -> None:
         "| Layer | Files | Approx test count |",
         "|---|---:|---:|",
         f"| Backend pytest | {len(backend_files)} | {backend_total} |",
+        f"| ML runtime pytest | {len(ml_files)} | {ml_total} |",
         f"| Frontend vitest | {len(frontend_files)} | {frontend_total} |",
         f"| Rust unit tests | {len(rust_files)} | {rust_total} |",
         "",
@@ -151,6 +154,10 @@ def _generate_test_inventory() -> None:
     for path, count in backend_by_file:
         rel = path.relative_to(ROOT)
         lines.append(f"| {rel.as_posix()} | {count} |")
+
+    lines.extend(["", "## ML runtime files", "", "| File | Approx test count |", "|---|---:|"])
+    for path in ml_files:
+        lines.append(f"| {path.relative_to(ROOT).as_posix()} | {_count_pytest_tests(path)} |")
 
     lines.extend(
         [
