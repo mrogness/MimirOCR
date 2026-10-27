@@ -1,5 +1,5 @@
-# Versions are preserved in the shared constraints, not installed as a combined stack.
--c ../constraints.txt
+# Kraken 7 is isolated from the API/Calamari stack and its legacy constraints.
+-c constraints-segmenter.txt
 pydantic
 numpy
 pillow

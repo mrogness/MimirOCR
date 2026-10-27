@@ -1,0 +1,14 @@
+# Kraken 7.1.1's production stack; do not include the legacy constraints.txt.
+# Keep Torch and torchvision paired on macOS ARM and Windows x64.
+kraken==7.1.1
+torch==2.9.0
+torchvision==0.24.0
+coremltools==9.0
+numpy==2.2.6
+scipy==1.15.3
+scikit-learn==1.7.2
+scikit-image==0.25.2
+shapely==2.1.2
+lightning==2.6.1
+pydantic==2.13.4
+pillow==12.3.0

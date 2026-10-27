@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create independent development/build environments without changing package pins."""
+"""Create isolated API, Kraken 7, and Calamari development/build environments."""
 import argparse
 from pathlib import Path
 import os
@@ -16,7 +16,7 @@ def main():
     parser.add_argument("--dev", action="store_true", help="Also install tests in the backend environment")
     args = parser.parse_args()
     if sys.version_info[:2] != (3, 10):
-        parser.error("Run with Python 3.10 (CI uses 3.10.11); dependency versions are intentionally unchanged")
+        parser.error("Run with Python 3.10 (CI uses 3.10.11) for the production runtimes")
     for role in ROLES:
         target = ROOT / ".venvs" / role
         venv.EnvBuilder(with_pip=True, symlinks=os.name != "nt").create(target)

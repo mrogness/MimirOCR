@@ -1,0 +1,12 @@
+{
+  "size": [2400, 1200],
+  "font_size": 48,
+  "lines": [
+    {"id": "left-1", "origin": [120, 180], "text": "Norske Eventyr og Fortællinger."},
+    {"id": "left-2", "origin": [120, 320], "text": "Den gamle Mand gik til Byen."},
+    {"id": "left-3", "origin": [120, 460], "text": "Et lille Barn sad ved Vinduet."},
+    {"id": "right-1", "origin": [1320, 180], "text": "Der var Lys i det gamle Hus."},
+    {"id": "right-2", "origin": [1320, 320], "text": "Alle Børnene kom tilbage."},
+    {"id": "right-3", "origin": [1320, 460], "text": "Nu begyndte den lange Reise."}
+  ]
+}

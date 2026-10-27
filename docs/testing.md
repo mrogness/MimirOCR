@@ -105,8 +105,8 @@ run on macOS and Windows. Coverage and JUnit reports are uploaded even if tests
 fail. These checks need no release secrets or model downloads.
 
 The tag-triggered `build-artifacts.yml` calls this exact same workflow from the
-tag's commit. Both packaging jobs have `needs: tests`, so a failed test job blocks
-both builds and, transitively, their release uploads. There is no independent tag
+tag's commit. Both packaging jobs require the model-free and ML runtime gates,
+so a failed test job blocks both builds and, transitively, their release uploads. There is no independent tag
 trigger in `tests.yml`, avoiding duplicate test runs for a release tag. Merge the
 workflow changes **before creating the next release tag**; old tags do not acquire
 new workflow definitions.
@@ -144,6 +144,79 @@ The runtime build runs `scripts/smoke_workers.py` against the packaged API and
 real workers on a generated two-page PDF. It verifies launch, inference, and
 persistence. Add a licensed Fraktur fixture corpus for accuracy benchmarking. A passing mocked network test is not evidence that
 the packaged backend starts or that OCR quality improved.
+
+## Production dependency and real inference checks
+
+The separate `.github/workflows/ml-runtime-tests.yml` workflow installs all
+three production runtime environments on Windows x64 and macOS ARM with Python
+3.10.11. It runs for PRs and `main` pushes that change dependencies, backend code,
+worker/build scripts, ML tests, bundled fonts, or workflow definitions. It can
+also be dispatched manually. Its pip cache stores downloads, not environments;
+each runner must actually install the requested packages. Missing platform
+wheels and incompatible dependency pins fail before a release is tagged.
+
+Run the same checks locally from the repository root with Python 3.10 and Node
+22 (these commands do not build executables or require frontend dependencies):
+
+```sh
+python scripts/setup_backend.py --dev
+node scripts/test_ml_runtimes.mjs
+# Equivalent, if Yarn is available:
+yarn test:ml
+```
+
+The driver uses the backend environment's pytest and the existing
+`MIMIR_SEGMENTER_PYTHON` / `MIMIR_RECOGNIZER_PYTHON` overrides. ML packages are
+imported only in their owning runtime processes. Preflight prints each runtime's
+interpreter, verifies Kraken 7.1.1, imports the task/configuration/extraction APIs
+used by the adapter, and runs `pip check` for every environment. The segmenter
+and shared build requirements do not apply the legacy Calamari constraints.
+
+`pytest-ml.ini` keeps the real-model tests out of the default model-free
+suite and its coverage report. To select a test after preflight:
+
+```sh
+node scripts/test_ml_runtimes.mjs -k recognizer
+```
+
+The real-model suite deliberately fails on missing runtimes or weights; it does
+not skip tests or substitute fake engines. It covers:
+
+- Kraken on a six-line synthetic Fraktur page in both strict and native reading
+  order modes: plausible line count, page-space geometry, top-to-bottom order,
+  usable binary crops, and a subsequent blank page in the same worker without
+  stale results.
+- A fixed two-column Fraktur layout from `tests/ml/fixtures/`, with the strict
+  override disabled: detected lines must follow the fixture's left-column then
+  right-column ground truth. This compares geometry independently of OCR.
+- Calamari on three independently rendered known crops, processed twice by one
+  worker: preserved identities/geometry, nonempty predictions, finite confidence,
+  character metadata, and character error rate at most 30% on each crop.
+- The source API through the existing release smoke scenario: PDF upload,
+  asynchronous job completion, real segmentation/OCR workers, and persisted
+  two-page results and transcript. `scripts/smoke_workers.py --source` uses the
+  current Python as the API interpreter; the default still tests packaged binaries.
+
+Fixtures use the repository's existing `BreitkopfFraktur.ttf` and short synthetic
+sentences. No external scans, system fonts, model downloads, or network service
+are needed during inference. CER normalizes Unicode composition, whitespace, and
+long-s versus s; it does not require identical floating-point scores across OSes.
+The deliberately broad threshold detects broken recognition, not publication
+accuracy. Use labeled historical scans separately when comparing models.
+
+Workers run on CPU with bounded request timeouts, temporary data directories and
+explicit cleanup. Test reports and API diagnostics are written under
+`test-results/ml/` and uploaded even when the inference step fails.
+
+The release workflow calls these checks as a reusable gate, independently of
+the model-free test gate. Both must pass before either packaging job starts;
+the packaged smoke test still runs after bundling. These changes therefore
+check source/runtime compatibility early and bundled resources at release time.
+
+The ML workflow uses path filters. If configuring it as a required branch check,
+remove those filters or use a repository-level required-check gate that handles
+unrelated changes; GitHub does not complete a path-filtered workflow that never
+starts. The ordinary model-free checks continue on every PR.
 
 ## Worker and build tests
 

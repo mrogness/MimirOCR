@@ -21,7 +21,7 @@ In order to obtain images of the lines of text within input PDFs, page layout in
 
 ## Development and packaging
 
-Use Python 3.10 (CI: 3.10.11) to create the API, Kraken, and Calamari environments:
+Use Python 3.10 (CI: 3.10.11) to create the API, Kraken 7.1.1, and Calamari environments:
 
 ```sh
 python scripts/setup_backend.py --dev
