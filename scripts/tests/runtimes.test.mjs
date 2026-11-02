@@ -6,37 +6,21 @@ import { fileURLToPath } from 'node:url'
 import { RUNTIMES } from '../lib/runtimes.mjs'
 import { createPyInstallerArgs } from '../lib/pyinstallerConfig.mjs'
 
-test('segmenter and build installation cannot inherit the legacy ML constraints', () => {
+test('each runtime owns its manifest and lock, with build tools optional', () => {
   const root = fileURLToPath(new URL('../../', import.meta.url))
-  function constraintsFor(...files) {
-    const constraints = new Set()
-    const seen = new Set()
-    function visit(file) {
-      if (seen.has(file)) return
-      seen.add(file)
-      for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-        const include = line.match(/^\s*(-[rc])\s+(\S+)/)
-        if (!include) continue
-        const target = path.resolve(path.dirname(file), include[2])
-        if (include[1] === '-c') constraints.add(path.relative(root, target).split(path.sep).join('/'))
-        visit(target)
-      }
-    }
-    files.forEach(file => visit(path.join(root, file)))
-    return [...constraints].sort()
+  assert.ok(!existsSync(path.join(root, 'constraints.txt')))
+  for (const role of Object.keys(RUNTIMES)) {
+    const manifest = readFileSync(path.join(root, `requirements/${role}/pyproject.toml`), 'utf8')
+    assert.ok(manifest.includes('[dependency-groups]'))
+    const runtimeDeps = manifest.split('[dependency-groups]')[0]
+    assert.ok(!runtimeDeps.includes('pyinstaller'))
+    assert.ok(!manifest.includes('constraint-dependencies'))
+    assert.ok(existsSync(path.join(root, `requirements/${role}/uv.lock`)))
+    if (role !== 'backend') assert.ok(!manifest.includes('pytest'))
   }
-  for (const spec of ['requirements/segmenter.txt', 'requirements/segmenter-modern.txt']) {
-    assert.deepEqual(constraintsFor(spec, 'requirements/build.txt'),
-      ['requirements/constraints-segmenter.txt'])
-  }
-  for (const role of ['backend', 'recognizer']) {
-    assert.deepEqual(constraintsFor(`requirements/${role}.txt`, 'requirements/build.txt'),
-      ['constraints.txt'])
-  }
-  const pins = readFileSync(path.join(root, 'requirements/constraints-segmenter.txt'), 'utf8')
-  const kraken = pins.match(/^kraken==(.+)$/m)[1].trim()
-  assert.equal(RUNTIMES.segmenter.versions.kraken, kraken,
-    'Preflight and setup must agree on the Kraken version')
+  const segmenter = readFileSync(path.join(root, 'requirements/segmenter/pyproject.toml'), 'utf8')
+  const kraken = segmenter.match(/"kraken==([^"\n]+)"/)[1]
+  assert.equal(RUNTIMES.segmenter.versions.kraken, kraken)
 })
 
 test('each onedir build has a distinct name, work directory, and entry point', () => {

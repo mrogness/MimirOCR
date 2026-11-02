@@ -6,7 +6,7 @@ The backend is organized by layer and execution boundary:
 - OCR engines run in separate worker processes (`segmenter` and `recognizer`).
 - Shared pipeline/domain modules define cross-process payload and workflow shape.
 
-This separation keeps TensorFlow/Kraken and PyTorch/Calamari dependencies
+This separation keeps PyTorch/Kraken and TensorFlow/Calamari dependencies
 isolated while preserving a single API surface for the frontend.
 
 ## Source map

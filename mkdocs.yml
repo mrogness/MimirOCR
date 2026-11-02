@@ -39,6 +39,7 @@ nav:
       - Segmentation Worker Contract: contracts/segmentation-worker-contract.md
   - Maintenance:
       - Documentation Automation: maintenance/automation.md
+      - Dependencies and Security Updates: maintenance/dependencies.md
   - Testing:
       - Testing Guide: testing.md
       - Testing Architecture: testing-architecture.md

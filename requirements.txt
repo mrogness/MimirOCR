@@ -1,2 +1,0 @@
-# API runtime only. Workers have separate environments; see docs/architecture/ocr-process-split.md.
--r requirements/backend.txt

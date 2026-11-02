@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /requirements/backend
+    schedule:
+      interval: weekly
+  - package-ecosystem: uv
+    directory: /requirements/segmenter
+    schedule:
+      interval: weekly
+    groups:
+      segmentation-stack:
+        patterns: [kraken, torch, torchvision, lightning, pytorch-lightning, coremltools]
+  - package-ecosystem: uv
+    directory: /requirements/recognizer
+    schedule:
+      interval: weekly
+    groups:
+      recognition-stack:
+        patterns: [calamari-ocr, "tensorflow*", keras, "ocrd-fork-*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      vitest:
+        patterns: [vitest, "@vitest/*", vite-node]
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -11,8 +11,9 @@ The [testing guide](testing.md) explains isolation and coverage; the
 1. Python backend tests
 
 ```sh
-python -m pip install -r requirements-test.txt
-python -m pytest
+python -m pip install uv==0.13.4
+python scripts/setup_backend.py --role backend --dev
+node scripts/run_backend.mjs -m pytest
 ```
 
 2. Frontend tests
@@ -35,19 +36,19 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
 1. Install docs dependencies
 
 ```sh
-python -m pip install -r requirements-docs.txt
+python scripts/setup_backend.py --role backend --docs
 ```
 
 2. Regenerate derived docs
 
 ```sh
-python scripts/generate_docs.py
+yarn docs:generate
 ```
 
 3. Build and preview docs
 
 ```sh
-mkdocs serve
+yarn docs:serve
 ```
 
 ## PR expectations
@@ -56,3 +57,6 @@ mkdocs serve
 - Update worker contract docs when process-boundary JSON payloads or lifecycle behavior
   changes.
 - Run docs generation when API routes or tests changes.
+
+For isolated locks, optional tool groups, vulnerability reports, and dependency PR
+review, see [dependency management](maintenance/dependencies.md).
