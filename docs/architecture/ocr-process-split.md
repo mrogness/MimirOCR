@@ -26,7 +26,7 @@ installed apps do not depend on Python, a working directory, or shell activation
 ## Development and packaging
 
 Install uv, Node 22, Yarn 1.22.22, and the usual Tauri prerequisites.
-Each runtime project currently selects Python 3.10; uv can download it when absent.
+Each runtime project selects Python 3.11; uv can download it when absent.
 From the repository root:
 
 ```sh

@@ -11,7 +11,7 @@ try {
     console.log(`Checking ${role}: ${python}`)
     runCommand(python, ['-c', `
 import importlib, importlib.metadata, importlib.util, sys
-assert sys.version_info[:2] == (3, 10), 'Use Python 3.10 for the pinned ML stack'
+assert sys.version_info[:2] == (3, 11), 'Use Python 3.11; resync with scripts/setup_backend.py'
 print(f'Interpreter: {sys.executable}', flush=True)
 required = ${JSON.stringify(build ? runtime.imports.concat('PyInstaller') : runtime.imports)}
 forbidden = ${JSON.stringify(runtime.forbidden)}
@@ -29,6 +29,7 @@ ${role === 'segmenter' ? `from kraken.tasks import SegmentationTaskModel
 from kraken.configs import SegmentationInferenceConfig
 from kraken.lib.segmentation import extract_polygons
 from kraken.ketos.util import to_ptl_device` : ''}
+${role === 'recognizer' ? 'from calamari_ocr.ocr.predict.predictor import Predictor, PredictorParams' : ''}
 `], { stdio: 'inherit' })
     runCommand('uv', ['pip', 'check', '--python', python], { stdio: 'inherit' })
   }

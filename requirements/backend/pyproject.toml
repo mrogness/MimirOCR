@@ -1,14 +1,14 @@
 [project]
 name = "mimirocr-backend-environment"
 version = "0.0.0"
-requires-python = "==3.10.*"
+requires-python = "==3.11.*"
 dependencies = [
   "fastapi==0.139.2",
   "uvicorn==0.51.0",
   "SQLAlchemy==2.0.51",
   "pydantic==2.13.4",
   "python-multipart==0.0.32",
-  "pillow==12.3.0",
+  "pillow==13.0.0",
   "pymupdf==1.28.2",
   "reportlab==5.0.0",
 ]
