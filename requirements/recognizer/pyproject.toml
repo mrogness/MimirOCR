@@ -1,7 +1,7 @@
 [project]
 name = "mimirocr-recognizer-environment"
 version = "0.0.0"
-requires-python = "==3.10.*"
+requires-python = "==3.11.*"
 dependencies = [
   "calamari_ocr==2.3.1",
   "tensorflow==2.15.1",
@@ -11,7 +11,7 @@ dependencies = [
   "keras==2.15.0",
   "pydantic==2.13.4",
   "numpy==1.23.5",
-  "pillow==12.3.0",
+  "pillow==13.0.0",
   "protobuf==3.20.3",
   # TensorBoard 2.15 still uses pkg_resources, removed in setuptools 82.
   "setuptools<82",

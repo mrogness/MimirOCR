@@ -1,6 +1,6 @@
 # MimirOCR
 
-MimirOCR is a desktop application built using Tauri that connects a VueJS frontend to a FastAPI backend written in Python 3.10. MimirOCR leverages machine learning to automate the transcription of printed Dano-Norwegian Fraktur into Modern Antiqua script. Installers have been made for MacOS (ARM) and Windows x86-64 platforms, and can be found under the Releases section of this repository page.
+MimirOCR is a desktop application built using Tauri that connects a VueJS frontend to a FastAPI backend written in Python 3.11. MimirOCR leverages machine learning to automate the transcription of printed Dano-Norwegian Fraktur into Modern Antiqua script. Installers have been made for MacOS (ARM) and Windows x86-64 platforms, and can be found under the Releases section of this repository page.
 
 ## Note on Code Signing
 This is a summer research project through the Nordic Studies Department at Luther College, and in no way is monetized nor intended to be monetized. As a result, I have not been able to pay for the high cost of code signing and notarization. While this may change in the future, this means that both Windows and MacOS will flag any installer for MimirOCR and prompt users to bypass this by entering an administrator passcode. I recognize this is difficult or not possible for many academics working on managed workstations or laptops.
@@ -22,7 +22,7 @@ In order to obtain images of the lines of text within input PDFs, page layout in
 ## Development and packaging
 
 Use uv to sync the independent API, Kraken 7.1.1, and Calamari environments.
-Each project selects Python 3.10 and has its own committed lockfile:
+Each project selects Python 3.11 and has its own committed lockfile:
 
 ```sh
 python -m pip install uv==0.13.4

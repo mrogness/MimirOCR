@@ -14,14 +14,14 @@ Unused historical constraints are removed; upstream engine dependencies remain.
 
 The supported desktop targets remain macOS ARM and Windows x64. The API also
 supports Linux for model-free tests and documentation. All projects currently
-require Python 3.10; this migration does not upgrade the ML engines or models.
+require Python 3.11; this migration does not upgrade the ML engines or models.
 Interpreter requirements live in each manifest. A future interpreter migration
 also needs corresponding preflight checks, wheel availability, and native tests.
 
 ## Setup and optional tools
 
 Install `uv==0.13.4`, then use the host Python to run setup. The host interpreter
-does not have to be Python 3.10: uv selects a compatible installed interpreter or
+does not have to be Python 3.11: uv selects a compatible installed interpreter or
 downloads one. Commands below are identical on Windows and macOS.
 
 ```sh
@@ -70,8 +70,37 @@ Keep TensorFlow, Keras, Calamari/TFAIP, and the trained checkpoint compatible as
 set. Keras 3 is not a routine update to this recognizer. TensorBoard 2.15 still
 uses `pkg_resources`, so the recognizer explicitly retains `setuptools<82`.
 Keep Torch/torchvision compatible in the segmenter. Pillow 13 requires an
-interpreter migration beyond Python 3.10. Independent environments permit
+interpreter newer than Python 3.10. All three runtimes now lock Pillow 13.0.0;
+the segmenter locks filelock 4.2.7, resolving the Python-version blockers for
+those security updates. The recognizer also moves scikit-image from 0.19.3 to
+0.21.0 for Python 3.11 wheels, keeping NumPy 1.23.5 and TensorFlow/Keras 2.15.
+Independent environments permit
 different shared-library versions; JSON contract tests still protect the boundary.
+
+## Trial the Python 3.11 migration
+
+Stop the application and workers before syncing an existing checkout. If a
+managed environment is activated, deactivate it and run setup with a host Python.
+uv recreates an environment whose interpreter no longer matches its manifest;
+there is no need to delete unrelated environments or install packages with pip.
+
+```sh
+uv python install 3.11
+python scripts/setup_backend.py --dev --build
+node scripts/check_backend_sidecar_env.mjs --build
+node scripts/run_backend.mjs -m pytest
+node scripts/test_ml_runtimes.mjs
+```
+
+On macOS ARM or Windows x64, run the full ML suite before trying the desktop app
+with `yarn tauri:dev:auto`. To verify distribution builds as well, run
+`yarn package:mac` or `yarn package:windows`. The existing PR workflows run native
+inference and packaging checks for this dependency change. Clear or update any
+`MIMIR_*_PYTHON` override that still points to an old Python 3.10 environment.
+
+This is a targeted Pillow/filelock remediation, not a claim that the legacy ML
+stack is free of other vulnerabilities. Re-run production audits and review the
+remaining alerts after merging the migration to the default branch.
 
 ## Audits and inventories
 
