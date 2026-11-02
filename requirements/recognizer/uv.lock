@@ -439,6 +439,7 @@ dependencies = [
     { name = "setuptools" },
     { name = "tensorflow" },
     { name = "tensorflow-estimator" },
+    { name = "tensorflow-intel", marker = "sys_platform == 'win32'" },
 ]
 
 [package.dev-dependencies]
@@ -458,6 +459,7 @@ requires-dist = [
     { name = "setuptools", specifier = "<82" },
     { name = "tensorflow", specifier = "==2.15.1" },
     { name = "tensorflow-estimator", specifier = "==2.15.0" },
+    { name = "tensorflow-intel", marker = "sys_platform == 'win32'", specifier = "==2.15.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -1075,6 +1077,38 @@ version = "2.15.0"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b6/c8/2f823c8958d5342eafc6dd3e922f0cc4fcf8c2e0460284cc462dae3b60a0/tensorflow_estimator-2.15.0-py2.py3-none-any.whl", hash = "sha256:aedf21eec7fb2dc91150fc91a1ce12bc44dbb72278a08b58e79ff87c9e28f153", size = 441974, upload-time = "2023-11-07T01:10:10.812Z" },
+]
+
+[[package]]
+name = "tensorflow-intel"
+version = "2.15.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "astunparse" },
+    { name = "flatbuffers" },
+    { name = "gast" },
+    { name = "google-pasta" },
+    { name = "grpcio" },
+    { name = "h5py" },
+    { name = "keras" },
+    { name = "libclang" },
+    { name = "ml-dtypes" },
+    { name = "numpy" },
+    { name = "opt-einsum" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "setuptools" },
+    { name = "six" },
+    { name = "tensorboard" },
+    { name = "tensorflow-estimator" },
+    { name = "tensorflow-io-gcs-filesystem", version = "0.31.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "termcolor" },
+    { name = "typing-extensions" },
+    { name = "wrapt" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/13/681487f4f5241d8213fbf3f8940988054d97e213fcc3390921682dfc691f/tensorflow_intel-2.15.1-cp310-cp310-win_amd64.whl", hash = "sha256:9f305142b3c5e239c82c463429b1f88726dd27d9f23523871f825493a9ffc5f4", size = 300872148, upload-time = "2024-03-09T00:32:41.39Z" },
 ]
 
 [[package]]
