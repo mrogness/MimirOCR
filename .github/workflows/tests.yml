@@ -37,7 +37,7 @@ jobs:
         run: uv run --project requirements/backend --no-sync python -m pytest --cov=backend --cov-branch --cov-report=term-missing --cov-report=xml:coverage/backend.xml --junitxml=test-results/backend.xml
       - name: Upload backend reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: backend-tests-${{ matrix.os }}
           path: |
@@ -67,7 +67,7 @@ jobs:
         run: yarn build
       - name: Upload frontend reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-tests
           path: |

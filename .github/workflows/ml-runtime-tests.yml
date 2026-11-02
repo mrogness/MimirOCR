@@ -42,7 +42,7 @@ jobs:
         run: node scripts/test_ml_runtimes.mjs
       - name: Upload ML results and source workflow log
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ml-tests-${{ matrix.os }}
           path: |
