@@ -19,46 +19,47 @@ jobs:
   verify:
     name: Verify generated docs and site build
     runs-on: ubuntu-latest
+    env:
+      UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.venvs/backend
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.10.11"
-          cache: pip
-          cache-dependency-path: |
-            requirements-docs.txt
-            requirements-test.txt
-            constraints.txt
-      - name: Install documentation dependencies
-        run: |
-          python -m pip install -r requirements-test.txt
-          python -m pip install -r requirements-docs.txt
+          python-version: "3.10"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.4"
+      - name: Install locked API and documentation tools
+        run: python scripts/setup_backend.py --role backend --docs
       - name: Regenerate derived docs
-        run: python scripts/generate_docs.py
+        run: uv run --project requirements/backend --no-sync python scripts/generate_docs.py
       - name: Ensure generated docs are committed
         run: git diff --exit-code docs/generated
       - name: Build docs site
-        run: mkdocs build --strict
+        run: uv run --project requirements/backend --no-sync mkdocs build --strict
 
   deploy:
     name: Deploy docs site
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: verify
     runs-on: ubuntu-latest
+    env:
+      UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.venvs/backend
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.10.11"
-      - name: Install documentation dependencies
-        run: |
-          python -m pip install -r requirements-test.txt
-          python -m pip install -r requirements-docs.txt
+          python-version: "3.10"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.4"
+      - name: Install locked API and documentation tools
+        run: python scripts/setup_backend.py --role backend --docs
       - name: Regenerate derived docs
-        run: python scripts/generate_docs.py
+        run: uv run --project requirements/backend --no-sync python scripts/generate_docs.py
       - name: Build docs site
-        run: mkdocs build --strict
+        run: uv run --project requirements/backend --no-sync mkdocs build --strict
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact

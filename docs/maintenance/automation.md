@@ -17,9 +17,9 @@ It performs these steps:
 ## What contributors should run locally
 
 ```sh
-python -m pip install -r requirements-docs.txt
-python scripts/generate_docs.py
-mkdocs build --strict
+python scripts/setup_backend.py --role backend --docs
+yarn docs:generate
+yarn docs:build
 ```
 
 Or with Yarn scripts:

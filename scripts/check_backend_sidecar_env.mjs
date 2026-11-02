@@ -4,6 +4,7 @@ import { scriptProjectRootFrom } from './lib/projectPaths.mjs'
 import { RUNTIMES, runtimePython } from './lib/runtimes.mjs'
 
 const root = scriptProjectRootFrom(import.meta.url)
+const build = process.argv.includes('--build')
 try {
   for (const [role, runtime] of Object.entries(RUNTIMES)) {
     const python = runtimePython(root, role)
@@ -12,7 +13,7 @@ try {
 import importlib, importlib.metadata, importlib.util, sys
 assert sys.version_info[:2] == (3, 10), 'Use Python 3.10 for the pinned ML stack'
 print(f'Interpreter: {sys.executable}', flush=True)
-required = ${JSON.stringify(runtime.imports.concat('PyInstaller'))}
+required = ${JSON.stringify(build ? runtime.imports.concat('PyInstaller') : runtime.imports)}
 forbidden = ${JSON.stringify(runtime.forbidden)}
 missing = [x for x in required if importlib.util.find_spec(x) is None]
 unexpected = [x for x in forbidden if importlib.util.find_spec(x) is not None]
@@ -29,10 +30,10 @@ from kraken.configs import SegmentationInferenceConfig
 from kraken.lib.segmentation import extract_polygons
 from kraken.ketos.util import to_ptl_device` : ''}
 `], { stdio: 'inherit' })
-    runCommand(python, ['-m', 'pip', 'check'], { stdio: 'inherit' })
+    runCommand('uv', ['pip', 'check', '--python', python], { stdio: 'inherit' })
   }
 } catch (error) {
   console.error(String(error?.message || error))
-  console.error('Run yarn backend:setup with Python 3.10; each role requires its own environment.')
+  console.error(`Run python scripts/setup_backend.py${build ? ' --build' : ''}; each role requires its own environment.`)
   process.exit(1)
 }

@@ -1,0 +1,132 @@
+# Dependency ownership and security updates
+
+Each Python runtime is an independent uv project. There is no root workspace or
+shared constraints file. `pyproject.toml` declares direct dependencies and optional
+tool groups; `uv.lock` records the resolved transitive versions, platform markers,
+distribution URLs, and hashes. Commit both files when changing dependencies.
+Unused historical constraints are removed; upstream engine dependencies remain.
+
+| Project | Managed environment | Production responsibilities |
+|---|---|---|
+| `requirements/backend/` | `.venvs/backend` | FastAPI, SQLAlchemy, PDF preparation and export |
+| `requirements/segmenter/` | `.venvs/segmenter` | Kraken 7.1.1, Torch, line segmentation |
+| `requirements/recognizer/` | `.venvs/recognizer` | Calamari 2.3.1, TensorFlow/Keras 2.15, recognition |
+
+The supported desktop targets remain macOS ARM and Windows x64. The API also
+supports Linux for model-free tests and documentation. All projects currently
+require Python 3.10; this migration does not upgrade the ML engines or models.
+Interpreter requirements live in each manifest. A future interpreter migration
+also needs corresponding preflight checks, wheel availability, and native tests.
+
+## Setup and optional tools
+
+Install `uv==0.13.4`, then use the host Python to run setup. The host interpreter
+does not have to be Python 3.10: uv selects a compatible installed interpreter or
+downloads one. Commands below are identical on Windows and macOS.
+
+```sh
+python -m pip install uv==0.13.4
+python scripts/setup_backend.py                         # production packages only
+python scripts/setup_backend.py --dev                   # API tests, no build tools
+python scripts/setup_backend.py --dev --build           # desktop development/build
+python scripts/setup_backend.py --role backend --docs   # API + MkDocs only
+python scripts/setup_backend.py --role segmenter --build
+python scripts/setup_backend.py --dev --build --check   # verify, without syncing
+```
+
+Setup always uses `uv sync --locked`: a stale or missing lock is an error, not an
+invitation to silently resolve new versions. Sync removes packages outside the
+selected groups. Include all tools you want to keep when repeating setup, for
+example `--role backend --dev --build --docs`. Other roles are untouched when
+`--role` is supplied. Setup targets only the repository's managed `.venvs/` paths;
+custom `MIMIR_*_PYTHON` interpreters are not modified.
+
+PyInstaller and its hooks are in each project's optional `build` group, not
+production dependencies. The backend alone has `test` and `docs` groups. There
+is no need to install an auditor into an ML environment.
+
+Use `node scripts/run_backend.mjs -m pytest` or `yarn docs:generate` to run tools
+with the same API interpreter selected by the desktop development scripts.
+
+## Updating one runtime
+
+Edit only that runtime's manifest when changing a direct dependency, then resolve
+and inspect its lock. For a transitive security update, use a targeted upgrade:
+
+```sh
+uv lock --project requirements/segmenter --upgrade-package aiohttp --upgrade-package yarl
+uv lock --project requirements/segmenter --check
+python scripts/setup_backend.py --role segmenter
+python scripts/setup_backend.py --dev
+yarn test:ml
+```
+
+For a direct pinned package, change the manifest pin first; a targeted lock upgrade
+does not override it. Avoid broad `--upgrade` runs for a single advisory. Inspect
+the complete lock diff, including compatible child-package updates. Dependency
+metadata compatibility is necessary but does not prove successful inference.
+
+Keep TensorFlow, Keras, Calamari/TFAIP, and the trained checkpoint compatible as a
+set. Keras 3 is not a routine update to this recognizer. TensorBoard 2.15 still
+uses `pkg_resources`, so the recognizer explicitly retains `setuptools<82`.
+Keep Torch/torchvision compatible in the segmenter. Pillow 13 requires an
+interpreter migration beyond Python 3.10. Independent environments permit
+different shared-library versions; JSON contract tests still protect the boundary.
+
+## Audits and inventories
+
+After syncing production environments, run:
+
+```sh
+python scripts/setup_backend.py
+python scripts/audit_runtimes.py
+python scripts/audit_runtimes.py --role recognizer
+```
+
+Each role produces `*-inventory.json`, an exact `*-installed.txt`, `*-audit.json`,
+and an audit log under `test-results/dependencies/`, with an aggregate
+`summary.json`. The inventory comes from that role's actual interpreter, honoring
+the usual interpreter overrides. Optional tools appear in the inventory only
+when installed; sync production-only first to measure production dependencies.
+
+The auditor runs in uvx's separate tool environment. It sends installed package
+names/versions to the advisory service, does not install or resolve the engines
+again, and never applies fixes. It exits nonzero on findings or errors, including
+incomplete collection, but still attempts every requested runtime. Read the logs
+and summary: a service/interpreter failure is not a clean security report.
+
+CI first audits production-only installations on both native targets. Audit
+findings are advisory during this migration because known legacy-stack findings
+already exist; reports are always uploaded and no vulnerability is silently
+ignored or dismissed. A future policy can make that step blocking after the
+backlog is triaged. Local audits already return failure on findings.
+
+An installed-package inventory is not an inventory of a PyInstaller bundle.
+Upstream Kraken/Calamari dependency trees include functionality beyond inference,
+and the existing engine `--collect-all` packaging remains. Do not dismiss an
+alert merely because application source does not import the package directly.
+
+## Dependabot and native validation
+
+`.github/dependabot.yml` tracks each uv project independently, plus npm, Cargo,
+and Actions. It groups related engine packages for routine updates and does not
+auto-merge updates or suppress major/security updates. Once this layout reaches
+the default branch, supersede old PRs against deleted constraints files with PRs
+against the appropriate project. Security alerts remain a separate GitHub setting.
+
+For every PR, real ML checks install locked environments, import the production
+APIs, run dependency checks, and perform inference on macOS ARM and Windows x64.
+Dependency/build-script PRs additionally run both packaged desktop builds and
+their bundled-worker smoke tests. Manual packaging dispatch is also available.
+CoreMLTools 9 currently has no Windows wheel, so its upstream source distribution
+is built there; other target dependencies can be planned from wheels. This is a
+reason to retain real native installation checks.
+
+Release uploads are restricted to tag pushes. The packaging workflow is
+path-filtered; do not make its checks globally required on unrelated PRs without
+an always-running gate. Branch rules must be configured
+in GitHub to require checks; YAML alone cannot enforce approval policy.
+
+Review each advisory for the installed runtime, affected operation, fixed version,
+and upgrade compatibility. A passing test suite establishes the exercised behavior;
+it does not certify that every vulnerability is unreachable.
