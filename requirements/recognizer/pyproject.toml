@@ -9,7 +9,7 @@ dependencies = [
   "tensorflow-intel==2.15.1; sys_platform == 'win32'",
   "tensorflow-estimator==2.15.0",
   "keras==2.15.0",
-  "pydantic==2.13.4",
+  "pydantic==2.14.2",
   "numpy==1.23.5",
   "pillow==12.3.0",
   "protobuf==3.20.3",
