@@ -6,7 +6,8 @@ Generated from current test files.
 
 | Layer | Files | Approx test count |
 |---|---:|---:|
-| Backend pytest | 22 | 124 |
+| Backend pytest | 23 | 131 |
+| ML runtime pytest | 1 | 4 |
 | Frontend vitest | 25 | 119 |
 | Rust unit tests | 9 | 10 |
 
@@ -17,7 +18,7 @@ Generated from current test files.
 | exports | 13 |
 | line routes and CRUD | 6 |
 | ocr and orchestration | 5 |
-| other | 74 |
+| other | 81 |
 | runtime and restart | 4 |
 | workers and pipeline | 22 |
 
@@ -43,10 +44,17 @@ Generated from current test files.
 | backend/tests/test_reflow.py | 6 |
 | backend/tests/test_route_imports.py | 5 |
 | backend/tests/test_runtime_gate.py | 4 |
+| backend/tests/test_segmenter_engine.py | 7 |
 | backend/tests/test_system_routes.py | 7 |
 | backend/tests/test_worker_helpers.py | 4 |
 | backend/tests/test_worker_processes.py | 10 |
 | backend/tests/test_worker_resources.py | 4 |
+
+## ML runtime files
+
+| File | Approx test count |
+|---|---:|
+| tests/ml/test_real_workflow.py | 4 |
 
 ## Frontend files
 

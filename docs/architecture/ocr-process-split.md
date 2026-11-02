@@ -25,22 +25,23 @@ installed apps do not depend on Python, a working directory, or shell activation
 
 ## Development and packaging
 
-Use Python 3.10 (CI uses 3.10.11), Node 22, Yarn 1.22.22, and the usual Tauri prerequisites.
+Install uv, Node 22, Yarn 1.22.22, and the usual Tauri prerequisites.
+Each runtime project currently selects Python 3.10; uv can download it when absent.
 From the repository root:
 
 ```sh
-python scripts/setup_backend.py --dev
-node scripts/check_backend_sidecar_env.mjs
+python -m pip install uv==0.13.4
+python scripts/setup_backend.py --dev --build
+node scripts/check_backend_sidecar_env.mjs --build
 yarn install --frozen-lockfile
 yarn tauri:dev:auto
 ```
 
-`python` must be your Python 3.10 interpreter. On macOS you may need `python3.10`;
-on Windows you can use `py -3.10 scripts/setup_backend.py --dev`.
-Setup installs each role into its own environment and adds tests to the API
-environment with `--dev`. The old combined `.venv` is unused. If an environment
-was previously populated with another engine, delete that role's `.venvs/`
-directory and rerun setup; preflight rejects mixed environments.
+Setup syncs each role from its own committed lockfile. `--dev` adds backend tests;
+`--build` adds PyInstaller to each role. Without these flags only production
+packages are installed. Sync removes packages outside the selected groups,
+including packages left in older environments. See
+[dependency management](../maintenance/dependencies.md) before changing versions.
 
 Development runs the API and workers from source using their respective
 interpreters. `yarn tauri dev` also discovers the default API environment.
@@ -72,11 +73,17 @@ stderr inside workers; only JSON responses use the reserved protocol pipe.
 
 ## Dependencies
 
-`constraints.txt` preserves the original `requirements.txt` pins unchanged.
-`requirements/backend.txt`, `segmenter.txt`, and `recognizer.txt` select each
-runtime's dependencies against those pins. `requirements/build.txt` selects the
-existing PyInstaller version. Constraints do not install unused packages.
-`requirements.txt` now installs only the API; there is no combined ML environment.
+Each runtime owns `requirements/<role>/pyproject.toml` and `uv.lock`. These are
+independent uv projects, not members of a shared workspace. API, segmentation,
+and recognition versions can therefore evolve independently. There is no shared
+constraints file and no combined ML environment. The recognizer's TensorFlow 2.15,
+Keras 2.15, NumPy 1.23, and Windows-specific transitive versions remain locked
+separately from Kraken 7's Torch/NumPy stack.
+
+Run `python scripts/setup_backend.py --role segmenter --build` to sync just the
+segmenter. Setup manages only `.venvs/<role>`; it never clears a custom interpreter
+override. Remove obsolete `MIMIR_*_PYTHON` overrides to use the managed environments.
+Preflight verifies the Kraken version and imports the adapter's task/configuration APIs.
 
 ## Execution and ownership
 

@@ -92,8 +92,8 @@ tests. Run from the repository root:
 ```sh
 yarn test:unit:coverage
 yarn build
-python scripts/generate_docs.py
-mkdocs build --strict
+yarn docs:generate
+yarn docs:build
 ```
 
 Geometry tests cover calculation edge cases, reactive page/size/toggle changes,

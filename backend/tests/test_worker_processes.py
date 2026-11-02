@@ -23,7 +23,10 @@ def test_real_process_round_trip_reuses_model_and_preserves_metadata():
         worker.initialize(ProjectConfig())
         first = worker.process_page(Page(id="p1", page_number=0, image_path="/path with spaces/æ.png"))
         second = worker.process_page(Page(id="p2", page_number=1))
-        assert first.metadata["pid"] == second.metadata["pid"] == worker.process.pid
+        # Windows venv launchers can have a different PID from the Python worker.
+        # Model reuse concerns the worker handling both pages, not its launcher.
+        assert first.metadata["pid"] == second.metadata["pid"]
+        assert worker.process.poll() is None
         assert first.metadata["calls"] == 1 and second.metadata["calls"] == 2
         assert first.lines[0].ocr_text == "Æble, ø og Å — 日本語"
         assert first.lines[0].baseline_info == {"source_order": 1}

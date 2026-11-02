@@ -6,23 +6,20 @@ accuracy benchmark or a packaged-app end-to-end test.
 
 ## Python: unit and API component tests
 
-From the repository root, create a Python 3.10 virtual environment, activate it,
-and run:
+From the repository root, install uv and sync only the API plus test tools:
 
 ```sh
-python -m pip install -r requirements-test.txt
-python -m pytest
-python -m pytest --cov=backend --cov-branch --cov-report=term-missing
+python -m pip install uv==0.13.4
+python scripts/setup_backend.py --role backend --dev
+node scripts/run_backend.mjs -m pytest
+node scripts/run_backend.mjs -m pytest --cov=backend --cov-branch --cov-report=term-missing
+python -m unittest discover -s scripts/tests -p "test_*.py"
 ```
 
-`requirements-test.txt` uses the application's `constraints.txt` as constraints,
-not as installation requirements. This tests the same FastAPI/Pydantic/SQLAlchemy
-versions without installing the ML stack. `requirements-dev.txt` installs the API plus tests. For all three isolated runtime
-environments, use `python scripts/setup_backend.py --dev`.
-
-ReportLab, PyMuPDF and Pillow are included in the model-free test environment to
-exercise real PDF exports, source-resolution analysis and rasterization. They use
-the existing application pins from `constraints.txt`; no ML dependencies are added.
+`requirements/backend/uv.lock` supplies the API and optional test dependencies;
+no TensorFlow, PyTorch, Kraken, Calamari, or PyInstaller is installed by this command.
+ReportLab, PyMuPDF and Pillow exercise real PDF exports and rasterization.
+For all three source environments use `python scripts/setup_backend.py --dev`.
 
 Coverage includes runtime job/restart exclusion, restart expiration and disk
 failure recovery, line update/delete/restore routes with a real SQLite database,
@@ -148,12 +145,13 @@ the packaged backend starts or that OCR quality improved.
 ## Production dependency and real inference checks
 
 The separate `.github/workflows/ml-runtime-tests.yml` workflow installs all
-three production runtime environments on Windows x64 and macOS ARM with Python
-3.10.11. It runs for PRs and `main` pushes that change dependencies, backend code,
-worker/build scripts, ML tests, bundled fonts, or workflow definitions. It can
-also be dispatched manually. Its pip cache stores downloads, not environments;
-each runner must actually install the requested packages. Missing platform
-wheels and incompatible dependency pins fail before a release is tagged.
+three production environments on Windows x64 and macOS ARM with Python 3.10.
+It runs on every PR, on `main` pushes, and on manual dispatch, so its two checks
+can be required without leaving unrelated PRs waiting for a path-filtered job.
+Setup uses committed locks and exact sync, never a cached application environment.
+It inventories and audits the production packages before adding backend test tools.
+Audit findings are advisory and uploaded per runtime; installation and inference
+failures remain blocking. See [dependency management](maintenance/dependencies.md).
 
 Run the same checks locally from the repository root with Python 3.10 and Node
 22 (these commands do not build executables or require frontend dependencies):
@@ -167,9 +165,10 @@ yarn test:ml
 
 The driver uses the backend environment's pytest and the existing
 `MIMIR_SEGMENTER_PYTHON` / `MIMIR_RECOGNIZER_PYTHON` overrides. ML packages are
-imported only in their owning runtime processes. Preflight now actually imports
-required modules, rather than only checking that import specifications exist,
-and runs `pip check` for every environment.
+imported only in their owning runtime processes. Preflight prints each runtime's
+interpreter, verifies Kraken 7.1.1, imports the task/configuration/extraction APIs
+used by the adapter, and runs `uv pip check` for every environment. Each role uses its own lockfile.
+PyInstaller is only required by preflight when `--build` is passed.
 
 `pytest-ml.ini` keeps the real-model tests out of the default model-free
 suite and its coverage report. To select a test after preflight:
@@ -181,9 +180,13 @@ node scripts/test_ml_runtimes.mjs -k recognizer
 The real-model suite deliberately fails on missing runtimes or weights; it does
 not skip tests or substitute fake engines. It covers:
 
-- Kraken on a six-line synthetic Fraktur page: plausible line count, page-space
-  geometry, top-to-bottom order, usable binary crops, and a subsequent blank
-  page in the same worker without stale results.
+- Kraken on a six-line synthetic Fraktur page in both strict and native reading
+  order modes: plausible line count, page-space geometry, top-to-bottom order,
+  usable binary crops, and a subsequent blank page in the same worker without
+  stale results.
+- A fixed two-column Fraktur layout from `tests/ml/fixtures/`, with the strict
+  override disabled: detected lines must follow the fixture's left-column then
+  right-column ground truth. This compares geometry independently of OCR.
 - Calamari on three independently rendered known crops, processed twice by one
   worker: preserved identities/geometry, nonempty predictions, finite confidence,
   character metadata, and character error rate at most 30% on each crop.
@@ -208,10 +211,12 @@ the model-free test gate. Both must pass before either packaging job starts;
 the packaged smoke test still runs after bundling. These changes therefore
 check source/runtime compatibility early and bundled resources at release time.
 
-The ML workflow uses path filters. If configuring it as a required branch check,
-remove those filters or use a repository-level required-check gate that handles
-unrelated changes; GitHub does not complete a path-filtered workflow that never
-starts. The ordinary model-free checks continue on every PR.
+Dependency/build-script PRs also run both native packaging jobs in
+`build-artifacts.yml`, including real inference through the bundled executables.
+That workflow supports manual dispatch, and publishes release assets only for tags.
+Require the two real ML checks through GitHub rulesets if desired. Packaging is
+path-filtered, so do not require its checks globally on unrelated PRs without an
+always-running gate. Repository files do not change branch protection settings.
 
 ## Worker and build tests
 
@@ -247,7 +252,7 @@ and `100`. Cleanup accepts exact `project_1`/`project1` names or names followed
 by an underscore suffix, such as `project_1_run`.
 
 ```sh
-python -m pytest backend/tests/test_project_routes.py backend/tests/test_project_artifact_cleanup.py
+node scripts/run_backend.mjs -m pytest backend/tests/test_project_routes.py backend/tests/test_project_artifact_cleanup.py
 ```
 
 `test_file_routes.py` covers upload storage, replacement isolation, MIME and

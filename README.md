@@ -21,10 +21,12 @@ In order to obtain images of the lines of text within input PDFs, page layout in
 
 ## Development and packaging
 
-Use Python 3.10 (CI: 3.10.11) to create the API, Kraken, and Calamari environments:
+Use uv to sync the independent API, Kraken 7.1.1, and Calamari environments.
+Each project selects Python 3.10 and has its own committed lockfile:
 
 ```sh
-python scripts/setup_backend.py --dev
+python -m pip install uv==0.13.4
+python scripts/setup_backend.py --dev --build
 yarn install --frozen-lockfile
 yarn tauri:dev:auto
 ```
@@ -55,14 +57,14 @@ for a visual map of test flows.
 Install backend test dependencies:
 
 ```bash
-python -m pip install -r requirements-test.txt
+python scripts/setup_backend.py --role backend --dev
 ```
 
 Run tests:
 
 ```bash
-pytest
-pytest --cov=backend --cov-report=term-missing
+node scripts/run_backend.mjs -m pytest
+node scripts/run_backend.mjs -m pytest --cov=backend --cov-report=term-missing
 ```
 
 ### Run frontend tests
@@ -97,9 +99,9 @@ Contributor documentation lives under `docs/` and is published via MkDocs. It is
 ### Build docs locally
 
 ```bash
-python -m pip install -r requirements-docs.txt
-python scripts/generate_docs.py
-mkdocs serve
+python scripts/setup_backend.py --role backend --docs
+yarn docs:generate
+yarn docs:serve
 ```
 
 Or via Yarn scripts:
@@ -108,3 +110,6 @@ Or via Yarn scripts:
 yarn docs:generate
 yarn docs:build
 ```
+
+Dependency ownership, upgrades, auditing, and setup flags are documented in
+[dependency management](docs/maintenance/dependencies.md).

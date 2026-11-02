@@ -1,8 +1,27 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { RUNTIMES } from '../lib/runtimes.mjs'
 import { createPyInstallerArgs } from '../lib/pyinstallerConfig.mjs'
+
+test('each runtime owns its manifest and lock, with build tools optional', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url))
+  assert.ok(!existsSync(path.join(root, 'constraints.txt')))
+  for (const role of Object.keys(RUNTIMES)) {
+    const manifest = readFileSync(path.join(root, `requirements/${role}/pyproject.toml`), 'utf8')
+    assert.ok(manifest.includes('[dependency-groups]'))
+    const runtimeDeps = manifest.split('[dependency-groups]')[0]
+    assert.ok(!runtimeDeps.includes('pyinstaller'))
+    assert.ok(!manifest.includes('constraint-dependencies'))
+    assert.ok(existsSync(path.join(root, `requirements/${role}/uv.lock`)))
+    if (role !== 'backend') assert.ok(!manifest.includes('pytest'))
+  }
+  const segmenter = readFileSync(path.join(root, 'requirements/segmenter/pyproject.toml'), 'utf8')
+  const kraken = segmenter.match(/"kraken==([^"\n]+)"/)[1]
+  assert.equal(RUNTIMES.segmenter.versions.kraken, kraken)
+})
 
 test('each onedir build has a distinct name, work directory, and entry point', () => {
   const names = new Set()
