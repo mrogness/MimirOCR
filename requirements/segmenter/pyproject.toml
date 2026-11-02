@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-build = ["pyinstaller==6.21.0", "pyinstaller-hooks-contrib==2026.6"]
+build = ["pyinstaller==6.21.0", "pyinstaller-hooks-contrib==2026.9"]
 
 [tool.uv]
 package = false
