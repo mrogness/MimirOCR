@@ -109,10 +109,13 @@ alert merely because application source does not import the package directly.
 ## Dependabot and native validation
 
 `.github/dependabot.yml` tracks each uv project independently, plus npm, Cargo,
-and Actions. It groups related engine packages for routine updates and does not
-auto-merge updates or suppress major/security updates. Once this layout reaches
-the default branch, supersede old PRs against deleted constraints files with PRs
-against the appropriate project. Security alerts remain a separate GitHub setting.
+and Actions. Every entry sets `open-pull-requests-limit: 0` to disable routine
+version-update PRs without blocking security-update PRs. Keep Dependabot alerts
+and Dependabot security updates enabled in GitHub's repository settings; this
+file does not enable those features. Existing version-update grouping rules are
+inactive while version updates are disabled. No updates are auto-merged.
+Supersede old PRs against deleted constraints files with PRs against the
+appropriate project.
 
 For every PR, real ML checks install locked environments, import the production
 APIs, run dependency checks, and perform inference on macOS ARM and Windows x64.
