@@ -1,3 +1,6 @@
+/**
+ * @file Apply backend performance profiles and track the restart/reconnection workflow.
+ */
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 import { useBackendRuntime } from '../../../shared/composables/useBackendRuntime'
@@ -5,6 +8,12 @@ import { useBackendRuntime } from '../../../shared/composables/useBackendRuntime
 const RESTART_PHASE_DELAY_MS = 250
 const CONNECTED_MESSAGE_MS = 3000
 
+/**
+ * Manage profile selection and the reserved backend restart/reconnection workflow. Block
+ * changes during active OCR or disconnection and release runtime polling on unmount.
+ * @param {object} dependencies - Backend fetch, profile options, host restart, and runtime-wait functions.
+ * @returns {object} Profile controls, effective limits, restart feedback, and load/apply actions.
+ */
 export function usePerformanceProfileSettings({
   backendFetch,
   performanceProfileOptions,
@@ -30,10 +39,16 @@ export function usePerformanceProfileSettings({
     () => profileChanged.value && !profileChangeBlocked.value && !isApplyingProfile.value,
   )
 
+  /**
+   * Resolve after a millisecond delay so restart phase feedback remains visible.
+   */
   function pause(milliseconds) {
     return new Promise((resolve) => window.setTimeout(resolve, milliseconds))
   }
 
+  /**
+   * Cancel the pending timer that clears successful reconnection feedback.
+   */
   function clearConnectedMessageTimer() {
     if (clearMessageTimer) {
       window.clearTimeout(clearMessageTimer)
@@ -41,6 +56,9 @@ export function usePerformanceProfileSettings({
     }
   }
 
+  /**
+   * Replace the message timer and clear connected feedback after its display interval.
+   */
   function scheduleConnectedMessageClear() {
     clearConnectedMessageTimer()
     clearMessageTimer = window.setTimeout(() => {
@@ -49,6 +67,10 @@ export function usePerformanceProfileSettings({
     }, CONNECTED_MESSAGE_MS)
   }
 
+  /**
+   * Publish a phase message, wait for Vue to render it, and optionally pause before
+   * continuing.
+   */
   async function showRestartPhase(message, delay = 0) {
     profileMessage.value = message
     await nextTick()
@@ -57,6 +79,10 @@ export function usePerformanceProfileSettings({
     }
   }
 
+  /**
+   * Subscribe to shared runtime status, refresh it, and initialize selection from the active
+   * profile.
+   */
   async function loadPerformanceProfile() {
     runtime.startBackendRuntimePolling()
     try {
@@ -67,6 +93,10 @@ export function usePerformanceProfileSettings({
     }
   }
 
+  /**
+   * Best-effort cancel an acquired restart token, tolerating the old backend already being
+   * stopped.
+   */
   async function cancelRestartReservation(restartToken) {
     if (!restartToken) {
       return
@@ -82,6 +112,11 @@ export function usePerformanceProfileSettings({
     }
   }
 
+  /**
+   * Reserve an idle backend, invoke the host restart, and wait for a new instance with the
+   * requested profile. Adopt the confirmed runtime on success; cancel the reservation and
+   * expose feedback on failure.
+   */
   async function applyPerformanceProfile() {
     if (!canApplyProfile.value) {
       return

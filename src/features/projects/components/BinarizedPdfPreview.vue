@@ -1,13 +1,20 @@
 <script setup>
+/**
+ * @file Display a PDF page preview using the selected black-and-white threshold.
+ */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 
 import { usePdfBinarizationPreview } from '../composables/usePdfBinarizationPreview'
 import { useImageViewport } from '../../../shared/composables/useImageViewport'
 
 const props = defineProps({
+  /** URL of the selected or stored PDF used by the preview renderer. */
   pdfUrl: { type: String, default: '' },
+  /** Requested PDF rasterization resolution in dots per inch; preview size remains memory-bounded. */
   dpi: { type: [String, Number], default: 300 },
+  /** Black/white threshold in the supported 1..256 range. */
   threshold: { type: [String, Number], default: 170 },
+  /** Human-readable source PDF filename shown above the preview. */
   displayName: { type: String, default: '' },
 })
 
@@ -57,10 +64,17 @@ const canGoForward = computed(
   () => pageCount.value > 0 && currentPageNumber.value < pageCount.value,
 )
 
+/**
+ * Connect the rendered preview image element to the shared viewport composable.
+ */
 function setImageRef(el) {
   imageRef.value = el
 }
 
+/**
+ * Connect the preview container and recalculate its available height after the next DOM
+ * update.
+ */
 function setOverlayPanelRef(el) {
   overlayPanelRef.value = el
   nextTick(() => {
@@ -68,6 +82,10 @@ function setOverlayPanelRef(el) {
   })
 }
 
+/**
+ * Convert Ctrl/Cmd-wheel gestures into pointer-anchored preview zoom while leaving ordinary
+ * scrolling unchanged.
+ */
 function onOverlayWheel(event) {
   if (!event.ctrlKey && !event.metaKey) {
     return
@@ -81,6 +99,10 @@ function onOverlayWheel(event) {
   })
 }
 
+/**
+ * Clamp a one-based preview page number, synchronize the input, and reset zoom when changing
+ * pages.
+ */
 function selectPage(page) {
   if (pageCount.value <= 0) {
     currentPageNumber.value = 1
@@ -102,26 +124,44 @@ function selectPage(page) {
   resetViewportState()
 }
 
+/**
+ * Select the first PDF preview page.
+ */
 function goToFirstPage() {
   selectPage(1)
 }
 
+/**
+ * Request the preceding preview page through the clamped selection helper.
+ */
 function goToPreviousPage() {
   selectPage(currentPageNumber.value - 1)
 }
 
+/**
+ * Request the following preview page through the clamped selection helper.
+ */
 function goToNextPage() {
   selectPage(currentPageNumber.value + 1)
 }
 
+/**
+ * Select the final preview page using the current document page count.
+ */
 function goToLastPage() {
   selectPage(pageCount.value)
 }
 
+/**
+ * Store the page-input text without navigating until the value is committed.
+ */
 function onPageInput(event) {
   pageInputValue.value = event.target.value
 }
 
+/**
+ * Apply a valid numeric page input or restore the current page number when input is invalid.
+ */
 function commitPageInput() {
   const parsed = Number.parseInt(pageInputValue.value, 10)
   if (!Number.isFinite(parsed)) {

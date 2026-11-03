@@ -32,6 +32,7 @@
         "type": "object"
       },
       "DeletedLineSnapshot": {
+        "description": "Serializable review-line contents needed to restore a deletion, including recognition\nmetadata.",
         "properties": {
           "bounding_box": {
             "anyOf": [
@@ -158,6 +159,7 @@
         "type": "object"
       },
       "ExportPdfRequest": {
+        "description": "PDF layout and normalization choices sent by the export settings sheet.\n\nFont sizes are points, margins are inches, and line_spacing is a font-size\nmultiplier. Export code owns the rendering rules for each layout mode.",
         "properties": {
           "fit_text_to_page": {
             "default": true,
@@ -254,6 +256,7 @@
         "type": "object"
       },
       "LineOrderSnapshot": {
+        "description": "Saved line ID and order used to restore a page's arrangement during undo.",
         "properties": {
           "id": {
             "title": "Id",
@@ -272,6 +275,7 @@
         "type": "object"
       },
       "LineRestoreRequest": {
+        "description": "Deleted line snapshot and page-order snapshot submitted by the undo workflow.",
         "properties": {
           "line": {
             "$ref": "#/components/schemas/DeletedLineSnapshot"
@@ -292,6 +296,7 @@
         "type": "object"
       },
       "LineRestoreResponse": {
+        "description": "Envelope containing the restored persistent line and its review metadata.",
         "properties": {
           "line": {
             "$ref": "#/components/schemas/ProjectLineRead"
@@ -304,6 +309,7 @@
         "type": "object"
       },
       "LineUpdateRequest": {
+        "description": "Corrected transcription and optional page/order identifiers for a review-line write.",
         "properties": {
           "corrected_text": {
             "title": "Corrected Text",
@@ -339,6 +345,7 @@
         "type": "object"
       },
       "LineUpdateResponse": {
+        "description": "Envelope containing the committed line returned after a review edit.",
         "properties": {
           "line": {
             "$ref": "#/components/schemas/ProjectLineRead"
@@ -351,6 +358,7 @@
         "type": "object"
       },
       "OCRConfigOverride": {
+        "description": "Optional per-run values overriding the backend's project defaults.",
         "properties": {
           "binarization_threshold": {
             "anyOf": [
@@ -426,6 +434,7 @@
         "type": "object"
       },
       "OcrJobResponse": {
+        "description": "Polling snapshot with lifecycle status, phase, progress, and page counts.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -576,6 +585,7 @@
         "type": "object"
       },
       "OcrJobStartRequest": {
+        "description": "Stored upload token and optional configuration overrides for a new OCR run.",
         "properties": {
           "config": {
             "$ref": "#/components/schemas/OCRConfigOverride"
@@ -592,6 +602,7 @@
         "type": "object"
       },
       "OcrJobsListResponse": {
+        "description": "Collection envelope for the retained OCR jobs belonging to a project.",
         "properties": {
           "jobs": {
             "items": {
@@ -609,6 +620,7 @@
       },
       "PdfDpiAnalysisResponse": {
         "additionalProperties": false,
+        "description": "Estimated scan resolution, recommended ingestion DPI, confidence, and analysis warnings.",
         "properties": {
           "confidence": {
             "enum": [
@@ -707,6 +719,7 @@
         "type": "object"
       },
       "ProjectCreate": {
+        "description": "JSON body containing the display name for a new persistent project.",
         "properties": {
           "name": {
             "title": "Name",
@@ -720,6 +733,7 @@
         "type": "object"
       },
       "ProjectLineRead": {
+        "description": "Persisted review line with text, geometry, and recognition metadata.",
         "properties": {
           "bounding_box": {
             "anyOf": [
@@ -856,6 +870,7 @@
         "type": "object"
       },
       "ProjectPageRead": {
+        "description": "Persisted page dimensions, image location, and review lines returned to the frontend.",
         "properties": {
           "height": {
             "anyOf": [
@@ -926,6 +941,7 @@
         "type": "object"
       },
       "ProjectPagesResponse": {
+        "description": "Project-scoped page collection consumed by the review workspace.",
         "properties": {
           "pages": {
             "items": {
@@ -947,6 +963,7 @@
         "type": "object"
       },
       "ProjectRead": {
+        "description": "Persistent project metadata, source-file information, and most recent OCR-run summary.",
         "properties": {
           "date_created": {
             "anyOf": [
@@ -1038,6 +1055,7 @@
         "type": "object"
       },
       "ProjectUpdate": {
+        "description": "Replacement project name accepted by the project update endpoint.",
         "properties": {
           "name": {
             "title": "Name",
@@ -1051,6 +1069,7 @@
         "type": "object"
       },
       "ProjectsListResponse": {
+        "description": "Collection envelope for project metadata returned by the dashboard endpoint.",
         "properties": {
           "projects": {
             "items": {
@@ -1067,6 +1086,7 @@
         "type": "object"
       },
       "RestartCancelRequest": {
+        "description": "Opaque token identifying the restart reservation that should be cancelled.",
         "properties": {
           "restart_token": {
             "title": "Restart Token",
@@ -1080,6 +1100,7 @@
         "type": "object"
       },
       "RestartPrepareRequest": {
+        "description": "Performance profile to apply when the desktop host restarts the backend.",
         "properties": {
           "profile": {
             "enum": [
@@ -1098,6 +1119,7 @@
         "type": "object"
       },
       "UploadedPdfResponse": {
+        "description": "Upload token and stored-file metadata returned before OCR job submission.",
         "properties": {
           "filename": {
             "title": "Filename",
@@ -1175,6 +1197,7 @@
   "paths": {
     "/": {
       "get": {
+        "description": "Return the minimal root response used to identify the API service.",
         "operationId": "root__get",
         "responses": {
           "200": {
@@ -1197,6 +1220,7 @@
     },
     "/export/projects/{project_id}/pdf": {
       "get": {
+        "description": "Download a project PDF using export options supplied as query parameters.",
         "operationId": "export_project_pdf_get_export_projects__project_id__pdf_get",
         "parameters": [
           {
@@ -1372,6 +1396,7 @@
         ]
       },
       "post": {
+        "description": "Download a project PDF using layout and normalization options from the JSON request\nbody.",
         "operationId": "export_project_pdf_post_export_projects__project_id__pdf_post",
         "parameters": [
           {
@@ -1422,6 +1447,7 @@
     },
     "/export/projects/{project_id}/training-data": {
       "get": {
+        "description": "Download a ZIP of eligible line crops and transcriptions.\n\nReturn HTTP 404 for a missing project and translate archive-generation failures into\ntheir declared HTTP status.",
         "operationId": "export_project_training_data_export_projects__project_id__training_data_get",
         "parameters": [
           {
@@ -1462,6 +1488,7 @@
     },
     "/files/analyze-pdf-dpi": {
       "post": {
+        "description": "Estimate scan resolution from an uploaded PDF without persisting the file.\n\nReject non-PDF content types and invalid PDF data with HTTP 400. Run the CPU-bound\nanalysis in a thread so it does not block the async request loop.",
         "operationId": "analyze_uploaded_pdf_dpi_files_analyze_pdf_dpi_post",
         "requestBody": {
           "content": {
@@ -1503,6 +1530,7 @@
     },
     "/files/projects/{project_id}/upload-pdf": {
       "post": {
+        "description": "Store a replacement PDF, clear the previous OCR dataset, and return an upload token.\n\nRead and write the replacement before clearing persisted pages, job records, and old\nartifacts. A read or file-write failure preserves the previous dataset; errors later in\nthe replacement sequence can still propagate. The token identifies the stored file for a\nsubsequent OCR job.",
         "operationId": "upload_pdf_for_project_files_projects__project_id__upload_pdf_post",
         "parameters": [
           {
@@ -1555,6 +1583,7 @@
     },
     "/health": {
       "get": {
+        "description": "Report that the HTTP API is responsive without loading either ML runtime.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -1577,6 +1606,7 @@
     },
     "/lines/restore": {
       "post": {
+        "description": "Restore a deleted review line and its saved page ordering.\n\nMap a missing page to HTTP 404, an occupied line ID to 409, and an invalid restoration\nsnapshot to 400.",
         "operationId": "restore_line_lines_restore_post",
         "requestBody": {
           "content": {
@@ -1618,6 +1648,7 @@
     },
     "/lines/{line_id}": {
       "delete": {
+        "description": "Delete a persisted review line and return an empty HTTP 204 response; an unknown ID\nproduces 404.",
         "operationId": "delete_line_lines__line_id__delete",
         "parameters": [
           {
@@ -1651,6 +1682,7 @@
         ]
       },
       "patch": {
+        "description": "Persist corrected text and optional ordering, returning the refreshed review line.\n\nWhen the supplied line ID is absent, optionally locate the line by page ID and order.\nReturn HTTP 404 when neither lookup finds a line.",
         "operationId": "update_line_lines__line_id__patch",
         "parameters": [
           {
@@ -1703,6 +1735,7 @@
     },
     "/ocr/jobs/{job_id}": {
       "get": {
+        "description": "Return one retained job snapshot, or HTTP 404 when its ID is unknown to this API\nprocess.",
         "operationId": "get_ocr_job_ocr_jobs__job_id__get",
         "parameters": [
           {
@@ -1745,6 +1778,7 @@
     },
     "/ocr/jobs/{job_id}/transcript": {
       "get": {
+        "description": "Read the completed job's UTF-8 transcript from disk.\n\nReturn HTTP 409 until the job has succeeded, and 404 for an unknown job, absent artifact\npath, or missing transcript file.",
         "operationId": "get_ocr_job_transcript_ocr_jobs__job_id__transcript_get",
         "parameters": [
           {
@@ -1789,6 +1823,7 @@
     },
     "/ocr/projects/{project_id}/jobs": {
       "get": {
+        "description": "List retained job snapshots newest first after verifying that the project exists.",
         "operationId": "list_project_ocr_jobs_ocr_projects__project_id__jobs_get",
         "parameters": [
           {
@@ -1829,6 +1864,7 @@
         ]
       },
       "post": {
+        "description": "Admit and start an OCR job for an existing project and upload token.\n\nThe job service reserves the runtime and starts background execution. Translate\nadmission and validation errors to HTTP responses and return the initial polling\nsnapshot.",
         "operationId": "start_ocr_job_ocr_projects__project_id__jobs_post",
         "parameters": [
           {
@@ -1881,6 +1917,7 @@
     },
     "/projects/": {
       "get": {
+        "description": "Return the repository's project listing in the HTTP collection envelope.",
         "operationId": "list_projects_projects__get",
         "responses": {
           "200": {
@@ -1900,6 +1937,7 @@
         ]
       },
       "post": {
+        "description": "Create and commit a project with the requested name, returning its persistent metadata.",
         "operationId": "create_project_projects__post",
         "requestBody": {
           "content": {
@@ -1941,6 +1979,7 @@
     },
     "/projects/{project_id}": {
       "delete": {
+        "description": "Remove project job records, filesystem artifacts, and database rows, then return HTTP\n204.\n\nThe route reports an unknown project as 404. Filesystem cleanup occurs before the\nrepository commits the row deletion.",
         "operationId": "delete_project_projects__project_id__delete",
         "parameters": [
           {
@@ -1974,6 +2013,7 @@
         ]
       },
       "get": {
+        "description": "Return persistent project metadata, or HTTP 404 for an unknown project ID.",
         "operationId": "read_project_projects__project_id__get",
         "parameters": [
           {
@@ -2014,6 +2054,7 @@
         ]
       },
       "put": {
+        "description": "Rename an existing project and return the committed metadata; unknown IDs produce HTTP\n404.",
         "operationId": "update_project_projects__project_id__put",
         "parameters": [
           {
@@ -2066,6 +2107,7 @@
     },
     "/projects/{project_id}/pages": {
       "get": {
+        "description": "Return stored pages with ordered lines and decoded review geometry.\n\nSort each page's lines by persisted order, using line ID as a tie-breaker, and decode\npolygon and character-position JSON for the frontend.",
         "operationId": "list_project_pages_projects__project_id__pages_get",
         "parameters": [
           {
@@ -2108,6 +2150,7 @@
     },
     "/projects/{project_id}/pages/{page_id}/image": {
       "get": {
+        "description": "Serve a persisted page image after checking project ownership and file availability.\n\nDisable browser caching so a rerun can replace the image without showing obsolete page\ncontent. Missing records or files produce HTTP 404.",
         "operationId": "get_project_page_image_projects__project_id__pages__page_id__image_get",
         "parameters": [
           {
@@ -2157,6 +2200,7 @@
     },
     "/projects/{project_id}/source-pdf": {
       "get": {
+        "description": "Serve the project's stored source PDF as an attachment with caching disabled.\n\nRequire project metadata, an original filename, and an existing file; missing\nprerequisites produce HTTP 404.",
         "operationId": "get_project_source_pdf_projects__project_id__source_pdf_get",
         "parameters": [
           {
@@ -2197,6 +2241,7 @@
     },
     "/system/cpu": {
       "get": {
+        "description": "Report logical CPU count and the active profile's default segmentation worker count.",
         "operationId": "get_cpu_info_system_cpu_get",
         "responses": {
           "200": {
@@ -2222,6 +2267,7 @@
     },
     "/system/restart/cancel": {
       "post": {
+        "description": "Cancel the matching unexpired restart token and remove its reservation file.\n\nReturn HTTP 409 when the token is missing, expired, or does not match the pending\nreservation.",
         "operationId": "cancel_backend_restart_system_restart_cancel_post",
         "requestBody": {
           "content": {
@@ -2267,6 +2313,7 @@
     },
     "/system/restart/prepare": {
       "post": {
+        "description": "Reserve an idle backend for restart and write the token the desktop host must present.\n\nReturn HTTP 409 while a job or another restart is reserved. If writing the reservation\nfails, release the gate and return HTTP 500.",
         "operationId": "prepare_backend_restart_system_restart_prepare_post",
         "requestBody": {
           "content": {
@@ -2319,6 +2366,7 @@
     },
     "/system/runtime": {
       "get": {
+        "description": "Combine the runtime gate's public job/restart snapshot with resolved performance limits.",
         "operationId": "get_runtime_info_system_runtime_get",
         "responses": {
           "200": {

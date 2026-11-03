@@ -1,3 +1,4 @@
+"""Rasterize source PDFs into image-backed Page records before worker dispatch."""
 import os
 from typing import Callable, List, Optional
 

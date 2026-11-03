@@ -40,7 +40,7 @@ router with the same routes in the same order.
 
 ## Vue: unit and component tests
 
-Use Node 22 and Yarn Classic 1.22.22, matching CI:
+Use Node 22.22.2 or newer within Node 22 and Yarn Classic 1.22.22, matching CI:
 
 ```sh
 corepack enable

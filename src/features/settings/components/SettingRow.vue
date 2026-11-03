@@ -1,13 +1,17 @@
 <script setup>
+/** @file Lay out one labeled setting with optional description/help and a slot for its input control. */
 defineProps({
+  /** Accessible or visible label for this reusable control. */
   label: {
     type: String,
     required: true,
   },
+  /** Optional explanatory text displayed beneath the setting/section heading. */
   description: {
     type: String,
     default: '',
   },
+  /** Optional input element ID connecting the setting label and description to its control. */
   inputId: {
     type: String,
     default: '',
@@ -33,6 +37,7 @@ defineProps({
         {{ label }}
       </span>
 
+      <!-- @slot Optional help trigger beside the setting label. -->
       <slot name="help" />
     </div>
 
@@ -45,6 +50,7 @@ defineProps({
     </p>
 
     <div>
+      <!-- @slot The setting's input control and any related validation feedback. -->
       <slot />
     </div>
   </div>

@@ -3,6 +3,9 @@ from backend.workers.server import serve
 
 
 def initialize(config):
+    """Set TensorFlow thread limits, load one predictor, and return the page handler that
+    reuses it with the configured I/J policy.
+    """
     import os
     import tensorflow as tf
     from backend.workers.recognizer.engine import create_predictor, ocr_with_predictor

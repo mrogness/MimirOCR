@@ -1,5 +1,12 @@
+/**
+ * @file Manage review image zoom, pan, and viewport interaction state.
+ */
 import { computed, nextTick, ref } from 'vue'
 
+/**
+ * Create image sizing, zoom, and viewport state for one review workspace.
+ * @returns {object} Element refs, display dimensions, zoom controls, and viewport helpers.
+ */
 export function useImageViewport() {
   const MIN_ZOOM = 0.1
   const MAX_ZOOM = 3
@@ -20,6 +27,10 @@ export function useImageViewport() {
   const imageDisplayWidth = computed(() => Math.max(1, Math.round(baseImageWidth.value * zoomLevel.value)))
   const imageDisplayHeight = computed(() => Math.max(1, Math.round(baseImageHeight.value * zoomLevel.value)))
 
+  /**
+   * Compute a lower zoom bound that can show the whole page in the available panel, capped at
+   * natural size and the absolute minimum.
+   */
   function minZoomForFullPageInPanel() {
     const panel = overlayPanelRef.value
     const width = baseImageWidth.value
@@ -38,12 +49,20 @@ export function useImageViewport() {
     return Math.max(MIN_ZOOM, Math.min(1, fitWholePage))
   }
 
+  /**
+   * Normalize zoom to three decimal places within the current fit-derived minimum and maximum
+   * scale.
+   */
   function clampZoom(nextZoom) {
     const minZoom = minZoomForFullPageInPanel()
     const numeric = Number.isFinite(nextZoom) ? nextZoom : 1
     return Math.max(minZoom, Math.min(MAX_ZOOM, Number(numeric.toFixed(3))))
   }
 
+  /**
+   * Calculate the scale needed to fit page height inside the panel padding, returning natural
+   * size when dimensions are unavailable.
+   */
   function fitZoomForViewportHeight() {
     const panel = overlayPanelRef.value
     if (!panel || baseImageHeight.value <= 0) {
@@ -55,6 +74,10 @@ export function useImageViewport() {
     return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, availableHeight / baseImageHeight.value))
   }
 
+  /**
+   * Measure remaining browser height below the overlay panel and apply the minimum/fallback
+   * panel height.
+   */
   function recalculatePanelViewportHeight() {
     const referenceEl = overlayPanelRef.value
     if (!referenceEl) {
@@ -68,6 +91,10 @@ export function useImageViewport() {
     panelViewportHeight.value = Math.floor(available)
   }
 
+  /**
+   * Apply a clamped height-fit zoom only when the image and overlay panel have usable
+   * dimensions.
+   */
   function fitPageToViewportHeight() {
     if (!overlayPanelRef.value || baseImageHeight.value <= 0) {
       return
@@ -76,6 +103,10 @@ export function useImageViewport() {
     zoomLevel.value = clampZoom(fitZoomForViewportHeight())
   }
 
+  /**
+   * Capture natural image dimensions, initialize fit zoom unless the user has already zoomed,
+   * and publish displayed dimensions.
+   */
   function onPageImageLoad(event) {
     const img = event.target
     baseImageWidth.value = img?.naturalWidth || img?.clientWidth || 1
@@ -90,22 +121,35 @@ export function useImageViewport() {
     renderedImageHeight.value = imageDisplayHeight.value
   }
 
+  /**
+   * Mark zoom as manually controlled and clamp the parsed slider value.
+   */
   function onZoomSliderInput(event) {
     hasManualZoom.value = true
     const next = Number.parseFloat(event.target.value)
     zoomLevel.value = clampZoom(next)
   }
 
+  /**
+   * Increase zoom by 0.2 within bounds and remember the user's manual zoom preference.
+   */
   function zoomIn() {
     hasManualZoom.value = true
     zoomLevel.value = clampZoom(zoomLevel.value + 0.2)
   }
 
+  /**
+   * Decrease zoom by 0.2 within bounds and remember the user's manual zoom preference.
+   */
   function zoomOut() {
     hasManualZoom.value = true
     zoomLevel.value = clampZoom(zoomLevel.value - 0.2)
   }
 
+  /**
+   * Apply smooth exponential wheel zoom while preserving the source point beneath the pointer
+   * after Vue updates the layout.
+   */
   async function applyTrackpadZoom({ deltaY, clientX, clientY }) {
     if (!overlayPanelRef.value || !Number.isFinite(deltaY)) {
       return
@@ -136,6 +180,9 @@ export function useImageViewport() {
     panel.scrollTop = Math.max(0, anchorY * scale - localY)
   }
 
+  /**
+   * Refresh viewport measurements and clamp the current zoom to the resized panel's bounds.
+   */
   function onWindowResize() {
     viewportHeight.value = window.innerHeight
     recalculatePanelViewportHeight()
@@ -144,6 +191,10 @@ export function useImageViewport() {
     }
   }
 
+  /**
+   * Clear manual/initialized zoom flags and return to natural scale before loading another
+   * dataset.
+   */
   function resetViewportState() {
     hasManualZoom.value = false
     hasInitializedZoom.value = false

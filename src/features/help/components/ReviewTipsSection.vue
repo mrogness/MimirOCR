@@ -1,4 +1,5 @@
 <script setup>
+/** @file Explain review selection, confidence hints, corrections, line ordering, deletion, and undo. */
 const reviewSteps = [
   {
     title: 'Correct structure first',

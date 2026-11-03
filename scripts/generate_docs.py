@@ -24,6 +24,9 @@ DOCS_GENERATED = ROOT / "docs" / "generated"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from scripts.docs.openapi import render_openapi
+from scripts.docs.check_examples import validate_examples
+
 
 def _ensure_dirs() -> None:
     DOCS_GENERATED.mkdir(parents=True, exist_ok=True)
@@ -43,36 +46,7 @@ def _generate_openapi_docs() -> None:
     json_path = DOCS_GENERATED / "backend-openapi.json"
     json_path.write_text(json.dumps(schema, indent=2, sort_keys=True), encoding="utf-8")
 
-    rows: list[tuple[str, str, str, str]] = []
-    for path, methods in schema.get("paths", {}).items():
-        for method, operation in methods.items():
-            if method.startswith("x-"):
-                continue
-            summary = operation.get("summary") or operation.get("operationId") or ""
-            tags = ", ".join(operation.get("tags", []))
-            rows.append((method.upper(), path, summary, tags))
-
-    rows.sort(key=lambda item: (item[1], item[0]))
-
-    md_lines = [
-        "# Backend OpenAPI Summary",
-        "",
-        "Generated from current backend routes.",
-        "",
-        "| Method | Path | Summary | Tags |",
-        "|---|---|---|---|",
-    ]
-    for method, path, summary, tags in rows:
-        md_lines.append(f"| {method} | {path} | {summary} | {tags} |")
-
-    md_lines.extend(
-        [
-            "",
-            "Raw schema: [backend-openapi.json](backend-openapi.json)",
-        ]
-    )
-
-    (DOCS_GENERATED / "backend-openapi.md").write_text("\n".join(md_lines) + "\n", encoding="utf-8")
+    (DOCS_GENERATED / "backend-openapi.md").write_text(render_openapi(schema), encoding="utf-8")
 
 
 def _count_pytest_tests(file_path: Path) -> int:
@@ -123,6 +97,8 @@ def _generate_test_inventory() -> None:
         "# Test Inventory",
         "",
         "Generated from current test files.",
+        "Counts are approximate source declarations, not collected cases, coverage, or pass results.",
+        "Parameterized cases and build/documentation tooling are not included in these totals.",
         "",
         "## Summary",
         "",
@@ -176,6 +152,7 @@ def _generate_test_inventory() -> None:
 
 
 def main() -> None:
+    validate_examples()
     _ensure_dirs()
     _generate_openapi_docs()
     _generate_test_inventory()

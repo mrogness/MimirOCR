@@ -1,3 +1,12 @@
+/**
+ * @file Poll OCR job progress, recover active runs after reload, and synchronize persisted
+ * job state. Generation checks discard responses from obsolete polling sessions.
+ */
+/**
+ * Connect an OCR job's status to project progress refs and persisted recovery data.
+ * @param {object} dependencies - Backend access, project/state refs, timing and persistence helpers.
+ * @returns {object} Polling, active-job recovery, visibility refresh, and cleanup functions.
+ */
 export function useOcrPolling({
   backendFetch,
   project,
@@ -10,6 +19,10 @@ export function useOcrPolling({
   let pollTimer = null
   let pollingGeneration = 0
 
+  /**
+   * Add backend-startup guidance for transport TypeErrors; otherwise return the error's
+   * string representation.
+   */
   function asUserMessage(error, fallback) {
     if (error instanceof TypeError) {
       return `${fallback} The backend may still be starting or temporarily busy.`
@@ -17,6 +30,10 @@ export function useOcrPolling({
     return String(error)
   }
 
+  /**
+   * Parse a nonempty job timestamp into epoch milliseconds, returning null when it cannot be
+   * parsed.
+   */
   function parseTimestampToMs(value) {
     if (!value) {
       return null
@@ -30,6 +47,9 @@ export function useOcrPolling({
     return parsed
   }
 
+  /**
+   * Parse a nonnegative page counter or retain the supplied fallback for unusable data.
+   */
   function asNonNegativeInt(value, fallback = 0) {
     const n = Number.parseInt(value, 10)
     if (!Number.isFinite(n) || n < 0) {
@@ -38,6 +58,7 @@ export function useOcrPolling({
     return n
   }
 
+  /** Stop interval polling and invalidate responses still in flight. */
   function stopPolling() {
     pollingGeneration += 1
     if (pollTimer) {
@@ -46,10 +67,19 @@ export function useOcrPolling({
     }
   }
 
+  /**
+   * Identify early active phases in which reconnecting to a run should display a recovery
+   * notice.
+   */
   function isRecoverableRunningPhase(phase) {
     return phase === 'running' || phase === 'queued' || phase === 'preparing'
   }
 
+  /**
+   * Fetch one job snapshot and update progress, counters, timing, and recovery metadata.
+   * Ignore obsolete polling generations; stop timers and reload the project when the job
+   * succeeds or fails.
+   */
   async function pollJob(jobId) {
     const generation = pollingGeneration
     const response = await backendFetch(`/ocr/jobs/${jobId}`, {}, { retries: 2 })
@@ -99,6 +129,7 @@ export function useOcrPolling({
     return data
   }
 
+  /** Start a fresh polling session, allowing at most one interval request at a time. */
   function startPolling(jobId) {
     stopPolling()
     const generation = pollingGeneration
@@ -118,6 +149,10 @@ export function useOcrPolling({
     }, 1200)
   }
 
+  /**
+   * Recover a stored job token first, then fall back to the project's newest retained job.
+   * Restore timing and polling only for an active run and tolerate recovery lookup failures.
+   */
   async function resumeLatestJobIfActive() {
     if (!project.value) {
       return
@@ -192,6 +227,10 @@ export function useOcrPolling({
     }
   }
 
+  /**
+   * Refresh current job state or attempt recovery when the document becomes visible, allowing
+   * normal interval polling to handle repeated failures.
+   */
   async function refreshRunStateOnVisibility() {
     if (document.visibilityState !== 'visible') {
       return
@@ -209,6 +248,10 @@ export function useOcrPolling({
     }
   }
 
+  /**
+   * Initialize terminal/running progress and persisted elapsed duration from project
+   * metadata.
+   */
   function applyProjectStatus(projectData) {
     state.persistedElapsedSeconds.value = Number.isFinite(projectData?.ocr_last_elapsed_seconds)
       ? projectData.ocr_last_elapsed_seconds
@@ -226,6 +269,9 @@ export function useOcrPolling({
     }
   }
 
+  /**
+   * Stop the interval and invalidate outstanding responses during workflow teardown.
+   */
   function cleanupPolling() {
     stopPolling()
   }

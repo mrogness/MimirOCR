@@ -27,6 +27,9 @@ app.add_middleware(
 
 @app.middleware("http")
 async def allow_private_network_requests(request: Request, call_next) -> Response:
+    """Add the private-network response header when the request explicitly asks for local-
+    network access.
+    """
     response = await call_next(request)
     if request.headers.get("access-control-request-private-network", "").lower() == "true":
         response.headers["Access-Control-Allow-Private-Network"] = "true"
@@ -35,6 +38,9 @@ async def allow_private_network_requests(request: Request, call_next) -> Respons
 
 @app.on_event("startup")
 def startup_event() -> None:
+    """Start parent-process monitoring and ensure the database tables exist when the API
+    starts.
+    """
     from backend.runtime.parent_watchdog import start_parent_watchdog
     start_parent_watchdog()
     Base.metadata.create_all(bind=engine)
@@ -42,6 +48,7 @@ def startup_event() -> None:
 
 @app.on_event("shutdown")
 def shutdown_event() -> None:
+    """Close tracked ML worker processes before the API finishes shutting down."""
     from backend.workers.client import stop_workers
     stop_workers()
 

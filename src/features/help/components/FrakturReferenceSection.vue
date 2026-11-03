@@ -1,4 +1,5 @@
 <script setup>
+/** @file Group Fraktur character samples and confusion-pair comparisons in the help reference. */
 import CompareCharacters from './CompareCharacters.vue'
 import FrakturCharacterGuide from './FrakturCharacterGuide.vue'
 </script>

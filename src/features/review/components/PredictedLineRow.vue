@@ -1,32 +1,57 @@
 <script setup>
+/**
+ * @file Render one review line with editing, confidence, ordering, and deletion controls.
+ */
 import SuspiciousCharacterHint from './SuspiciousCharacterHint.vue'
 
 const props = defineProps({
+  /** Persisted review line whose text, ordering, and recognition metadata are displayed. */
   line: { type: Object, required: true },
+  /** Zero-based display index of this line in the current page. */
   index: { type: Number, required: true },
+  /** Number of lines on the current page, used to bound reorder controls. */
   totalLines: { type: Number, required: true },
+  /** Transiently active line ID used by hover and image-overlay highlighting. */
   activeLineId: { type: Number, default: null },
+  /** Selected persistent line ID shared by the text panel and image overlay. */
   selectedLineId: { type: Number, default: null },
+  /** Per-line save-status/message map used to show pending, saving, saved, and error feedback. */
   lineSaveState: { type: Object, required: true },
+  /** Whether low-confidence character hints and their navigation should be displayed. */
   showSuspiciousHints: { type: Boolean, required: true },
+  /** Whether this row contains any suspicious character segments. */
   lineHasSuspiciousChars: { type: Boolean, required: true },
+  /** Character display records with suspicious flags, confidence labels, and alternative candidates. */
   suspiciousSegments: { type: Array, required: true },
+  /** Callback receiving a line ID and row element, or null on release, for synchronized scrolling. */
   rowRefFn: { type: Function, required: true },
 })
 
 const emit = defineEmits([
+  /** Emit the line ID to highlight transiently. */
   'set-active-line',
+  /** Emit the persistent line ID selected by the user. */
   'select-line',
+  /** Emit a review line and relative order offset for a reorder operation. */
   'move-line',
+  /** Emit a review line and raw absolute-order input for parent validation. */
   'commit-line-order-input',
+  /** Emit the review line whose deletion is requested. */
   'delete-line',
+  /** Emit a review line and its edited transcription string. */
   'line-input',
 ])
 
+/**
+ * Emit the line record and edited transcription for the parent's debounced save workflow.
+ */
 function onInput(event) {
   emit('line-input', props.line, event.target.value)
 }
 
+/**
+ * Emit the line record and raw requested order for validation and persistence by the parent.
+ */
 function onCommitOrder(event) {
   emit('commit-line-order-input', props.line, event.target.value)
 }

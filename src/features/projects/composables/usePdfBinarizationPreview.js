@@ -1,3 +1,7 @@
+/**
+ * @file Render PDF previews and apply the selected binarization threshold before OCR
+ * submission.
+ */
 import { onBeforeUnmount, ref, watch } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -10,6 +14,9 @@ const THRESHOLD_DEBOUNCE_MS = 110
 
 let pdfWorkerConfigured = false
 
+/**
+ * Configure PDF.js to use the bundled worker URL once for the frontend session.
+ */
 function ensurePdfWorkerConfigured() {
   if (!pdfWorkerConfigured) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc
@@ -17,6 +24,10 @@ function ensurePdfWorkerConfigured() {
   }
 }
 
+/**
+ * Parse a positive integer processing DPI, falling back to the preview default for invalid
+ * input.
+ */
 function sanitizeDpi(value) {
   const parsed = Number.parseInt(value, 10)
   if (!Number.isFinite(parsed) || parsed < 1) {
@@ -25,6 +36,9 @@ function sanitizeDpi(value) {
   return parsed
 }
 
+/**
+ * Accept an integer threshold from 1 through 256, otherwise use the preview default.
+ */
 function sanitizeThreshold(value) {
   const parsed = Number.parseInt(value, 10)
   if (!Number.isFinite(parsed) || parsed < 1 || parsed > 256) {
@@ -33,6 +47,9 @@ function sanitizeThreshold(value) {
   return parsed
 }
 
+/**
+ * Clamp a one-based page input to a positive page count, using page one for invalid input.
+ */
 function clampPageNumber(value, totalPages) {
   const parsed = Number.parseInt(value, 10)
   const safeTotal = Math.max(1, Number.parseInt(totalPages, 10) || 1)
@@ -42,6 +59,10 @@ function clampPageNumber(value, totalPages) {
   return Math.max(1, Math.min(parsed, safeTotal))
 }
 
+/**
+ * Compute a scale no larger than one that keeps preview width, height, and total pixels
+ * within their limits.
+ */
 function safeScaleFactor(width, height) {
   const w = Math.max(1, width)
   const h = Math.max(1, height)
@@ -50,6 +71,9 @@ function safeScaleFactor(width, height) {
   return Math.min(byDimension, byPixels)
 }
 
+/**
+ * Convert a canvas to a PNG Blob asynchronously and reject if the browser returns no blob.
+ */
 function canvasToPngBlob(canvas) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -62,6 +86,13 @@ function canvasToPngBlob(canvas) {
   })
 }
 
+/**
+ * Render a selected PDF page to a bounded grayscale cache and derive threshold previews from
+ * it. Reuse cached pixels for threshold changes and cancel stale work on navigation or
+ * teardown.
+ * @param {object} inputs - Reactive PDF URL, DPI, threshold, and one-based page number.
+ * @returns {object} Preview image URL/aspect ratio, page count, busy flags, and error feedback.
+ */
 export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }) {
   ensurePdfWorkerConfigured()
 
@@ -84,6 +115,9 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
 
   let grayscaleCache = null
 
+  /**
+   * Cancel the pending debounced threshold update and clear its handle.
+   */
   function clearThresholdTimer() {
     if (thresholdTimer != null) {
       window.clearTimeout(thresholdTimer)
@@ -91,6 +125,9 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     }
   }
 
+  /**
+   * Release the current preview's browser object URL and clear the displayed URL.
+   */
   function revokePreviewImageUrl() {
     if (previewImageUrl.value) {
       URL.revokeObjectURL(previewImageUrl.value)
@@ -98,6 +135,9 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     }
   }
 
+  /**
+   * Publish a replacement preview URL and release the previous object's browser resources.
+   */
   function replacePreviewImageUrl(nextUrl) {
     const previousUrl = previewImageUrl.value
     previewImageUrl.value = nextUrl
@@ -106,6 +146,10 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     }
   }
 
+  /**
+   * Cancel and await the current PDF.js render task, treating cancellation rejection as
+   * normal teardown.
+   */
   async function cancelActiveRenderTask() {
     const task = activeRenderTask
     activeRenderTask = null
@@ -124,6 +168,10 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     }
   }
 
+  /**
+   * Cancel page rendering and destroy active PDF loading/document tasks while tolerating
+   * teardown errors.
+   */
   async function destroyActivePdfDocument() {
     await cancelActiveRenderTask()
 
@@ -150,6 +198,10 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     activePdfUrl = ''
   }
 
+  /**
+   * Reuse the current PDF or load a new one, publishing page count only for the current
+   * request. Destroy a newly loaded document if a newer render superseded it.
+   */
   async function ensurePdfDocument(url, requestId) {
     if (activePdfDocument && activePdfUrl === url) {
       return activePdfDocument
@@ -181,6 +233,10 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     }
   }
 
+  /**
+   * Build a binary PNG from cached grayscale pixels for the current render generation.
+   * Release an obsolete output URL and leave newer request state untouched.
+   */
   async function applyThresholdToCurrentPage(thresholdValue, requestId) {
     const cache = grayscaleCache
     if (!cache || requestId !== activeRenderRequestId) {
@@ -229,6 +285,11 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     }
   }
 
+  /**
+   * Render the selected one-based page at a memory-bounded DPI scale, cache grayscale pixels,
+   * and apply the threshold. Reset on an empty URL and suppress expected cancellation errors
+   * from superseded requests.
+   */
   async function renderCurrentPage() {
     const url = String(pdfUrl.value || '').trim()
     const requestId = ++activeRenderRequestId
@@ -345,6 +406,10 @@ export function usePdfBinarizationPreview({ pdfUrl, dpi, threshold, pageNumber }
     }
   }
 
+  /**
+   * Debounce threshold changes and apply only the latest requested threshold to the current
+   * cached page.
+   */
   function scheduleThresholdUpdate() {
     const requestId = activeRenderRequestId
     activeThresholdRequestId += 1

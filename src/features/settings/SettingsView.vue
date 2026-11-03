@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * @file Application settings screen for theme, backend performance, and diagnostic
+ * information.
+ */
 import AppHelp from '../../shared/components/AppHelp.vue'
 import ConnectivityDiagnostics from './components/ConnectivityDiagnostics.vue'
 import SettingRow from './components/SettingRow.vue'

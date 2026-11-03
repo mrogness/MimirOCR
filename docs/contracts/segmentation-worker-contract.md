@@ -5,13 +5,15 @@ integer `version: 1` and an incrementing integer `id`. Unsupported versions fail
 there is no backward-compatibility adapter. Only one request is outstanding per
 worker. stderr is for diagnostics.
 
-First send `{"version":1,"id":1,"op":"init","config":{...}}`, with the JSON
-representation of `ProjectConfig`. The worker loads its model once and replies
+See [complete worker exchanges](worker-examples.md) for valid, schema-checked JSON
+and the downloadable fixture. First send an `init` request with `version: 1`,
+`id: 1`, and `config` containing the JSON representation of `ProjectConfig`.
+The worker loads its model once and replies
 `{"version":1,"id":1,"type":"ready","role":"segmenter"}`.
 
-Then send `{"version":1,"id":2,"op":"page","page":{...}}`, where `page` is a
+Then send a `page` request with `version: 1`, `id: 2`, and `page` containing a
 `Page` with ID, page number, absolute image path, dimensions, and metadata. The
-response is `{"version":1,"id":2,"type":"result","page":{...}}`. The returned
+response has `version: 1`, matching `id`, `type: "result"`, and a `page`. The returned
 page keeps its ID/number and contains `Line` records with IDs, bounding boxes,
 absolute crop paths, and baseline metadata including `source_order`.
 

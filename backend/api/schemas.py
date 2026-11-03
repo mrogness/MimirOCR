@@ -1,3 +1,8 @@
+"""HTTP request and response models for projects, review, jobs, and exports.
+
+These Pydantic models define the frontend/backend boundary. They are distinct
+from the domain records serialized to workers and from SQLAlchemy rows.
+"""
 from datetime import datetime
 from typing import Any, Literal
 
@@ -5,18 +10,22 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProjectBase(BaseModel):
+    """Shared project name field used by creation, update, and read schemas."""
     name: str
 
 
 class ProjectCreate(ProjectBase):
+    """JSON body containing the display name for a new persistent project."""
     pass
 
 
 class ProjectUpdate(BaseModel):
+    """Replacement project name accepted by the project update endpoint."""
     name: str
 
 
 class ProjectRead(ProjectBase):
+    """Persistent project metadata, source-file information, and most recent OCR-run summary."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -30,10 +39,12 @@ class ProjectRead(ProjectBase):
 
 
 class ProjectsListResponse(BaseModel):
+    """Collection envelope for project metadata returned by the dashboard endpoint."""
     projects: list[ProjectRead]
 
 
 class ProjectLineRead(BaseModel):
+    """Persisted review line with text, geometry, and recognition metadata."""
     id: int
     page_id: int | None = None
     line_order: int | None = None
@@ -48,21 +59,27 @@ class ProjectLineRead(BaseModel):
 
 
 class LineUpdateRequest(BaseModel):
+    """Corrected transcription and optional page/order identifiers for a review-line write."""
     corrected_text: str
     page_id: int | None = None
     line_order: int | None = None
 
 
 class LineUpdateResponse(BaseModel):
+    """Envelope containing the committed line returned after a review edit."""
     line: ProjectLineRead
 
 
 class LineOrderSnapshot(BaseModel):
+    """Saved line ID and order used to restore a page's arrangement during undo."""
     id: int
     line_order: int
 
 
 class DeletedLineSnapshot(BaseModel):
+    """Serializable review-line contents needed to restore a deletion, including recognition
+    metadata.
+    """
     id: int
     page_id: int
     line_order: int | None = None
@@ -77,15 +94,18 @@ class DeletedLineSnapshot(BaseModel):
 
 
 class LineRestoreRequest(BaseModel):
+    """Deleted line snapshot and page-order snapshot submitted by the undo workflow."""
     line: DeletedLineSnapshot
     line_orders: list[LineOrderSnapshot]
 
 
 class LineRestoreResponse(BaseModel):
+    """Envelope containing the restored persistent line and its review metadata."""
     line: ProjectLineRead
 
 
 class ProjectPageRead(BaseModel):
+    """Persisted page dimensions, image location, and review lines returned to the frontend."""
     id: int
     page_number: int
     img_path: str | None = None
@@ -96,11 +116,13 @@ class ProjectPageRead(BaseModel):
 
 
 class ProjectPagesResponse(BaseModel):
+    """Project-scoped page collection consumed by the review workspace."""
     project_id: int
     pages: list[ProjectPageRead]
 
 
 class UploadedPdfResponse(BaseModel):
+    """Upload token and stored-file metadata returned before OCR job submission."""
     upload_id: str
     project_id: int
     filename: str
@@ -108,6 +130,7 @@ class UploadedPdfResponse(BaseModel):
 
 
 class PdfDpiAnalysisResponse(BaseModel):
+    """Estimated scan resolution, recommended ingestion DPI, confidence, and analysis warnings."""
     model_config = ConfigDict(extra="forbid")
 
     filename: str = Field(min_length=1)
@@ -124,6 +147,7 @@ class PdfDpiAnalysisResponse(BaseModel):
 
 
 class OCRConfigOverride(BaseModel):
+    """Optional per-run values overriding the backend's project defaults."""
     dpi: int | None = Field(default=None, ge=1)
     binarization_threshold: int | None = Field(default=None, ge=1, le=256)
     device: str | None = None
@@ -133,11 +157,13 @@ class OCRConfigOverride(BaseModel):
 
 
 class OcrJobStartRequest(BaseModel):
+    """Stored upload token and optional configuration overrides for a new OCR run."""
     upload_id: str
     config: OCRConfigOverride = Field(default_factory=OCRConfigOverride)
 
 
 class OcrJobResponse(BaseModel):
+    """Polling snapshot with lifecycle status, phase, progress, and page counts."""
     job_id: str
     project_id: int
     upload_id: str
@@ -158,10 +184,16 @@ class OcrJobResponse(BaseModel):
 
 
 class OcrJobsListResponse(BaseModel):
+    """Collection envelope for the retained OCR jobs belonging to a project."""
     jobs: list[OcrJobResponse]
 
 
 class ExportPdfRequest(BaseModel):
+    """PDF layout and normalization choices sent by the export settings sheet.
+
+    Font sizes are points, margins are inches, and line_spacing is a font-size
+    multiplier. Export code owns the rendering rules for each layout mode.
+    """
     layout_mode: Literal["source-lines", "reading"] = "source-lines"
     font_family: Literal["Times-Roman", "Helvetica", "Courier"] = "Times-Roman"
     font_size: float = 12.0

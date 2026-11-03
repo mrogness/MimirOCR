@@ -1,3 +1,5 @@
+"""Resolve ambiguous Fraktur capital I/J spellings using the bundled lexicon while limiting
+combinatorial word variants."""
 import re
 import sys
 from functools import lru_cache
@@ -12,6 +14,9 @@ _WORD_PATTERN = re.compile(r"[^\W\d_]+", re.UNICODE)
 
 
 def _lexicon_path() -> Path:
+    """Find the bundled I/J lexicon in frozen or source layouts, raising FileNotFoundError with
+    checked paths if absent.
+    """
     relative_path = Path("backend") / "resources" / LEXICON_FILENAME
     candidates: list[Path] = []
 
@@ -31,6 +36,7 @@ def _lexicon_path() -> Path:
 
 @lru_cache(maxsize=1)
 def load_ij_lexicon() -> frozenset[str]:
+    """Read and cache case-folded noncomment lexicon words, rejecting an empty resource."""
     words: set[str] = set()
     with _lexicon_path().open("r", encoding="utf-8") as handle:
         for raw_line in handle:
@@ -45,6 +51,12 @@ def load_ij_lexicon() -> frozenset[str]:
 
 
 def _resolve_word(word: str, lexicon: Collection[str]) -> str:
+    """Replace capital I with I/J combinations only when exactly one spelling matches the
+    lexicon.
+
+    Preserve words with no ambiguous glyph, too many ambiguous glyphs, no match, or multiple
+    valid matches.
+    """
     ambiguous_indexes = [index for index, char in enumerate(word) if char == "I"]
     if not ambiguous_indexes or len(ambiguous_indexes) > MAX_AMBIGUOUS_GLYPHS_PER_WORD:
         return word
@@ -72,6 +84,11 @@ def disambiguate_ij_text(
     *,
     lexicon: Collection[str] | None = None,
 ) -> str:
+    """Resolve ambiguous capital-I words while preserving surrounding text and punctuation.
+
+    Use an explicitly supplied case-folded lexicon or lazily load the bundled resource;
+    bypass resource loading when the text contains no capital I.
+    """
     if not text or "I" not in text:
         return text
 

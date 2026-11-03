@@ -93,6 +93,12 @@ def segment(page: Page, config: ProjectConfig, model: SegmentationTaskModel) -> 
 
 
 def _save_and_binarize_segmented_lines(polygons: Iterable[Any], page_id: str, lines_dir: str, threshold: int) -> list[Line]:
+    """Save extracted line images as thresholded PNG crops and build ordered domain Line
+    records.
+
+    Restore black-on-white polarity, preserve Kraken metadata with a one-based source-order
+    index, and fall back to crop dimensions when metadata omits the bounding box.
+    """
     from PIL import ImageOps
 
     lines: list[Line] = []

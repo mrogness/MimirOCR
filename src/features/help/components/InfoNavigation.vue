@@ -1,4 +1,5 @@
 <script setup>
+/** @file Provide anchor navigation to the help page's workflow and reference sections. */
 const sections = [
   { hash: '#getting-started', label: 'Getting Started' },
   { hash: '#reviewing-output', label: 'Reviewing Output' },

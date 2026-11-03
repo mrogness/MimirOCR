@@ -1,7 +1,14 @@
+/**
+ * @file Collect backend connectivity and runtime diagnostic details for the settings view.
+ */
 import { onUnmounted, ref, watch } from 'vue'
 
 const DIAGNOSTICS_REFRESH_MS = 5000
 
+/**
+ * Format finite nonnegative seconds as a human-readable hours/minutes/seconds duration, or
+ * unknown for invalid input.
+ */
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) {
     return 'unknown'
@@ -23,6 +30,10 @@ function formatDuration(seconds) {
   return `${remainingSeconds}s`
 }
 
+/**
+ * Summarize probe status, duration, and transport/policy error detail for diagnostics
+ * display.
+ */
 function summarizeProbe(probe) {
   if (!probe) {
     return 'not checked'
@@ -40,6 +51,11 @@ function summarizeProbe(probe) {
   return probe.error ? `${base} (${probe.error})` : base
 }
 
+/**
+ * Maintain reactive host paths and connectivity summaries while a diagnostics panel is open.
+ * @param {object} dependencies - Backend diagnostics snapshot loader.
+ * @returns {object} Diagnostic refs, panel control, and explicit refresh function.
+ */
 export function useBackendDiagnostics({ getBackendConnectionDiagnostics }) {
   const isRefreshingDiagnostics = ref(false)
   const isDiagnosticsOpen = ref(false)
@@ -66,6 +82,10 @@ export function useBackendDiagnostics({ getBackendConnectionDiagnostics }) {
 
   let refreshInterval = null
 
+  /**
+   * Copy a diagnostics snapshot into display refs, normalize path arrays, and format
+   * uptime/probe summaries.
+   */
   function applyDiagnostics(diagnostics) {
     frontendOrigin.value = diagnostics.frontendOrigin || ''
     frontendPort.value = diagnostics.frontendPort || ''
@@ -90,6 +110,10 @@ export function useBackendDiagnostics({ getBackendConnectionDiagnostics }) {
     projectsProbeSummary.value = summarizeProbe(diagnostics.projects)
   }
 
+  /**
+   * Avoid overlapping refreshes, apply a new snapshot, and replace probe summaries with error
+   * feedback if collection fails.
+   */
   async function refreshConnectivityDiagnostics() {
     if (!getBackendConnectionDiagnostics || isRefreshingDiagnostics.value) {
       return
@@ -109,6 +133,9 @@ export function useBackendDiagnostics({ getBackendConnectionDiagnostics }) {
     }
   }
 
+  /**
+   * Start one five-second diagnostics interval when no interval is already active.
+   */
   function startDiagnosticsPolling() {
     if (refreshInterval) {
       return
@@ -119,6 +146,9 @@ export function useBackendDiagnostics({ getBackendConnectionDiagnostics }) {
     }, DIAGNOSTICS_REFRESH_MS)
   }
 
+  /**
+   * Clear the diagnostics refresh interval during panel close or unmount.
+   */
   function stopDiagnosticsPolling() {
     if (!refreshInterval) {
       return
@@ -128,6 +158,10 @@ export function useBackendDiagnostics({ getBackendConnectionDiagnostics }) {
     refreshInterval = null
   }
 
+  /**
+   * Normalize the panel's open state; its watcher performs the initial refresh and starts or
+   * stops polling.
+   */
   function setDiagnosticsOpen(isOpen) {
     isDiagnosticsOpen.value = Boolean(isOpen)
   }

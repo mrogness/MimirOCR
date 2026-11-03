@@ -7,6 +7,9 @@ CALAMARI_LINE_SIDE_PADDING_PX = 16.0
 MAX_SAVED_CHARACTER_CANDIDATES = 5
 
 def _extract_line_confidence(outputs: object) -> Optional[float]:
+    """Return the first available finite line score from the supported Calamari output
+    attribute names.
+    """
     for attr in ("avg_char_probability", "avg_char_confidence", "confidence", "probability", "score"):
         value = getattr(outputs, attr, None)
         numeric = _coerce_finite_float(value)
@@ -16,6 +19,9 @@ def _extract_line_confidence(outputs: object) -> Optional[float]:
 
 
 def _extract_char_confidence(outputs: object) -> Optional[List[float]]:
+    """Read supported character-score fields, then fall back to direct or nested prediction
+    positions.
+    """
     for attr in (
         "char_confidences",
         "char_probs",
@@ -44,6 +50,9 @@ def _extract_char_confidence(outputs: object) -> Optional[List[float]]:
 
 
 def _extract_char_confidence_from_positions(prediction: Any) -> Optional[List[float]]:
+    """Take the highest finite candidate probability at each usable prediction position,
+    returning None when none are scored.
+    """
     if prediction is None:
         return None
 
@@ -82,6 +91,12 @@ def _extract_char_confidence_from_positions(prediction: Any) -> Optional[List[fl
 
 
 def _extract_char_positions(outputs: object, codec: Any = None) -> Optional[List[dict]]:
+    """Normalize prediction spans, chosen glyphs, and candidate lists for JSON persistence.
+
+    Prefer usable global coordinates, compensate local coordinates for preprocessing
+    padding, order reversed endpoints, and skip positions without either endpoint. Retain
+    the original prediction index in each output item.
+    """
     positions = _read_positions(outputs)
     if not positions:
         return None
@@ -143,6 +158,9 @@ def _extract_char_positions(outputs: object, codec: Any = None) -> Optional[List
 
 
 def _pick_position_coordinate(pos: Any, keys: Tuple[str, ...]) -> tuple[Optional[float], Optional[str]]:
+    """Choose the first finite nonzero coordinate from priority-ordered field names, falling
+    back to an available zero.
+    """
     candidates: List[tuple[float, str]] = []
     for key in keys:
         numeric = _coerce_finite_float(_read_field(pos, key))
@@ -163,6 +181,9 @@ def _pick_position_coordinate(pos: Any, keys: Tuple[str, ...]) -> tuple[Optional
 
 
 def _adjust_for_line_padding(value: Optional[float], source_key: Optional[str]) -> Optional[float]:
+    """Subtract the configured side padding only from local coordinates, clamping the result to
+    zero.
+    """
     if value is None:
         return None
     if source_key in {"local_start", "local_end"}:
@@ -171,6 +192,9 @@ def _adjust_for_line_padding(value: Optional[float], source_key: Optional[str]) 
 
 
 def _prediction_span_domain(outputs: Any) -> Optional[float]:
+    """Infer a positive character-span domain from the first logits dimension or a logits list
+    length.
+    """
     logits = _read_field(outputs, "logits")
     if logits is None:
         nested = _read_field(outputs, "prediction")
@@ -197,6 +221,9 @@ def _prediction_span_domain(outputs: Any) -> Optional[float]:
 
 
 def _char_confidence_from_positions(positions: List[dict]) -> Optional[List[float]]:
+    """Extract finite probabilities from normalized position dictionaries, returning None when
+    no scores remain.
+    """
     values: List[float] = []
     for pos in positions:
         prob = _coerce_finite_float(pos.get("probability"))
@@ -206,6 +233,7 @@ def _char_confidence_from_positions(positions: List[dict]) -> Optional[List[floa
 
 
 def _read_positions(obj: Any) -> Optional[List[Any]]:
+    """Find a nonempty iterable of positions directly or through nested prediction objects."""
     if obj is None:
         return None
 
@@ -222,6 +250,9 @@ def _read_positions(obj: Any) -> Optional[List[Any]]:
 
 
 def _read_chars(position: Any) -> List[Any]:
+    """Return a position's iterable candidate records as a list, or an empty list for
+    unsupported data.
+    """
     chars = _read_field(position, "chars")
     if isinstance(chars, IterableABC) and not isinstance(chars, (str, bytes, bytearray)):
         return list(chars)
@@ -232,6 +263,12 @@ def _pick_best_char(
     chars: List[Any],
     codec: Any = None,
 ) -> Tuple[Optional[str], Optional[int], Optional[float]]:
+    """Return glyph, numeric label, and score for the strongest nonblank candidate when
+    possible.
+
+    If no decoded nonblank glyph is scored, fall back to the strongest scored candidate,
+    including blank or undecoded labels.
+    """
     best_char: Optional[str] = None
     best_label: Optional[int] = None
     best_prob: Optional[float] = None
@@ -302,12 +339,18 @@ def _extract_char_candidates(chars: List[Any], codec: Any = None) -> List[dict]:
 
 
 def _read_predictor_codec(predictor: Any) -> Any:
+    """Locate the codec through supported public/private predictor data and parameter attribute
+    names.
+    """
     data = _read_field(predictor, "data", "_data")
     params = _read_field(data, "params", "_params")
     return _read_field(params, "codec", "_codec")
 
 
 def _read_candidate_char(candidate: Any, label: Optional[int], codec: Any) -> Optional[str]:
+    """Prefer a candidate's explicit glyph, otherwise decode its label through a
+    dictionary/list codec mapping.
+    """
     char_value = _read_field(candidate, "char")
     if isinstance(char_value, str) and char_value != "":
         return char_value
@@ -326,6 +369,9 @@ def _read_candidate_char(candidate: Any, label: Optional[int], codec: Any) -> Op
 
 
 def _read_field(obj: Any, *keys: str) -> Any:
+    """Read the first matching attribute or dictionary key from a record, returning None when
+    none exists.
+    """
     if obj is None:
         return None
     for key in keys:
@@ -337,6 +383,9 @@ def _read_field(obj: Any, *keys: str) -> Any:
 
 
 def _coerce_finite_float(value: Any) -> Optional[float]:
+    """Unwrap scalar item values and convert them to finite floats; unsupported or nonfinite
+    values become None.
+    """
     if value is None:
         return None
 
@@ -356,6 +405,12 @@ def _coerce_finite_float(value: Any) -> Optional[float]:
 
 
 def _coerce_confidence_sequence(value: Any) -> Optional[List[float]]:
+    """Normalize scalar, array, mapping, and nested confidence formats into a list of finite
+    scores.
+
+    Skip unsupported entries and return None for an empty result; do not rescale percentage
+    scores here.
+    """
     if value is None or isinstance(value, (str, bytes, bytearray)):
         return None
 

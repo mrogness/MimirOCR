@@ -1,8 +1,20 @@
+/**
+ * @file Maintain reactive elapsed-time displays for an active or completed OCR run.
+ */
 import { computed } from 'vue'
 
+/**
+ * Derive an elapsed-time display from reactive run timestamps or a persisted duration.
+ * @param {object} state - Start, end, current-time, and persisted-duration refs.
+ * @returns {object} Computed display text and timer lifecycle helpers.
+ */
 export function useElapsedTimer({ processingStartMs, processingEndMs, processingNowMs, persistedElapsedSeconds }) {
   let elapsedTimer = null
 
+  /**
+   * Replace any previous interval, refresh the current timestamp immediately, and update it
+   * every second.
+   */
   function startElapsedTimer() {
     stopElapsedTimer()
     processingNowMs.value = Date.now()
@@ -11,6 +23,9 @@ export function useElapsedTimer({ processingStartMs, processingEndMs, processing
     }, 1000)
   }
 
+  /**
+   * Clear the elapsed-time interval if one is active.
+   */
   function stopElapsedTimer() {
     if (elapsedTimer) {
       clearInterval(elapsedTimer)
@@ -18,6 +33,10 @@ export function useElapsedTimer({ processingStartMs, processingEndMs, processing
     }
   }
 
+  /**
+   * Convert milliseconds to MM:SS or HH:MM:SS, returning --:-- for a negative or nonfinite
+   * duration.
+   */
   function formatElapsed(ms) {
     if (!Number.isFinite(ms) || ms < 0) {
       return '--:--'
@@ -46,6 +65,9 @@ export function useElapsedTimer({ processingStartMs, processingEndMs, processing
     return formatElapsed(end - processingStartMs.value)
   })
 
+  /**
+   * Release the interval when the owning workflow is torn down.
+   */
   function cleanupElapsedTimer() {
     stopElapsedTimer()
   }

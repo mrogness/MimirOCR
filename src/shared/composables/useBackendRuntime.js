@@ -1,3 +1,7 @@
+/**
+ * @file Share backend status and one polling loop across mounted consumers. Subscriber
+ * counting and generation checks coordinate refresh, restart, and cleanup.
+ */
 import { computed, ref } from 'vue'
 
 import { backendFetch } from '../services/backend'
@@ -17,6 +21,11 @@ let subscriberCount = 0
 let refreshPromise = null
 let runtimeGeneration = 0
 
+/**
+ * Share one in-flight runtime request across callers and update status only for the current
+ * generation. Publish connection errors and resume scheduled polling when subscribers still
+ * exist.
+ */
 async function refreshBackendRuntime() {
   if (refreshPromise) {
     return refreshPromise
@@ -60,6 +69,10 @@ async function refreshBackendRuntime() {
   return refreshPromise
 }
 
+/**
+ * Choose the slower hidden-document delay, otherwise poll faster for an active OCR job than
+ * an idle backend.
+ */
 function nextPollDelay() {
   if (typeof document !== 'undefined' && document.hidden) {
     return HIDDEN_POLL_MS
@@ -67,6 +80,10 @@ function nextPollDelay() {
   return activeJob.value ? ACTIVE_POLL_MS : IDLE_POLL_MS
 }
 
+/**
+ * Replace the scheduled timeout while subscribers exist, refresh runtime status once, and
+ * schedule the next poll even after a failed request.
+ */
 function scheduleBackendRuntimePoll(delayMs = nextPollDelay()) {
   if (pollTimer) {
     window.clearTimeout(pollTimer)
@@ -89,6 +106,9 @@ function scheduleBackendRuntimePoll(delayMs = nextPollDelay()) {
   }, delayMs)
 }
 
+/**
+ * Add a consumer and schedule an immediate status refresh when the first subscriber arrives.
+ */
 function startBackendRuntimePolling() {
   subscriberCount += 1
   if (subscriberCount === 1) {
@@ -96,6 +116,9 @@ function startBackendRuntimePolling() {
   }
 }
 
+/**
+ * Release one consumer and clear the scheduled poll when no subscribers remain.
+ */
 function stopBackendRuntimePolling() {
   subscriberCount = Math.max(0, subscriberCount - 1)
   if (subscriberCount === 0 && pollTimer) {
@@ -104,6 +127,10 @@ function stopBackendRuntimePolling() {
   }
 }
 
+/**
+ * Invalidate old runtime responses, publish restarting state, clear the displayed job/error,
+ * and pause the scheduled poll.
+ */
 function markBackendRestarting() {
   runtimeGeneration += 1
   backendConnection.value = 'restarting'
@@ -115,6 +142,10 @@ function markBackendRestarting() {
   }
 }
 
+/**
+ * Adopt a confirmed runtime snapshot after restart, invalidate old responses, and resume
+ * polling for active subscribers.
+ */
 function applyBackendRuntime(data) {
   runtimeGeneration += 1
   backendConnection.value = 'connected'
@@ -128,6 +159,11 @@ function applyBackendRuntime(data) {
   }
 }
 
+/**
+ * Access shared backend status and explicit polling/restart lifecycle helpers.
+ * Consumers pair start/stop calls so the shared poller runs only while needed.
+ * @returns {object} Runtime refs and refresh, subscription, and restart-state helpers.
+ */
 export function useBackendRuntime() {
   return {
     backendConnection,
