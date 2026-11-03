@@ -98,18 +98,31 @@ Contributor documentation lives under `docs/` and is published via MkDocs. It is
 
 ### Build docs locally
 
+Use Node 22.22.2 or newer within Node 22 and Yarn Classic 1.22.22. Install
+development dependencies for the frontend documentation parsers; ML runtimes are
+not needed for documentation. See [troubleshooting](docs/how-to/troubleshooting.md).
+
 ```bash
+corepack enable
+corepack prepare yarn@1.22.22 --activate
+yarn install --frozen-lockfile
+python -m pip install uv==0.13.4
 python scripts/setup_backend.py --role backend --docs
 yarn docs:generate
 yarn docs:serve
 ```
 
-Or via Yarn scripts:
+For a strict build after installing dependencies:
 
 ```bash
 yarn docs:generate
 yarn docs:build
 ```
+
+Start with the [OCR walkthrough](docs/tutorials/first-ocr-run.md) to connect the
+desktop workflow to its source. For bugs and feature requests, use
+[GitHub issues](https://github.com/mrogness/MimirOCR/issues); contribution and
+verification steps are in [Contributing](docs/contributing.md).
 
 Dependency ownership, upgrades, auditing, and setup flags are documented in
 [dependency management](docs/maintenance/dependencies.md).

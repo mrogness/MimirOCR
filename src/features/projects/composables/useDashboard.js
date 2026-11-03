@@ -1,5 +1,14 @@
+/**
+ * @file Coordinate project listing, creation, deletion, and backend warmup feedback for the
+ * dashboard.
+ */
 import { computed, onMounted, ref } from 'vue'
 
+/**
+ * Create dashboard project state, startup feedback, and create/delete/navigation actions.
+ * @param {object} dependencies - Router, backend fetch function, and startup-issue lookup.
+ * @returns {object} Reactive project/modal state and dashboard action functions.
+ */
 export function useDashboard({ router, backendFetch, getBackendStartupIssue }) {
   const STARTUP_GRACE_ATTEMPTS = 8
   const STARTUP_GRACE_DELAY_MS = 1200
@@ -29,6 +38,9 @@ export function useDashboard({ router, backendFetch, getBackendStartupIssue }) {
     return target?.name || ''
   })
 
+  /**
+   * Format a valid date in the user's locale, returning N/A for an invalid timestamp.
+   */
   function formatDate(value) {
     const d = new Date(value)
     if (Number.isNaN(d.valueOf())) {
@@ -37,10 +49,16 @@ export function useDashboard({ router, backendFetch, getBackendStartupIssue }) {
     return d.toLocaleString()
   }
 
+  /**
+   * Resolve after the supplied millisecond delay without blocking the UI thread.
+   */
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
+  /**
+   * Recognize network, startup, and server-error text eligible for dashboard warmup retries.
+   */
   function isTransientProjectsLoadError(error) {
     const text = String(error || '').toLowerCase()
     return (
@@ -53,6 +71,10 @@ export function useDashboard({ router, backendFetch, getBackendStartupIssue }) {
     )
   }
 
+  /**
+   * Request the project collection once and replace dashboard state with the returned array.
+   * Throw for a non-success response.
+   */
   async function fetchProjectsOnce() {
       const response = await backendFetch('/projects/', {}, {
         retries: 0,
@@ -67,6 +89,10 @@ export function useDashboard({ router, backendFetch, getBackendStartupIssue }) {
     projects.value = Array.isArray(data.projects) ? data.projects : []
   }
 
+  /**
+   * Load projects with a bounded startup grace period for transient failures. Update
+   * loading/warmup feedback and attach any Tauri startup issue to the final error.
+   */
   async function loadProjects() {
     isLoading.value = true
     errorMessage.value = ''
@@ -112,16 +138,26 @@ export function useDashboard({ router, backendFetch, getBackendStartupIssue }) {
     }
   }
 
+  /**
+   * Reset the project name and previous creation error before opening the creation dialog.
+   */
   function openCreateModal() {
     createError.value = ''
     newProjectName.value = ''
     showCreateModal.value = true
   }
 
+  /**
+   * Hide the project creation dialog without sending an API request.
+   */
   function closeCreateModal() {
     showCreateModal.value = false
   }
 
+  /**
+   * Validate the entered name, create a project, and navigate to its detail route. Keep
+   * errors in dialog state and clear the busy flag after completion.
+   */
   async function createProjectAndGo() {
     const name = newProjectName.value.trim()
     if (!name) {
@@ -155,20 +191,33 @@ export function useDashboard({ router, backendFetch, getBackendStartupIssue }) {
     }
   }
 
+  /**
+   * Navigate to the project detail route for the supplied persistent project ID.
+   */
   function openProject(projectId) {
     router.push({ name: 'projectDetail', params: { id: projectId } })
   }
 
+  /**
+   * Select a project ID for deletion and open the confirmation dialog.
+   */
   function requestDeleteProject(projectId) {
     pendingDeleteProjectId.value = projectId
     isDeleteModalOpen.value = true
   }
 
+  /**
+   * Hide deletion confirmation and clear the pending project ID.
+   */
   function closeDeleteModal() {
     isDeleteModalOpen.value = false
     pendingDeleteProjectId.value = null
   }
 
+  /**
+   * Delete the pending project through the API, remove it from the displayed list on success,
+   * and retain an error message on failure.
+   */
   async function confirmDeleteProject() {
     if (!pendingDeleteProjectId.value) {
       return

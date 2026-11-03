@@ -21,13 +21,18 @@ from backend.runtime.paths import get_output_dir, get_temp_dir
 
 
 class JobStartError(Exception):
+    """Job admission or upload validation failure with an HTTP status and user-facing detail."""
     def __init__(self, status_code: int, detail):
+        """Retain the status/detail payload and use its string representation as the exception
+        message.
+        """
         super().__init__(str(detail))
         self.status_code = status_code
         self.detail = detail
 
 
 def _utc_now() -> datetime:
+    """Return the timezone-aware UTC time used by job lifecycle snapshots."""
     return datetime.now(timezone.utc)
 
 
@@ -40,6 +45,12 @@ def run_ocr_job(
     source_pdf_name: str,
     request_config,
 ) -> None:
+    """Execute an admitted OCR run, persist its pages, and publish success/failure metadata.
+
+    Build per-run temporary paths and configuration, forward progress to the job store, and
+    use a separate database session for persistence. Record exceptions in the job snapshot;
+    always remove temporary files and release the runtime gate in the final cleanup path.
+    """
     run_started = time.monotonic()
     temp_dir = get_temp_dir() / f"project_{project_id}" / job_id
     output_dir = get_output_dir()
@@ -93,6 +104,9 @@ def run_ocr_job(
             message: str,
             details: Optional[dict] = None,
         ) -> None:
+            """Translate pipeline progress events and optional page counters into the active
+            job's polling snapshot.
+            """
             details = details or {}
             job_store.update_job(
                 job_id,
@@ -175,6 +189,9 @@ def run_ocr_job(
 
 
 def _busy_error() -> JobStartError:
+    """Build the HTTP 409 admission error with a public runtime snapshot explaining why another
+    job cannot start.
+    """
     return JobStartError(
         status_code=409,
         detail={

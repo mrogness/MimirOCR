@@ -2,6 +2,7 @@
 from typing import Any
 
 def _line_boundary(line: dict[str, Any]) -> list[list[float] | tuple[float, float]]:
+    """Return a line's list-valued polygon boundary, or an empty list when it is unavailable."""
     boundary = line.get("boundary")
     if isinstance(boundary, list):
         return boundary
@@ -9,13 +10,8 @@ def _line_boundary(line: dict[str, Any]) -> list[list[float] | tuple[float, floa
 
 
 def _line_sort_key(line: dict[str, Any]) -> tuple[float, float]:
-    ''' 
-        Computes a sorting key for a line based on the minimum y-coordinate of its boundary, and then by the minimum x-coordinate as a tiebreaker. Lines with missing or invalid boundaries are sorted at the end.
-        Args:
-            line (dict): A dictionary representing a line, expected to have a 'boundary' key with a list of coordinate pairs.
-        Returns:
-            tuple: A tuple (min_y, min_x) where min_y is the minimum y-coordinate of the line's boundary and min_x is the minimum x-coordinate. Lines with missing or invalid boundaries will return (float('inf'), float('inf')) to ensure they are sorted at the end.
-    '''
+    """Return the minimum boundary y/x coordinates as a geometric sorting key; empty boundaries sort last.
+    """
     boundary = _line_boundary(line)
     if not boundary:
         return (float('inf'), float('inf'))
@@ -25,14 +21,9 @@ def _line_sort_key(line: dict[str, Any]) -> tuple[float, float]:
 
 
 def _line_anchor(line: dict[str, Any]) -> tuple[float, float] | None:
-    '''
-        Calculates the anchor point of a line, which is the average of its boundary coordinates.
-        Args:
-            line (dict): A dictionary representing a line, expected to have a 'boundary' key with a list of coordinate pairs.
-        Returns:
-            tuple or None: The (x, y) coordinates of the anchor point, or None if the line does not have a valid boundary.
-    '''
-    
+    """Return the mean of the boundary vertices as a line anchor, or None for an empty boundary.
+    """
+
     boundary = _line_boundary(line)
     if not boundary:
         return None
@@ -42,14 +33,8 @@ def _line_anchor(line: dict[str, Any]) -> tuple[float, float] | None:
 
 
 def _line_region_index(line: dict[str, Any], region_polygons: list[list[list[float] | tuple[float, float]]]) -> int | None:
-    '''
-        Determines the index of the text region polygon that contains the line's anchor point. The anchor point is calculated as the average of the line's boundary coordinates. If the line does not have a valid boundary or if the anchor point does not fall within any of the region polygons, returns None.
-        Args:
-            line (dict): A dictionary representing a line, expected to have a 'boundary' key with a list of coordinate pairs.
-            region_polygons (list): A list of polygons, where each polygon is a list of coordinate pairs representing the vertices of the polygon.
-        Returns:
-            int or None: The index of the region polygon that contains the line's anchor point, or None if the line does not have a valid boundary or if the anchor point does not fall within any of the region polygons.
-    '''
+    """Return the first region polygon containing the line anchor, or None when no region matches.
+    """
     anchor = _line_anchor(line)
     if anchor is None:
         return None
@@ -61,16 +46,9 @@ def _line_region_index(line: dict[str, Any], region_polygons: list[list[list[flo
 
 
 def _point_in_polygon(x: float, y: float, polygon: list[list[float] | tuple[float, float]]) -> bool:
-    '''
-        Determines if a point (x, y) is inside a polygon defined by a list of vertices. Uses the ray-casting algorithm to count how many times a horizontal ray from the point intersects with the edges of the polygon. If the number of intersections is odd, the point is inside; if even, it's outside.
-        Args:
-            x (float): The x-coordinate of the point to test.
-            y (float): The y-coordinate of the point to test.
-            polygon (list): A list of tuples representing the vertices of the polygon, where each tuple is (x, y).
-        Returns:
-            bool: True if the point is inside the polygon, False otherwise.
-    '''
-    
+    """Test point inclusion with horizontal ray casting; polygons with fewer than three vertices are outside.
+    """
+
     inside = False
     n = len(polygon)
     if n < 3:
@@ -87,13 +65,10 @@ def _point_in_polygon(x: float, y: float, polygon: list[list[float] | tuple[floa
 
 
 def _bbox_from_meta(meta: object) -> dict[str, int] | None:
-    '''
-        Extracts a bounding box from the metadata dictionary, if available. The bounding box is represented as a dictionary with keys 'x_min', 'y_min', 'x_max', and 'y_max'. If the metadata does not contain a valid boundary, returns None.
-        Args:
-            meta (dict): A dictionary containing metadata, expected to have a 'boundary' key with a list of coordinate pairs.
-        Returns:
-            dict or None: A dictionary with keys 'x_min', 'y_min', 'x_max', 'y_max' representing the bounding box, or None if the metadata does not contain a valid boundary.
-    '''
+    """Extract integer bounding-box coordinates from a metadata mapping or object.
+
+    Prefer an explicit four-value bbox sequence, otherwise use polygon extrema; return None when neither representation exists.
+    """
     boundary: Any = None
     if isinstance(meta, dict):
         boundary = meta.get('boundary')
@@ -125,13 +100,10 @@ def _bbox_from_meta(meta: object) -> dict[str, int] | None:
 
 
 def _sort_lines_within_regions(seg: dict[str, Any]) -> list[dict[str, Any]]:
-    '''
-        Sorts lines within their identified text regions based on their top-most boundary coordinate. Lines that do not belong to any region are sorted at the end based on their top-most boundary coordinate.
-        Args:
-            seg (dict): A dictionary containing the segmentation results, expected to have a 'lines' key with a list of line dictionaries and a 'regions' key with a dictionary of region types and their corresponding polygons.
-        Returns:
-            list: A list of line dictionaries sorted within their respective regions and with unmatched lines at the end.
-    '''
+    """Order region blocks top-to-bottom/left-to-right, then order their lines by geometric position.
+
+    Assign a line to the first polygon containing its mean-vertex anchor. Append unmatched lines after all regions, and sort the full batch geometrically when no text regions exist.
+    """
     lines_raw = seg.get("lines")
     lines: list[dict[str, Any]] = lines_raw if isinstance(lines_raw, list) else []
     regions = seg.get("regions", {})
@@ -167,6 +139,9 @@ def _sort_lines_within_regions(seg: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _region_sort_key(region_polygon: list[list[float] | tuple[float, float]]) -> tuple[float, float]:
+    """Sort a region by its minimum usable y/x coordinates, placing empty or unusable regions
+    last.
+    """
     if not region_polygon:
         return (float('inf'), float('inf'))
 

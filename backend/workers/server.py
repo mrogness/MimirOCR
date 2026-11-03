@@ -11,6 +11,12 @@ from backend.workers.protocol import VERSION, decode, encode
 
 
 def serve(role: str, initialize) -> None:
+    """Run the worker's sequential JSON-lines request loop with one model initialization.
+
+    Reserve the original stdout descriptor for protocol replies and redirect Python/native
+    console output to stderr. Validate configuration/pages, accept page requests only after
+    init, and send an error reply before exiting on a failed request.
+    """
     parser = argparse.ArgumentParser(description=f"Mimir {role} worker")
     parser.parse_args()
     start_parent_watchdog(direct_parent=True)

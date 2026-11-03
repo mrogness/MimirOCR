@@ -1,4 +1,7 @@
 <script setup>
+/**
+ * @file Show confidence and alternative model characters for a suspicious glyph.
+ */
 import { Teleport, ref, useId } from 'vue'
 import {
   autoUpdate,
@@ -9,6 +12,7 @@ import {
 } from '@floating-ui/vue'
 
 defineProps({
+  /** One recognized character's confidence, suspicion flag, and alternative model candidates. */
   segment: { type: Object, required: true },
 })
 
@@ -28,11 +32,17 @@ const { floatingStyles, update } = useFloating(triggerRef, tooltipRef, {
   whileElementsMounted: autoUpdate,
 })
 
+/**
+ * Show the character confidence/candidate tooltip and refresh its floating position.
+ */
 function openTooltip() {
   isOpen.value = true
   update()
 }
 
+/**
+ * Hide the character confidence/candidate tooltip.
+ */
 function closeTooltip() {
   isOpen.value = false
 }

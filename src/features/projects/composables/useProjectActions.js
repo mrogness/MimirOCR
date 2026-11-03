@@ -1,5 +1,14 @@
+/**
+ * @file Implement selected-project actions and update project detail state after API
+ * operations.
+ */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
+/**
+ * Manage the routed project's loading, debounced rename, deletion, and review navigation.
+ * @param {object} dependencies - Route/router, backend access, project ref, and run-status/recovery callbacks.
+ * @returns {object} Project loading/dialog state, validation feedback, and project action functions.
+ */
 export function useProjectActions({
   route,
   router,
@@ -29,6 +38,10 @@ export function useProjectActions({
     return project.value.ocr_last_status === 'succeeded'
   })
 
+  /**
+   * Fetch the routed project, synchronize rename controls, and apply its OCR summary. Start
+   * active-job recovery asynchronously so initial rendering is not blocked.
+   */
   async function loadProject() {
     if (!isProjectRoute.value) {
       isLoadingProject.value = false
@@ -64,6 +77,10 @@ export function useProjectActions({
     }
   }
 
+  /**
+   * Trim and validate a replacement name, skip unchanged names, and commit it through the
+   * API. Synchronize local inputs with the response and expose save errors.
+   */
   async function renameProject(forcedName = null) {
     if (!project.value) {
       return
@@ -130,10 +147,17 @@ export function useProjectActions({
     }
   })
 
+  /**
+   * Navigate to the dashboard where a new project can be created.
+   */
   function openCreateProjectFlow() {
     router.push({ name: 'home' })
   }
 
+  /**
+   * Open review only after a successful OCR run, displaying any navigation error in project
+   * feedback.
+   */
   async function openReviewView() {
     if (!project.value || !canOpenReview.value) {
       return
@@ -147,6 +171,10 @@ export function useProjectActions({
     }
   }
 
+  /**
+   * Open deletion confirmation for the loaded project, doing nothing when no project is
+   * available.
+   */
   function requestDeleteCurrentProject() {
     if (!project.value) {
       return
@@ -155,10 +183,17 @@ export function useProjectActions({
     isDeleteModalOpen.value = true
   }
 
+  /**
+   * Hide the current project's deletion confirmation dialog.
+   */
   function closeDeleteModal() {
     isDeleteModalOpen.value = false
   }
 
+  /**
+   * Delete the loaded project and return to the dashboard on success; retain error/busy state
+   * around the request.
+   */
   async function confirmDeleteCurrentProject() {
     if (!project.value) {
       return

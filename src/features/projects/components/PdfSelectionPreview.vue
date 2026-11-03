@@ -1,22 +1,40 @@
 <script setup>
+/**
+ * @file Present the selected PDF and submission controls.
+ */
 import BinarizedPdfPreview from './BinarizedPdfPreview.vue'
 
 defineProps({
+  /** URL of the selected or stored PDF used by the preview renderer. */
   pdfUrl: { type: String, required: true },
+  /** Requested PDF rasterization resolution in dots per inch; preview size remains memory-bounded. */
   dpi: { type: [String, Number], required: true },
+  /** Black/white threshold in the supported 1..256 range. */
   threshold: { type: [String, Number], required: true },
+  /** Human-readable source PDF filename shown above the preview. */
   displayName: { type: String, default: '' },
+  /** Error message from loading the project's previously stored PDF preview. */
   sourcePdfPreviewError: { type: String, default: '' },
+  /** Whether PDF upload and initial OCR job submission are in progress. */
   isUploading: { type: Boolean, default: false },
+  /** Whether source scan-resolution analysis is currently pending. */
   isAnalyzingDpi: { type: Boolean, default: false },
+  /** Browser File selected for the next upload, or null when using only the stored source preview. */
   selectedPdf: { type: Object, default: null },
+  /** Whether any project currently owns the shared backend OCR runtime. */
   hasActiveOcrJob: { type: Boolean, default: false },
+  /** Shared backend connection phase, such as connecting, connected, restarting, or disconnected. */
   backendConnection: { type: String, default: '' },
+  /** Explanation of a runtime reservation or active job that blocks another OCR run. */
   activeJobMessage: { type: String, default: '' },
+  /** User-facing PDF upload or OCR job-start error. */
   uploadError: { type: String, default: '' },
 })
 
-const emit = defineEmits(['submit'])
+const emit = defineEmits([
+  /** Request upload and OCR processing of the currently selected PDF. */
+  'submit',
+])
 </script>
 
 <template>

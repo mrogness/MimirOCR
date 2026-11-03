@@ -1,0 +1,223 @@
+{
+  "segmenter": [
+    {
+      "request": {
+        "version": 1,
+        "id": 1,
+        "op": "init",
+        "config": {
+          "project_name": "Example",
+          "project_id": "1",
+          "input_pdf_path": "/tmp/mimir-example/input.pdf",
+          "temp_dir": "/tmp/mimir-example/work",
+          "output_dir": "/tmp/mimir-example/output",
+          "num_workers": 1,
+          "device": "cpu",
+          "ingestion": {
+            "dpi": 300,
+            "binarization_threshold": 170
+          },
+          "segmentation": {
+            "seg_raises_error": false,
+            "strict_top_to_bottom": false
+          },
+          "ocr": {
+            "model_path": "backend/ml/calamari/r10.ckpt",
+            "disambiguate_ij": true
+          }
+        }
+      },
+      "response": {
+        "version": 1,
+        "id": 1,
+        "type": "ready",
+        "role": "segmenter"
+      }
+    },
+    {
+      "request": {
+        "version": 1,
+        "id": 2,
+        "op": "page",
+        "page": {
+          "id": "1_page_0",
+          "page_number": 0,
+          "image_path": "/tmp/mimir-example/work/page_0.png",
+          "width": 1200,
+          "height": 1600,
+          "lines": [],
+          "rotation": 0.0,
+          "metadata": {}
+        }
+      },
+      "response": {
+        "version": 1,
+        "id": 2,
+        "type": "result",
+        "page": {
+          "id": "1_page_0",
+          "page_number": 0,
+          "image_path": "/tmp/mimir-example/work/page_0.png",
+          "width": 1200,
+          "height": 1600,
+          "lines": [
+            {
+              "id": "1_page_0_line_1",
+              "bbox": {
+                "x_min": 100,
+                "y_min": 200,
+                "x_max": 600,
+                "y_max": 250
+              },
+              "image_path": "/tmp/mimir-example/work/lines/1_page_0/000001.png",
+              "ocr_text": null,
+              "correct_text": null,
+              "confidence": null,
+              "char_confidence": null,
+              "char_positions": null,
+              "baseline_info": {
+                "source_order": 1
+              },
+              "is_manual_edit": false,
+              "is_reviewed": false,
+              "is_deleted": false
+            }
+          ],
+          "rotation": 0.0,
+          "metadata": {
+            "segmentation": {
+              "line_count": 1,
+              "lines_dir": "/tmp/mimir-example/work/lines/1_page_0"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "recognizer": [
+    {
+      "request": {
+        "version": 1,
+        "id": 1,
+        "op": "init",
+        "config": {
+          "project_name": "Example",
+          "project_id": "1",
+          "input_pdf_path": "/tmp/mimir-example/input.pdf",
+          "temp_dir": "/tmp/mimir-example/work",
+          "output_dir": "/tmp/mimir-example/output",
+          "num_workers": 1,
+          "device": "cpu",
+          "ingestion": {
+            "dpi": 300,
+            "binarization_threshold": 170
+          },
+          "segmentation": {
+            "seg_raises_error": false,
+            "strict_top_to_bottom": false
+          },
+          "ocr": {
+            "model_path": "backend/ml/calamari/r10.ckpt",
+            "disambiguate_ij": true
+          }
+        }
+      },
+      "response": {
+        "version": 1,
+        "id": 1,
+        "type": "ready",
+        "role": "recognizer"
+      }
+    },
+    {
+      "request": {
+        "version": 1,
+        "id": 2,
+        "op": "page",
+        "page": {
+          "id": "1_page_0",
+          "page_number": 0,
+          "image_path": "/tmp/mimir-example/work/page_0.png",
+          "width": 1200,
+          "height": 1600,
+          "lines": [
+            {
+              "id": "1_page_0_line_1",
+              "bbox": {
+                "x_min": 100,
+                "y_min": 200,
+                "x_max": 600,
+                "y_max": 250
+              },
+              "image_path": "/tmp/mimir-example/work/lines/1_page_0/000001.png",
+              "ocr_text": null,
+              "correct_text": null,
+              "confidence": null,
+              "char_confidence": null,
+              "char_positions": null,
+              "baseline_info": {
+                "source_order": 1
+              },
+              "is_manual_edit": false,
+              "is_reviewed": false,
+              "is_deleted": false
+            }
+          ],
+          "rotation": 0.0,
+          "metadata": {
+            "segmentation": {
+              "line_count": 1,
+              "lines_dir": "/tmp/mimir-example/work/lines/1_page_0"
+            }
+          }
+        }
+      },
+      "response": {
+        "version": 1,
+        "id": 2,
+        "type": "result",
+        "page": {
+          "id": "1_page_0",
+          "page_number": 0,
+          "image_path": "/tmp/mimir-example/work/page_0.png",
+          "width": 1200,
+          "height": 1600,
+          "lines": [
+            {
+              "id": "1_page_0_line_1",
+              "bbox": {
+                "x_min": 100,
+                "y_min": 200,
+                "x_max": 600,
+                "y_max": 250
+              },
+              "image_path": "/tmp/mimir-example/work/lines/1_page_0/000001.png",
+              "ocr_text": "Hei",
+              "correct_text": null,
+              "confidence": 0.98,
+              "char_confidence": [
+                0.99,
+                0.98,
+                0.97
+              ],
+              "char_positions": null,
+              "baseline_info": {
+                "source_order": 1
+              },
+              "is_manual_edit": false,
+              "is_reviewed": false,
+              "is_deleted": false
+            }
+          ],
+          "rotation": 0.0,
+          "metadata": {
+            "segmentation": {
+              "line_count": 1,
+              "lines_dir": "/tmp/mimir-example/work/lines/1_page_0"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

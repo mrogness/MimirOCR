@@ -21,10 +21,16 @@ _SPAWN_LOCK = Lock()
 
 
 class WorkerError(RuntimeError):
-    pass
+    """An unavailable runtime, failed request, or invalid worker response."""
 
 
 def worker_command(role: str) -> list[str]:
+    """Resolve a packaged executable or role-specific development interpreter.
+
+    Raises:
+        ValueError: The role is neither segmenter nor recognizer.
+        WorkerError: The selected executable does not exist.
+    """
     if role not in ("segmenter", "recognizer"):
         raise ValueError(f"Unknown worker: {role}")
     if getattr(sys, "frozen", False):
@@ -44,6 +50,12 @@ def worker_command(role: str) -> list[str]:
 
 
 def child_environment(role: str) -> dict[str, str]:
+    """Prepare isolated worker environment variables and native thread limits.
+
+    Strip Python environment leakage and, in frozen builds, remove parent bundle paths so
+    the child loads libraries from its own runtime. Record the API PID for orphan
+    monitoring.
+    """
     env = os.environ.copy()
     for key in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
         env.pop(key, None)
@@ -69,6 +81,11 @@ def child_environment(role: str) -> dict[str, str]:
 
 def _spawn(command: list[str], role: str, log):
     # SetDllDirectory is process-global on Windows; serialize reset/spawn/restore.
+    """Launch a worker with text-mode IPC pipes and stderr redirected to the client's log.
+
+    Serialize the temporary Windows DLL-directory reset around process creation and restore
+    the parent bundle setting afterward.
+    """
     with _SPAWN_LOCK:
         frozen_windows = os.name == "nt" and getattr(sys, "frozen", False)
         if frozen_windows:
@@ -88,6 +105,9 @@ def _spawn(command: list[str], role: str, log):
 class WorkerClient:
     """One model-owning process per instance. One request at a time per client."""
     def __init__(self, role: str, *, command: list[str] | None = None, timeout: float | None = None):
+        """Validate the request timeout, open a log, launch a worker, and register the client
+        for shutdown cleanup.
+        """
         self.role = role
         self.timeout = float(timeout if timeout is not None else os.getenv("MIMIR_WORKER_TIMEOUT_SECONDS", "600"))
         if not 0 < self.timeout < float("inf"):
@@ -107,17 +127,28 @@ class WorkerClient:
             _ACTIVE.add(self)
 
     def __enter__(self):
+        """Return this client for context-managed worker lifetime."""
         return self
 
     def __exit__(self, *_args):
+        """Close the worker when leaving its context, allowing any original exception to
+        propagate.
+        """
         self.close()
 
     def _log_tail(self) -> str:
+        """Read the final eight kilobytes of the worker log as replacement-decoded UTF-8."""
         self._log.seek(0, os.SEEK_END)
         self._log.seek(max(0, self._log.tell() - 8000))
         return self._log.read().decode("utf-8", errors="replace").strip()
 
     def request(self, op: str, **payload) -> dict:
+        """Exchange one versioned JSON message within the configured deadline.
+
+        Callers must serialize requests on each client. Transport, protocol,
+        timeout, and worker errors close the process and raise WorkerError;
+        the exception includes the worker log tail where available.
+        """
         if self._closed:
             raise WorkerError(f"{self.role}: worker is closed")
         self._next_id += 1
@@ -126,6 +157,9 @@ class WorkerClient:
         reply: Queue = Queue(maxsize=1)
 
         def exchange():
+            """Write and flush one request, then queue its reply line or transport exception
+            for the deadline-bound caller.
+            """
             try:
                 self.process.stdin.write(line)
                 self.process.stdin.flush()
@@ -163,9 +197,11 @@ class WorkerClient:
             self._io_thread.join(timeout=1)
 
     def initialize(self, config) -> None:
+        """Send configuration and wait until the worker has loaded its model."""
         self.request("init", config=config.model_dump(mode="json"))
 
     def process_page(self, page: Page) -> Page:
+        """Return a validated page, preserving identity and recognizer line order."""
         response = self.request("page", page=page.model_dump(mode="json"))
         try:
             result = Page.model_validate(response["page"])
@@ -179,6 +215,7 @@ class WorkerClient:
             raise WorkerError(f"{self.role}: invalid result: {exc}") from exc
 
     def close(self) -> None:
+        """Idempotently stop the process, close streams, and retain its log tail."""
         with self._close_lock:
             if self._closed:
                 return
@@ -208,6 +245,7 @@ class WorkerClient:
 
 
 def stop_workers() -> None:
+    """Close every tracked worker during API shutdown or failure cleanup."""
     with _ACTIVE_LOCK:
         workers = list(_ACTIVE)
     for worker in workers:

@@ -1,6 +1,8 @@
 # Test Inventory
 
 Generated from current test files.
+Counts are approximate source declarations, not collected cases, coverage, or pass results.
+Parameterized cases and build/documentation tooling are not included in these totals.
 
 ## Summary
 

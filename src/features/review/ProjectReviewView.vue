@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * @file Review workspace combining persisted text, image overlays, editing history, and
+ * export controls.
+ */
 import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -31,7 +35,12 @@ const {
   exportSettings,
   exportProjectPdf,
   exportTrainingData,
-} = useExportPdf({ projectId, backendFetch, beforeExport: () => flushPendingSaves() })
+} = useExportPdf({
+  projectId,
+  backendFetch,
+  /** Flush debounced and in-flight edits before exporting persisted text. */
+  beforeExport: () => flushPendingSaves(),
+})
 
 const {
   renderedImageWidth,
@@ -89,6 +98,9 @@ const {
 
 const lineRowRefs = new Map()
 
+/**
+ * Track or release a rendered line-row element by persistent line ID for selection scrolling.
+ */
 function setLineRowRef(lineId, el) {
   if (!lineId) {
     return
@@ -101,14 +113,24 @@ function setLineRowRef(lineId, el) {
   }
 }
 
+/**
+ * Store the page image element in the viewport composable's reactive ref.
+ */
 function setImageRef(el) {
   imageRef.value = el
 }
 
+/**
+ * Store the scroll/overlay container used for viewport sizing and zoom anchoring.
+ */
 function setOverlayPanelRef(el) {
   overlayPanelRef.value = el
 }
 
+/**
+ * Smoothly center the selected line's rendered row when both selection and element are
+ * available.
+ */
 function scrollToSelectedLine() {
   const lineId = selectedLineId.value
   if (!lineId) {
@@ -175,6 +197,10 @@ const currentSuspiciousIndex = computed(() => {
   return idx >= 0 ? idx + 1 : 0
 })
 
+/**
+ * Cycle through the page's suspicious character targets, wrapping at the end, and synchronize
+ * line selection/highlighting.
+ */
 function goToNextSuspiciousCharacter() {
   const targets = suspiciousTargets.value
   if (!targets.length) {
@@ -214,6 +240,10 @@ const {
   activeLineId,
   backendFetch,
   refreshPagesPreservingSelection,
+  /**
+   * Find an undo action's persistent page ID in the current dataset and select its zero-based
+   * index if present.
+   */
   selectPageById: (pageId) => {
     const pageIndex = pages.value.findIndex((page) => page.id === pageId)
     if (pageIndex >= 0) {
@@ -222,6 +252,10 @@ const {
   },
 })
 
+/**
+ * Build an order-independent page/line-ID signature used to clear undo history when the
+ * underlying dataset changes.
+ */
 function buildDatasetSignature(sourcePages) {
   if (!Array.isArray(sourcePages)) {
     return ''
@@ -238,6 +272,10 @@ function buildDatasetSignature(sourcePages) {
     .join('|')
 }
 
+/**
+ * Handle Ctrl/Cmd+Z without Shift when application undo is available, preventing the
+ * browser's default undo.
+ */
 function onWindowKeydownForUndo(event) {
   const usesUndoShortcut =
     (event.metaKey || event.ctrlKey) &&
@@ -288,6 +326,9 @@ watch(
   }
 )
 
+/**
+ * Choose highlighted or normal SVG stroke/fill classes from the active and selected line IDs.
+ */
 function overlayLineClass(line) {
   if (line.id === activeLineId.value || line.id === selectedLineId.value) {
     return 'stroke-amber-500 fill-amber-300/20'
@@ -332,6 +373,9 @@ watch(selectedLineId, async () => {
   scrollToSelectedLine()
 })
 
+/**
+ * Navigate from review to the current project's detail screen.
+ */
 function backToProject() {
   router.push({ name: 'projectDetail', params: { id: projectId.value } })
 }

@@ -1,22 +1,38 @@
 <script setup>
+/**
+ * @file Collect rasterization, segmentation, and recognition choices for the next OCR run.
+ */
 import AppHelp from '../../../shared/components/AppHelp.vue'
 
 defineProps({
+  /** Whether source scan-resolution analysis is currently pending. */
   isAnalyzingDpi: { type: Boolean, default: false },
+  /** Backend scan-resolution estimate, recommendation, confidence, and warnings for the selected PDF. */
   dpiAnalysis: { type: Object, default: null },
+  /** User-facing error from the selected PDF's resolution analysis. */
   dpiAnalysisError: { type: String, default: '' },
+  /** Current editable processing-DPI input, accepting string or numeric control values. */
   dpiInput: { type: [String, Number], default: '300' },
+  /** Current editable line-crop binarization threshold input. */
   thresholdInput: { type: [String, Number], default: '170' },
+  /** Whether a source scan is treated as a single page or split into left/right book-page regions. */
   spreadMode: { type: String, default: 'split-spread' },
+  /** Whether to override learned reading order with the geometric region/line ordering option. */
   strictTopToBottom: { type: Boolean, default: false },
+  /** Whether recognition should apply the bundled lexicon's capital I/J disambiguation. */
   ijDisambiguation: { type: Boolean, default: true },
 })
 
 const emit = defineEmits([
+  /** Emit the edited processing-DPI control value. */
   'update:dpi-input',
+  /** Emit the edited binarization threshold control value. */
   'update:threshold-input',
+  /** Emit the requested single-page or split-spread layout preference. */
   'update:spread-mode',
+  /** Emit the boolean geometric reading-order preference. */
   'update:strict-top-to-bottom',
+  /** Emit whether lexicon-based capital I/J disambiguation is enabled. */
   'update:ij-disambiguation',
 ])
 </script>

@@ -15,6 +15,9 @@ router = APIRouter(prefix="/ocr", tags=["ocr"])
 
 
 def _job_to_response(job: OcrJobRecord) -> OcrJobResponse:
+    """Copy an in-memory job record into the HTTP polling response, including timing,
+    artifacts, and page counters.
+    """
     return OcrJobResponse(
         job_id=job.job_id,
         project_id=job.project_id,
@@ -42,6 +45,12 @@ def start_ocr_job(
     payload: OcrJobStartRequest,
     db: Session = Depends(get_db),
 ) -> OcrJobResponse:
+    """Admit and start an OCR job for an existing project and upload token.
+
+    The job service reserves the runtime and starts background execution. Translate
+    admission and validation errors to HTTP responses and return the initial polling
+    snapshot.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -54,6 +63,9 @@ def start_ocr_job(
 
 @router.get("/jobs/{job_id}", response_model=OcrJobResponse)
 def get_ocr_job(job_id: str) -> OcrJobResponse:
+    """Return one retained job snapshot, or HTTP 404 when its ID is unknown to this API
+    process.
+    """
     job = job_store.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -62,6 +74,7 @@ def get_ocr_job(job_id: str) -> OcrJobResponse:
 
 @router.get("/projects/{project_id}/jobs", response_model=OcrJobsListResponse)
 def list_project_ocr_jobs(project_id: int, db: Session = Depends(get_db)) -> OcrJobsListResponse:
+    """List retained job snapshots newest first after verifying that the project exists."""
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -72,6 +85,11 @@ def list_project_ocr_jobs(project_id: int, db: Session = Depends(get_db)) -> Ocr
 
 @router.get("/jobs/{job_id}/transcript")
 def get_ocr_job_transcript(job_id: str) -> dict:
+    """Read the completed job's UTF-8 transcript from disk.
+
+    Return HTTP 409 until the job has succeeded, and 404 for an unknown job, absent artifact
+    path, or missing transcript file.
+    """
     job = job_store.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")

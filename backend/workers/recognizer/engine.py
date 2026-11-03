@@ -14,6 +14,9 @@ from backend.workers.recognizer.predictions import (
 )
 
 def _resolve_model_path(raw_path: str) -> str:
+    """Try the supplied checkpoint, frozen bundle, and source-tree locations, returning the
+    original path if none exists.
+    """
     candidate = Path(raw_path)
     if candidate.is_absolute() and candidate.exists():
         return str(candidate)
@@ -36,6 +39,11 @@ def _resolve_model_path(raw_path: str) -> str:
 
 
 def create_predictor(config: ProjectConfig):
+    """Load the configured Calamari checkpoint and limit its preprocessing parallelism.
+
+    Use the recognizer runtime's thread setting and translate known TensorFlow operation
+    incompatibilities into a checkpoint/runtime mismatch error; other load errors propagate.
+    """
     max_threads = int(os.environ["MIMIR_OCR_THREADS"])
 
     # Canonical predictor import path for the current OCR stack.
@@ -70,6 +78,12 @@ def ocr_with_predictor(
     *,
     disambiguate_ij: bool = True,
 ) -> Page:
+    """Recognize page line crops in place while preserving line identities and order.
+
+    Populate OCR text, line/character scores, positions, and candidate metadata; optionally
+    apply lexicon-based I/J disambiguation. Return an empty page unchanged and raise
+    RuntimeError if prediction and crop counts differ.
+    """
     if not page.lines:
         return page
 
@@ -95,6 +109,9 @@ def ocr_with_predictor(
 def _line_generator(page: Page):
     # Import imaging dependencies lazily so helper-only imports in lightweight
     # test/doc environments do not require Pillow/NumPy.
+    """Yield each ordered line crop as a grayscale NumPy array, opening and closing its image
+    file for that sample.
+    """
     import PIL.Image as Image
     import numpy as np
 
@@ -106,7 +123,9 @@ def _line_generator(page: Page):
 def _disable_predictor_parallelism(predictor: object, max_threads: int) -> None:
     """
     Force Calamari/TFAIP preprocessing to stay in-process.
-    Important to maintain custom control over preprocessing and avoid large startup and memeory overhead of spawning separate TF worker processes for each page.
+    Keep preprocessing inside the model-owning worker rather than starting
+    additional TensorFlow processes for each page. Bound prefetching and nested
+    native thread settings using the active recognizer limit.
     """
     data = getattr(predictor, "data", None)
     if data is None:
@@ -126,6 +145,9 @@ def _disable_predictor_parallelism(predictor: object, max_threads: int) -> None:
 
 
 def _disable_pipeline_params(params: Any, max_threads: int) -> None:
+    """Recursively disable TFAIP pipeline process parallelism and apply bounded native thread
+    counts where supported.
+    """
     if params is None:
         return
 

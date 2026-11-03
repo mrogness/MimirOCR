@@ -1,8 +1,16 @@
+/**
+ * @file Connect project workflow state to shared backend runtime status.
+ */
 import { ref } from 'vue'
 import { useElapsedTimer } from './useElapsedTimer'
 import { useJobPersistence } from './useJobPersistence'
 import { useOcrPolling } from './useOcrPolling'
 
+/**
+ * Assemble a project's selected-file, progress, timing, job-persistence, and polling state.
+ * @param {object} dependencies - Backend access, project ref, and project reload callback.
+ * @returns {object} Reactive run state, elapsed display, recovery/polling helpers, and lifecycle cleanup.
+ */
 export function useProjectRuntime({ backendFetch, project, reloadProject }) {
   const selectedPdf = ref(null)
   const uploadError = ref('')
@@ -31,6 +39,9 @@ export function useProjectRuntime({ backendFetch, project, reloadProject }) {
     persistedElapsedSeconds,
   })
 
+  /**
+   * Display recovery feedback for six seconds, replacing any previous notice timer.
+   */
   function showRecoveredRunNotice(message) {
     recoveredRunNotice.value = message
     if (recoveredNoticeTimer) {
@@ -66,6 +77,10 @@ export function useProjectRuntime({ backendFetch, project, reloadProject }) {
     onRecoveredRunNotice: showRecoveredRunNotice,
   })
 
+  /**
+   * Clear persisted recovery state, timers, file selection, counters, and run feedback before
+   * switching projects.
+   */
   function resetWorkspaceState() {
     persistence.clearPersistedActiveJob()
     recoveredRunNotice.value = ''
@@ -91,6 +106,9 @@ export function useProjectRuntime({ backendFetch, project, reloadProject }) {
     persistedElapsedSeconds.value = null
   }
 
+  /**
+   * Stop notice, polling, and elapsed-time timers when the project workspace is destroyed.
+   */
   function cleanupRuntime() {
     if (recoveredNoticeTimer) {
       clearTimeout(recoveredNoticeTimer)

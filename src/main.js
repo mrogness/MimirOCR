@@ -1,3 +1,6 @@
+/**
+ * @file Create the Vue application, install routing, and mount the desktop frontend.
+ */
 import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";

@@ -14,7 +14,7 @@ Unused historical constraints are removed; upstream engine dependencies remain.
 
 The supported desktop targets remain macOS ARM and Windows x64. The API also
 supports Linux for model-free tests and documentation. All projects currently
-require Python 3.11; this migration does not upgrade the ML engines or models.
+require Python 3.11; the current locks retain the documented ML engine/model versions.
 Interpreter requirements live in each manifest. A future interpreter migration
 also needs corresponding preflight checks, wheel availability, and native tests.
 
@@ -77,7 +77,7 @@ those security updates. The recognizer also moves scikit-image from 0.19.3 to
 Independent environments permit
 different shared-library versions; JSON contract tests still protect the boundary.
 
-## Trial the Python 3.11 migration
+## Sync or upgrade an existing checkout
 
 Stop the application and workers before syncing an existing checkout. If a
 managed environment is activated, deactivate it and run setup with a host Python.
@@ -94,13 +94,14 @@ node scripts/test_ml_runtimes.mjs
 
 On macOS ARM or Windows x64, run the full ML suite before trying the desktop app
 with `yarn tauri:dev:auto`. To verify distribution builds as well, run
-`yarn package:mac` or `yarn package:windows`. The existing PR workflows run native
-inference and packaging checks for this dependency change. Clear or update any
+`yarn package:mac` or `yarn package:windows`. The PR workflows run native
+inference and packaging checks for dependency/build changes. Clear or update any
 `MIMIR_*_PYTHON` override that still points to an old Python 3.10 environment.
 
-This is a targeted Pillow/filelock remediation, not a claim that the legacy ML
-stack is free of other vulnerabilities. Re-run production audits and review the
-remaining alerts after merging the migration to the default branch.
+The Python 3.11 migration and targeted Pillow/filelock updates are part of the
+current baseline. Run production audits after dependency changes and review
+remaining alerts; a compatible lockfile does not establish that every dependency
+is free of vulnerabilities.
 
 ## Audits and inventories
 

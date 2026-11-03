@@ -1,4 +1,7 @@
 <script setup>
+/**
+ * @file Reusable help presentation for application views.
+ */
 import { Teleport, computed, onBeforeUnmount, ref, useId } from 'vue'
 import {
   autoUpdate,
@@ -9,34 +12,42 @@ import {
 } from '@floating-ui/vue'
 
 const props = defineProps({
+  /** Accessible label for the help trigger. */
   label: {
     type: String,
     default: 'More information',
   },
+  /** Fallback help-trigger text when no custom trigger slot is supplied. */
   triggerText: {
     type: String,
     default: '?',
   },
+  /** Optional heading displayed by this reusable section or help popover. */
   title: {
     type: String,
     default: '',
   },
+  /** Optional opening explanation inside the help popover. */
   intro: {
     type: String,
     default: '',
   },
+  /** Optional help/reference link URL rendered when a link label is also supplied. */
   linkHref: {
     type: String,
     default: '',
   },
+  /** Visible text for the optional help/reference link. */
   linkLabel: {
     type: String,
     default: '',
   },
+  /** Browsing context target for the optional help/reference link. */
   linkTarget: {
     type: String,
     default: '_self',
   },
+  /** Nonnegative delay in milliseconds before dismissing help after pointer/focus leaves. */
   closeDelayMs: {
     type: Number,
     default: 100,
@@ -66,12 +77,18 @@ const normalizedLinkHref = computed(() => String(props.linkHref || '').trim())
 const normalizedLinkLabel = computed(() => String(props.linkLabel || '').trim())
 const hasLink = computed(() => Boolean(normalizedLinkHref.value && normalizedLinkLabel.value))
 
+/**
+ * Cancel pending dismissal, show the help popover, and refresh its floating position.
+ */
 function open() {
   cancelScheduledClose()
   isOpen.value = true
   update()
 }
 
+/**
+ * Cancel pending dismissal, hide help, and optionally restore keyboard focus to the trigger.
+ */
 function close({ restoreFocus = false } = {}) {
   cancelScheduledClose()
   isOpen.value = false
@@ -80,6 +97,9 @@ function close({ restoreFocus = false } = {}) {
   }
 }
 
+/**
+ * Clear the delayed popover-dismissal timeout when one is active.
+ */
 function cancelScheduledClose() {
   if (closeTimer != null) {
     window.clearTimeout(closeTimer)
@@ -87,6 +107,9 @@ function cancelScheduledClose() {
   }
 }
 
+/**
+ * Replace the dismissal timer using the configured nonnegative close delay in milliseconds.
+ */
 function scheduleClose() {
   cancelScheduledClose()
   closeTimer = window.setTimeout(() => {
@@ -95,11 +118,17 @@ function scheduleClose() {
   }, Math.max(0, Number(props.closeDelayMs) || 0))
 }
 
+/**
+ * Cancel pending dismissal and switch the help popover's visibility.
+ */
 function toggle() {
   cancelScheduledClose()
   isOpen.value = !isOpen.value
 }
 
+/**
+ * Keep help open while focus moves within its trigger/panel; otherwise schedule dismissal.
+ */
 function handleFocusOut(event) {
   const next = event.relatedTarget
   if (!(next instanceof Node)) {
@@ -115,6 +144,9 @@ function handleFocusOut(event) {
   scheduleClose()
 }
 
+/**
+ * Close an open help popover on Escape and return focus to its trigger.
+ */
 function handleKeydown(event) {
   if (event.key === 'Escape' && isOpen.value) {
     event.preventDefault()
@@ -147,6 +179,7 @@ onBeforeUnmount(() => {
       :aria-describedby="isOpen ? panelId : undefined"
       @click="toggle"
     >
+      <!-- @slot Custom help-trigger content replacing the fallback trigger text. -->
       <slot name="trigger">
         {{ triggerText }}
       </slot>
@@ -172,6 +205,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="$slots.default" class="mt-2 space-y-2">
+          <!-- @slot Additional explanatory content inside the floating help panel. -->
           <slot />
         </div>
 

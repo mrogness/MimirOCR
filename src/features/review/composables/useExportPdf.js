@@ -1,7 +1,16 @@
+/**
+ * @file Manage export settings and download PDF or training-data responses. Pending review
+ * writes can be flushed through the supplied beforeExport hook.
+ */
 import { ref } from 'vue'
 
 import { getProjectSettings } from '../../../shared/services/appSettings'
 
+/**
+ * Create export-dialog state and download actions for the selected project.
+ * @param {object} dependencies - Project ID ref, backend fetch, and an awaited pre-export hook.
+ * @returns {object} Export settings, busy/error feedback, and PDF/training-data actions.
+ */
 export function useExportPdf({ projectId, backendFetch, beforeExport = async () => {} }) {
   const isExporting = ref(false)
   const showExportSettings = ref(false)
@@ -22,6 +31,10 @@ export function useExportPdf({ projectId, backendFetch, beforeExport = async () 
     page_size: 'letter',
   })
 
+  /**
+   * Read an encoded or plain attachment filename, remove CR/LF characters, and return an
+   * empty string for missing/unusable headers.
+   */
   function extractFilenameFromHeader(contentDisposition) {
     if (!contentDisposition) {
       return ''
@@ -44,6 +57,11 @@ export function useExportPdf({ projectId, backendFetch, beforeExport = async () 
     return ''
   }
 
+  /**
+   * Fetch an export, choose its attachment filename, and trigger a browser Blob download.
+   * Clean up the temporary anchor/object URL, close settings on success, and throw API errors
+   * for the caller's feedback handling.
+   */
   async function downloadExportFromEndpoint({ path, method = 'GET', body = null, defaultFilename, successPrefix }) {
     const requestInit = {
       method,
@@ -91,6 +109,10 @@ export function useExportPdf({ projectId, backendFetch, beforeExport = async () 
     showExportSettings.value = false
   }
 
+  /**
+   * Await pending-edit flushing and download a PDF using current export controls plus the
+   * project's spread setting. Prevent concurrent exports and retain success/error feedback.
+   */
   async function exportProjectPdf() {
     if (isExporting.value) return
     isExporting.value = true
@@ -120,6 +142,10 @@ export function useExportPdf({ projectId, backendFetch, beforeExport = async () 
     }
   }
 
+  /**
+   * Await pending-edit flushing and download the project's training-data ZIP while
+   * coordinating export busy/error state.
+   */
   async function exportTrainingData() {
     if (isExporting.value) return
     isExporting.value = true

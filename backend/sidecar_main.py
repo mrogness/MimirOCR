@@ -3,6 +3,7 @@ import argparse
 
 
 def main() -> None:
+    """Parse host/port arguments and launch the local FastAPI app with Uvicorn reload disabled."""
     parser = argparse.ArgumentParser(description="Run Mimir backend sidecar")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)

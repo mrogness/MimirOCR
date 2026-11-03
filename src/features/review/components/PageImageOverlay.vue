@@ -1,38 +1,75 @@
 <script setup>
+/**
+ * @file Display page imagery with scaled line, polygon, selection, and suspicious-character
+ * overlays.
+ */
 import { computed } from 'vue'
 
 const props = defineProps({
+  /** Persisted page record whose raster dimensions define the overlay coordinate space. */
   selectedPage: { type: Object, default: null },
+  /** Backend image URL for the selected persisted review page. */
   selectedPageImageUrl: { type: String, default: '' },
+  /** Callback receiving the rendered page image element for viewport measurement. */
   setImageRef: { type: Function, required: true },
+  /** Callback receiving the scrollable overlay container element. */
   setOverlayPanelRef: { type: Function, required: true },
+  /** Requested displayed image width in CSS pixels after applying zoom. */
   imageDisplayWidth: { type: Number, required: true },
+  /** Requested displayed image height in CSS pixels after applying zoom. */
   imageDisplayHeight: { type: Number, required: true },
+  /** Measured or computed displayed image width used by the overlay layout. */
   renderedImageWidth: { type: Number, required: true },
+  /** Measured or computed displayed image height used by the overlay layout. */
   renderedImageHeight: { type: Number, required: true },
+  /** Available review panel height in CSS pixels. */
   panelViewportHeight: { type: Number, required: true },
+  /** Current image scale relative to its base dimensions. */
   zoomLevel: { type: Number, required: true },
+  /** Whether valid line polygons should be preferred over rectangular overlays. */
   usePolygonOverlay: { type: Boolean, required: true },
+  /** Review line records with usable polygon or bounding-box geometry. */
   linesWithGeometry: { type: Array, required: true },
+  /** Horizontal multiplier from source page pixels to displayed image pixels. */
   boxScaleX: { type: Number, required: true },
+  /** Vertical multiplier from source page pixels to displayed image pixels. */
   boxScaleY: { type: Number, required: true },
+  /** Predicate deciding whether a line should use its polygon representation. */
   shouldRenderPolygon: { type: Function, required: true },
+  /** Callback formatting source polygon points at the current display scale for SVG. */
   polygonPointsString: { type: Function, required: true },
+  /** Callback selecting SVG highlight classes for an active or selected line. */
   overlayLineClass: { type: Function, required: true },
-  suspiciousCharBoxes: { type: Array, default: () => [] },
+  /** Low-confidence character rectangles in source page pixels. */
+  suspiciousCharBoxes: {
+    type: Array,
+    /** Create an independent empty rectangle array for this component instance. */
+    default: () => [],
+  },
+  /** Currently targeted suspicious-character rectangle ID, or null when none is selected. */
   activeSuspiciousBoxId: { type: String, default: null },
 })
 
 const emit = defineEmits([
+  /** Emit the boolean polygon-overlay preference. */
   'update:usePolygonOverlay',
+  /** Request one bounded zoom-out step. */
   'zoom-out',
+  /** Forward the zoom-slider DOM event for parsing by the parent viewport controller. */
   'zoom-slider-input',
+  /** Request one bounded zoom-in step. */
   'zoom-in',
+  /** Request a zoom that fits page height in the available image panel. */
   'fit-page-height',
+  /** Emit wheel deltaY and clientX/clientY pointer coordinates for anchored trackpad zoom. */
   'trackpad-zoom',
+  /** Request clearing transient line highlighting. */
   'clear-active-line',
+  /** Emit the line ID to highlight transiently. */
   'set-active-line',
+  /** Emit the persistent line ID selected by the user. */
   'select-line',
+  /** Forward the image-load DOM event so the parent can initialize image measurements. */
   'page-image-load',
 ])
 
@@ -62,10 +99,17 @@ const drawableLineById = computed(() => {
   return map
 })
 
+/**
+ * Build the SVG clipping-path ID associated with one review line.
+ */
 function clipPathIdForLine(lineId) {
   return `line-clip-${lineId}`
 }
 
+/**
+ * Enable polygon clipping only when the overlay preference and supplied geometry predicate
+ * permit it.
+ */
 function canUsePolygonClip(line) {
   return (
     props.usePolygonOverlay &&
@@ -75,26 +119,45 @@ function canUsePolygonClip(line) {
   )
 }
 
+/**
+ * Forward the overlay container element to the parent viewport controller.
+ */
 function onOverlayPanelRef(el) {
   props.setOverlayPanelRef(el)
 }
 
+/**
+ * Forward the page image element to the parent viewport controller.
+ */
 function onImageRef(el) {
   props.setImageRef(el)
 }
 
+/**
+ * Forward the original zoom-slider DOM event to the parent's zoom controller.
+ */
 function onZoomInput(event) {
   emit('zoom-slider-input', event)
 }
 
+/**
+ * Emit the checkbox's boolean value as the requested polygon-overlay preference.
+ */
 function onPolygonOverlayToggle(event) {
   emit('update:usePolygonOverlay', event.target.checked)
 }
 
+/**
+ * Forward image-load completion so the parent can measure dimensions and initialize zoom.
+ */
 function onPageImageLoad(event) {
   emit('page-image-load', event)
 }
 
+/**
+ * Translate Ctrl/Cmd-wheel gestures into trackpad-zoom deltas and pointer coordinates while
+ * preserving normal scrolling.
+ */
 function onOverlayWheel(event) {
   // Trackpad pinch gestures arrive as wheel events with ctrl/meta pressed.
   if (!event.ctrlKey && !event.metaKey) {

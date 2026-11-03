@@ -1,16 +1,30 @@
 <script setup>
+/**
+ * @file Present OCR phase, progress, counters, elapsed time, and review navigation.
+ */
 defineProps({
+  /** Transient message explaining that an active OCR run was recovered after navigation or reload. */
   recoveredRunNotice: { type: String, default: '' },
+  /** Preformatted elapsed processing time for the current or most recent run. */
   elapsedDisplay: { type: String, default: '' },
+  /** Overall OCR progress percentage supplied by the backend workflow. */
   ocrProgress: { type: Number, default: 0 },
+  /** Number of source pages in the current document or review dataset. */
   totalPages: { type: Number, default: 0 },
+  /** Count of source pages whose rasterization has completed. */
   rasterizedPages: { type: Number, default: 0 },
+  /** Count of source pages whose line segmentation has completed. */
   segmentedPages: { type: Number, default: 0 },
+  /** Count of source pages whose text recognition has completed. */
   ocrPages: { type: Number, default: 0 },
+  /** Whether the project has a successful OCR result available for review navigation. */
   canOpenReview: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['open-review'])
+const emit = defineEmits([
+  /** Request navigation to the current project's completed OCR review. */
+  'open-review',
+])
 </script>
 
 <template>

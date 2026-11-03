@@ -1,4 +1,7 @@
 <script setup>
+/**
+ * @file Help and reference screen for setup, review, export, and Fraktur character guidance.
+ */
 import { nextTick, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -12,6 +15,10 @@ import SettingsReferenceSection from './components/SettingsReferenceSection.vue'
 
 const route = useRoute()
 
+/**
+ * Wait for the help DOM, decode an anchor, open all enclosing details sections, and scroll
+ * the target into view.
+ */
 async function revealHashTarget(hash) {
   if (!hash) {
     return

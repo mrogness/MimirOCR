@@ -11,6 +11,47 @@ objects live under `backend/domain/`; the API owns `backend/persistence/` and
 `backend/services/ocr_jobs.py`. See [backend code organization](backend-organization.md)
 for the full source map and refactor notes.
 
+## Page processing and persistence
+
+The diagram shows one page exchange for each stage. The runner rasterizes the PDF,
+finishes segmentation for the page batch, then runs recognition. CPU segmentation
+may use several workers; each worker loads one model and reuses it for its assigned
+pages. Recognition uses one worker. Empty batches can skip worker startup.
+
+```mermaid
+sequenceDiagram
+  participant API as API and pipeline runner
+  participant SEG as Kraken worker
+  participant OCR as Calamari worker
+  participant FILES as Local files
+  participant DB as SQLite
+
+  API->>FILES: Read uploaded PDF and write rasterized pages
+  API->>SEG: Init with run configuration
+  SEG-->>API: Ready after model load
+  API->>SEG: Page identity, dimensions and image path
+  SEG->>FILES: Read page image and write binarized line crops
+  SEG-->>API: Lines with crop paths, geometry and source order
+  API->>OCR: Init with run configuration
+  OCR-->>API: Ready after checkpoint load
+  API->>OCR: Page with ordered line records and crop paths
+  OCR->>FILES: Read line crops
+  OCR-->>API: Lines with text, confidence and candidate metadata
+  API->>FILES: Write transcript, project JSON and retained images
+  API->>DB: Replace project pages and lines
+  API-->>API: Mark job succeeded and release runtime gate
+```
+
+Worker arrows carry JSON metadata and absolute file paths. Images remain on disk;
+neither engine objects nor image bytes are embedded in the JSON Lines messages.
+The client validates page identity, and recognition must preserve line IDs and
+their sequence. The dispatcher restores source page order after parallel work.
+
+The job service persists the finished batch. A worker failure instead marks the
+job failed, stops the remaining worker clients, cleans temporary files, and releases
+the runtime gate. Review corrections later update SQLite through HTTP line routes;
+PDF and training-data exports read the persisted review records.
+
 | Runtime | Environment | Packaged onedir directory |
 |---|---|---|
 | API | `.venvs/backend` | `backend-runtime/` |
@@ -25,7 +66,7 @@ installed apps do not depend on Python, a working directory, or shell activation
 
 ## Development and packaging
 
-Install uv, Node 22, Yarn 1.22.22, and the usual Tauri prerequisites.
+Install uv, Node 22.22.2 or newer within Node 22, Yarn 1.22.22, and the usual Tauri prerequisites.
 Each runtime project selects Python 3.11; uv can download it when absent.
 From the repository root:
 

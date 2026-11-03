@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * @file Project processing screen combining PDF selection, OCR settings, preview, and job
+ * progress.
+ */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -64,6 +68,10 @@ const hasActivePdfPreview = computed(() => Boolean(String(activePdfPreviewUrl.va
 const showProgressSection = computed(() => currentJobId.value || ocrPhase.value !== 'idle' || canOpenReview.value)
 const splitPaneDisabledBreakpoint = computed(() => (hasActivePdfPreview.value ? 768 : 100000))
 
+/**
+ * Remove a supported upload UUID/project prefix from a filename while preserving ordinary
+ * filenames.
+ */
 function toDisplayPdfName(name) {
   const value = String(name || '').trim()
   if (!value) {
@@ -81,6 +89,9 @@ const activePdfDisplayName = computed(() => {
   return toDisplayPdfName(project.value?.source_pdf_name)
 })
 
+/**
+ * Revoke the selected File's browser object URL and clear the preview reference.
+ */
 function clearSelectedPdfPreviewUrl() {
   if (!selectedPdfPreviewUrl.value) {
     return
@@ -89,6 +100,9 @@ function clearSelectedPdfPreviewUrl() {
   selectedPdfPreviewUrl.value = ''
 }
 
+/**
+ * Revoke the persisted source PDF's browser object URL and clear its preview reference.
+ */
 function clearSourcePdfPreviewUrl() {
   if (!sourcePdfPreviewUrl.value) {
     return
@@ -97,6 +111,11 @@ function clearSourcePdfPreviewUrl() {
   sourcePdfPreviewUrl.value = ''
 }
 
+/**
+ * Replace the persisted source preview with a Blob URL from the current project's PDF
+ * endpoint. Ignore unavailable/non-PDF responses and expose transport errors as preview
+ * feedback.
+ */
 async function loadSourcePdfPreview() {
   clearSourcePdfPreviewUrl()
   sourcePdfPreviewError.value = ''

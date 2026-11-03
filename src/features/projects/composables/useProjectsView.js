@@ -1,3 +1,7 @@
+/**
+ * @file Assemble project detail, upload, polling, preview, and runtime behavior for the
+ * projects view.
+ */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useBackendRuntime } from '../../../shared/composables/useBackendRuntime'
@@ -5,14 +9,28 @@ import { useProjectActions } from './useProjectActions'
 import { useProjectRuntime } from './useProjectRuntime'
 import { useUploadActions } from './useUploadActions'
 
+/**
+ * Compose project actions, upload controls, run recovery, and shared backend status for the
+ * project screen. Register visibility/focus listeners and release subscriptions on unmount.
+ * @param {object} dependencies - Current route, router, and backend fetch function.
+ * @returns {object} View-facing project/run refs and user action handlers.
+ */
 export function useProjectsView({ route, router, backendFetch }) {
   const project = ref(null)
   const backendRuntime = useBackendRuntime()
 
+  /**
+   * Provide a no-op reload placeholder until project actions are connected, avoiding a
+   * composition-order dependency.
+   */
   let loadProjectRef = async () => {}
   const runtime = useProjectRuntime({
     backendFetch,
     project,
+    /**
+     * Reload selected-project metadata and then refresh shared runtime status, tolerating a
+     * runtime refresh failure.
+     */
     reloadProject: async () => {
       await loadProjectRef()
       await backendRuntime.refreshBackendRuntime().catch(() => {})

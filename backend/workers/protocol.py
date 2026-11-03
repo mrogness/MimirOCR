@@ -6,16 +6,25 @@ VERSION = 1
 
 def _json_value(value):
     # Kraken metadata may contain NumPy scalars/arrays. Keep NumPy out of the API.
+    """Convert array/scalar objects exposing tolist into JSON-compatible values; reject
+    unsupported objects with TypeError.
+    """
     if hasattr(value, "tolist"):
         return value.tolist()
     raise TypeError(f"Not JSON serializable: {type(value).__name__}")
 
 
 def encode(message: dict) -> str:
+    """Serialize a UTF-8-compatible JSON line, rejecting nonfinite numbers.
+
+    NumPy-like objects are converted through tolist without importing NumPy in
+    the API process. The caller supplies the version and request ID envelope.
+    """
     return json.dumps(message, ensure_ascii=False, allow_nan=False, default=_json_value) + "\n"
 
 
 def decode(line: str) -> dict:
+    """Parse one message and reject non-object payloads or unsupported versions."""
     message = json.loads(line)
     if not isinstance(message, dict) or message.get("version") != VERSION:
         raise ValueError("Unsupported worker protocol version")

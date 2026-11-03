@@ -1,5 +1,8 @@
 # Frontend Code Organization
 
+Browse services, composables, Vue interfaces, and named script functions in the
+generated [frontend source reference](../reference/index.md).
+
 Frontend source is grouped by the screen or workflow that owns it. Start in
 `src/features/` when changing a user workflow; start in `src/shared/` when changing
 behavior used by several features. The app shell, router, global styles, and

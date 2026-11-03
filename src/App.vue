@@ -1,7 +1,13 @@
 <script setup>
+/**
+ * @file Application shell and route host for the MimirOCR desktop interface.
+ */
 import { ref } from 'vue'
 
 const isCollapsed = ref(true)
+/**
+ * Toggle the application navigation sidebar between collapsed and expanded states.
+ */
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
 }

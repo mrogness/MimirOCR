@@ -1,38 +1,55 @@
 <script setup>
+/**
+ * @file Two-pane layout with pointer and keyboard resizing, saved widths, and a stacked
+ * narrow-window mode.
+ */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
+  /** Initial left-pane width in CSS pixels before a saved preference or clamping is applied. */
   initialLeftWidth: {
+    // Widths are CSS pixels; the parent receives the applied left width in resize events.
     type: Number,
     default: 480,
   },
+  /** Minimum preferred left-pane width in CSS pixels. */
   minLeftWidth: {
     type: Number,
     default: 320,
   },
+  /** Maximum preferred left-pane width in CSS pixels. */
   maxLeftWidth: {
     type: Number,
     default: 800,
   },
+  /** Minimum preferred right-pane width in CSS pixels when clamping the left pane. */
   minRightWidth: {
     type: Number,
     default: 420,
   },
+  /** Maximum preferred right-pane width in CSS pixels when clamping the left pane. */
   maxRightWidth: {
     type: Number,
     default: 1400,
   },
+  /** Optional localStorage key for preserving the user's selected pane width. */
   storageKey: {
     type: String,
     default: '',
   },
+  /** Stack panes and disable dragging below this container width in CSS pixels. */
   disabledBreakpoint: {
     type: Number,
     default: 768,
   },
 })
 
-const emit = defineEmits(['resize', 'resize-end'])
+const emit = defineEmits([
+  /** Emit the currently applied left-pane width in CSS pixels during resizing. */
+  'resize',
+  /** Emit the final persisted left-pane width in CSS pixels after a resize interaction. */
+  'resize-end',
+])
 
 const containerRef = ref(null)
 const leftWidth = ref(props.initialLeftWidth)
@@ -53,6 +70,9 @@ const separatorStyle = computed(() => ({
   left: `${leftWidth.value}px`,
 }))
 
+/**
+ * Read a finite saved left-pane width from localStorage when a storage key is configured.
+ */
 function getSavedWidth() {
   if (!props.storageKey) {
     return null
@@ -63,6 +83,9 @@ function getSavedWidth() {
   return Number.isFinite(savedWidth) ? savedWidth : null
 }
 
+/**
+ * Persist the current left-pane width only when a storage key is configured.
+ */
 function saveWidth() {
   if (!props.storageKey) {
     return
@@ -71,6 +94,7 @@ function saveWidth() {
   localStorage.setItem(props.storageKey, String(leftWidth.value))
 }
 
+/** Clamp the left pane against both panes' limits and the current container width. */
 function clampLeftWidth(requestedWidth) {
   const containerWidth = containerRef.value?.clientWidth ?? 0
 
@@ -109,6 +133,10 @@ function clampLeftWidth(requestedWidth) {
   )
 }
 
+/**
+ * Clamp a requested width, reject nonfinite results, update layout state, and emit the
+ * applied pixel width.
+ */
 function setLeftWidth(requestedWidth) {
   const nextWidth = clampLeftWidth(requestedWidth)
 
@@ -120,6 +148,10 @@ function setLeftWidth(requestedWidth) {
   emit('resize', nextWidth)
 }
 
+/**
+ * Convert pointer position relative to the container into a left-pane width during active
+ * dragging.
+ */
 function handlePointerMove(event) {
   if (!isDragging.value || !containerRef.value) {
     return
@@ -131,6 +163,7 @@ function handlePointerMove(event) {
   setLeftWidth(requestedWidth)
 }
 
+/** Release global pointer listeners, persist width, and announce the final size. */
 function stopDragging() {
   if (!isDragging.value) {
     return
@@ -146,6 +179,10 @@ function stopDragging() {
   emit('resize-end', leftWidth.value)
 }
 
+/**
+ * Begin pointer resizing outside stacked mode, prevent text selection, and attach global
+ * move/end listeners.
+ */
 function startDragging(event) {
   if (isStacked.value || !containerRef.value) {
     return
@@ -160,6 +197,9 @@ function startDragging(event) {
   window.addEventListener('pointerup', stopDragging)
   window.addEventListener('pointercancel', stopDragging)
 
+  /**
+   * Detach the global pointer move/up/cancel handlers registered for the current drag.
+   */
   removePointerListeners = () => {
     window.removeEventListener('pointermove', handlePointerMove)
     window.removeEventListener('pointerup', stopDragging)
@@ -167,6 +207,10 @@ function startDragging(event) {
   }
 }
 
+/**
+ * Resize with arrow keys or jump to bounds with Home/End, then persist and emit the final
+ * width.
+ */
 function handleSeparatorKeydown(event) {
   if (isStacked.value) {
     return
@@ -192,12 +236,20 @@ function handleSeparatorKeydown(event) {
   emit('resize-end', leftWidth.value)
 }
 
+/**
+ * Restore the configured initial width through clamping, persist it, and emit resize
+ * completion.
+ */
 function resetWidth() {
   setLeftWidth(props.initialLeftWidth)
   saveWidth()
   emit('resize-end', leftWidth.value)
 }
 
+/**
+ * Choose stacked layout below the breakpoint and reclamp pane width when returning to split
+ * layout.
+ */
 function updateStackedState(width = containerRef.value?.clientWidth ?? 0) {
   if (width <= 0) {
     return
@@ -210,6 +262,9 @@ function updateStackedState(width = containerRef.value?.clientWidth ?? 0) {
   }
 }
 
+/**
+ * Read the ResizeObserver's first content width and update stacked/split state.
+ */
 function handleContainerResize(entries) {
   const width = entries[0]?.contentRect.width ?? 0
   updateStackedState(width)
@@ -259,6 +314,7 @@ onBeforeUnmount(() => {
           isStacked,
       }"
     >
+      <!-- @slot Content of the resizable left pane. -->
       <slot name="left" />
     </section>
 
@@ -318,6 +374,7 @@ onBeforeUnmount(() => {
 
     <!-- Right pane -->
     <section class="min-h-0 min-w-0 overflow-hidden md:h-full">
+      <!-- @slot Content of the remaining right pane. -->
       <slot name="right" />
     </section>
   </div>

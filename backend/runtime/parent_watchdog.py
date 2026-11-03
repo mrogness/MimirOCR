@@ -7,6 +7,9 @@ import time
 
 
 def _is_parent_alive_unix(parent_pid: int) -> bool:
+    """Probe a parent PID without sending a signal; treat permission denial as evidence that
+    the process exists.
+    """
     if parent_pid <= 0:
         return True
 
@@ -21,6 +24,9 @@ def _is_parent_alive_unix(parent_pid: int) -> bool:
 
 
 def _is_parent_alive_windows(parent_pid: int) -> bool:
+    """Check a parent process handle without waiting, closing the handle after the liveness
+    probe.
+    """
     if parent_pid <= 0:
         return True
 
@@ -52,11 +58,19 @@ def _is_parent_alive_windows(parent_pid: int) -> bool:
 
 
 def start_parent_watchdog(*, direct_parent: bool = False) -> None:
+    """Start a daemon that exits this process when MIMIR_PARENT_PID disappears.
+
+    Do nothing when no positive parent PID is configured. With direct_parent enabled on
+    Unix, also detect reparenting; termination uses os._exit so it can interrupt inference.
+    """
     parent_pid = int(os.environ.get("MIMIR_PARENT_PID", "0"))
     if parent_pid <= 0:
         return
 
     def monitor() -> None:
+        """Poll the configured parent's liveness every two seconds and immediately exit when it
+        is lost.
+        """
         while True:
             if sys.platform.startswith("win"):
                 is_alive = _is_parent_alive_windows(parent_pid)

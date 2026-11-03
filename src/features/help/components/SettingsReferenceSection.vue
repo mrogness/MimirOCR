@@ -1,4 +1,5 @@
 <script setup>
+/** @file Describe processing settings, performance profiles, and export options for the help reference. */
 const settingsGroups = [
   {
     id: 'application-settings',

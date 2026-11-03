@@ -1,4 +1,5 @@
 <script setup>
+/** @file Display Latin/Fraktur alphabet samples, punctuation, and historical character forms with a selectable font. */
 import { ref } from 'vue'
 import AppHelp from '../../../shared/components/AppHelp.vue'
 

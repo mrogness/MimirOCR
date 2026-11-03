@@ -1,24 +1,42 @@
 <script setup>
+/**
+ * @file Present selected-project metadata and project actions.
+ */
 defineProps({
+  /** Loaded persistent project metadata, or null before a project is available. */
   project: { type: Object, default: null },
+  /** Current project-name input owned by the parent's rename workflow. */
   renameInput: { type: String, default: '' },
+  /** Validation or API error from changing the project name. */
   renameError: { type: String, default: '' },
+  /** Whether a project-name write is currently pending. */
   isRenaming: { type: Boolean, default: false },
+  /** Browser File selected for the next upload, or null when using only the stored source preview. */
   selectedPdf: { type: Object, default: null },
+  /** Cleaned selected/stored PDF filename shown in project details. */
   activePdfDisplayName: { type: String, default: '' },
 })
 
 const emit = defineEmits([
+  /** Emit the edited project-name string for parent-owned rename state. */
   'update:rename-input',
+  /** Forward the PDF file-input DOM event to the parent upload workflow. */
   'pdf-selected',
 ])
 
 const selectedPdfInputId = 'project-upload-pdf-input'
 
+/**
+ * Emit the edited project-name string for the parent's debounced rename workflow.
+ */
 function onRenameInput(event) {
   emit('update:rename-input', event.target.value)
 }
 
+/**
+ * Forward the file-input event so the parent can capture the selected PDF and reset run
+ * state.
+ */
 function onPdfSelected(event) {
   emit('pdf-selected', event)
 }

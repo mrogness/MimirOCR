@@ -1,4 +1,13 @@
+/**
+ * @file Convert OCR geometry into review overlays. Coordinates remain in rasterized page
+ * pixels until display scaling is applied; character boxes use recognition spans with layout
+ * fallbacks.
+ */
 // Geometry stays in page coordinates until the overlay applies display scaling.
+/**
+ * Accept a position array or decode a JSON array, returning an empty list for missing or
+ * malformed data.
+ */
 export function normalizeCharPositions(raw) {
   if (Array.isArray(raw)) {
     return raw
@@ -16,11 +25,18 @@ export function normalizeCharPositions(raw) {
   }
 }
 
+/**
+ * Convert a value with Number and return it only if finite, otherwise return null.
+ */
 function toFinite(value) {
   const n = Number(value)
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Normalize usable character spans to the line's 0..1 horizontal range. Prefer the observed
+ * span over the model domain and skip missing or degenerate bounds.
+ */
 function buildGeometricCharacterBounds(positions, options = {}) {
   const spanDomain = options.spanDomain
   const minStart = options.minStart
@@ -77,6 +93,10 @@ function buildGeometricCharacterBounds(positions, options = {}) {
   return bounds
 }
 
+/**
+ * Expand a narrow normalized character box around its center while respecting neighboring
+ * character limits. Return the original interval when no safe expansion is available.
+ */
 function widenedRangeWithinNeighbors(boundsMap, index, minWidthNorm) {
   const current = boundsMap.get(index)
   if (!current) {
@@ -132,6 +152,15 @@ function widenedRangeWithinNeighbors(boundsMap, index, minWidthNorm) {
   return { left, right }
 }
 
+/**
+ * Map suspicious characters to source-page pixel rectangles using recognized spans and line
+ * boxes. Fall back to evenly spaced character widths when geometric placement is disabled or
+ * unusable.
+ * @param {Array<object>} lines - Review line records containing geometry and recognition positions.
+ * @param {Function} suspiciousSegmentsForLine - Lookup returning per-character highlight flags.
+ * @param {object} [options={}] - Polygon/geometric placement preference.
+ * @returns {Array<object>} Rectangles with character ID, line ID, position, and size in page pixels.
+ */
 export function buildSuspiciousCharacterBoxes(lines, suspiciousSegmentsForLine, { usePolygonOverlay = true } = {}) {
   const rows = []
   for (const line of lines) {
@@ -247,6 +276,10 @@ export function buildSuspiciousCharacterBoxes(lines, suspiciousSegmentsForLine, 
   return rows
 }
 
+/**
+ * Check that all four named bounding-box coordinates are finite numbers; this helper does not
+ * enforce positive width or height.
+ */
 export function hasValidBox(bbox) {
   return (
     bbox &&
@@ -257,6 +290,9 @@ export function hasValidBox(bbox) {
   )
 }
 
+/**
+ * Require at least three polygon vertices with two finite numeric coordinates each.
+ */
 export function hasValidPolygon(points) {
   return (
     Array.isArray(points) &&
@@ -265,6 +301,9 @@ export function hasValidPolygon(points) {
   )
 }
 
+/**
+ * Prefer a valid polygon when enabled, and use one as a fallback when no valid box exists.
+ */
 export function shouldRenderPolygon(line, usePolygonOverlay) {
   if (usePolygonOverlay && hasValidPolygon(line.polygon_points)) {
     return true
@@ -272,6 +311,10 @@ export function shouldRenderPolygon(line, usePolygonOverlay) {
   return !hasValidBox(line.bounding_box) && hasValidPolygon(line.polygon_points)
 }
 
+/**
+ * Scale source point pairs independently on each axis and join them into SVG's points
+ * attribute syntax.
+ */
 export function polygonPointsString(points, scaleX, scaleY) {
   return points
     .map((pt) => `${pt[0] * scaleX},${pt[1] * scaleY}`)

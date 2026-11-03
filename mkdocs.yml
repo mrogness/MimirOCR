@@ -2,17 +2,40 @@ site_name: MimirOCR Contributor Docs
 site_description: Architecture, contracts, testing, and contributor guidance for MimirOCR
 repo_url: https://github.com/mrogness/MimirOCR
 repo_name: MimirOCR
+edit_uri: edit/main/
+
+plugins:
+  - search
+  - gen-files:
+      scripts:
+        - scripts/generate_reference.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["."]
+          options:
+            allow_inspection: false
+            docstring_style: google
+            show_if_no_docstring: true
+            inherited_members: false
+            filters: ["!^__"]
+            show_source: true
+            merge_init_into_class: true
 
 theme:
   name: material
   features:
     - navigation.sections
-    - navigation.expand
     - content.code.copy
     - search.highlight
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
   - tables
   - toc:
       permalink: true
@@ -28,15 +51,23 @@ extra_javascript:
 
 nav:
   - Home: index.md
+  - First OCR Walkthrough: tutorials/first-ocr-run.md
   - Contributing: contributing.md
+  - How-to Guides:
+      - Add an API Endpoint: how-to/add-api-endpoint.md
+      - Change a Vue Composable: how-to/change-composable.md
+      - Change a Worker Payload: how-to/change-worker-payload.md
+      - Troubleshooting: how-to/troubleshooting.md
   - Architecture:
       - System Overview: architecture/system-overview.md
       - Backend Code Organization: architecture/backend-organization.md
       - Frontend Code Organization: architecture/frontend-organization.md
       - OCR Process Split: architecture/ocr-process-split.md
+  - Code Reference: reference/
   - Contracts:
       - OCR Worker Contract: contracts/ocr-worker-contract.md
       - Segmentation Worker Contract: contracts/segmentation-worker-contract.md
+      - Complete Worker Exchanges: contracts/worker-examples.md
   - Maintenance:
       - Documentation Automation: maintenance/automation.md
       - Dependencies and Security Updates: maintenance/dependencies.md
@@ -44,6 +75,12 @@ nav:
       - Testing Guide: testing.md
       - Testing Architecture: testing-architecture.md
       - Generated Test Inventory: generated/test-inventory.md
-  - Generated API:
+  - HTTP API:
       - Generated Docs Notes: generated/README.md
-      - Backend OpenAPI Summary: generated/backend-openapi.md
+      - Backend HTTP Reference: generated/backend-openapi.md
+
+# Include application source changes when serving, not only Markdown changes.
+watch:
+  - backend
+  - src
+  - scripts/docs

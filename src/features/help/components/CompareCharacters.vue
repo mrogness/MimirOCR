@@ -1,4 +1,5 @@
 <script setup>
+/** @file Interactive comparison tiles for Fraktur glyphs commonly confused by readers or OCR. */
 import { ref } from 'vue'
 
 const confusionGroups = [
@@ -34,14 +35,23 @@ const confusionGroups = [
 
 const showingSecondCharacter = ref({})
 
+/**
+ * Build the stable state key for a confusion-group ID and its two glyphs.
+ */
 function pairKey(groupId, pair) {
   return `${groupId}-${pair[0]}-${pair[1]}`
 }
 
+/**
+ * Report whether a comparison tile currently displays the pair's second glyph.
+ */
 function isShowingSecond(groupId, pair) {
   return Boolean(showingSecondCharacter.value[pairKey(groupId, pair)])
 }
 
+/**
+ * Switch a comparison tile's displayed glyph by replacing its reactive state map.
+ */
 function togglePair(groupId, pair) {
   const key = pairKey(groupId, pair)
   showingSecondCharacter.value = {

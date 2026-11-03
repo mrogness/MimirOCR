@@ -1,3 +1,4 @@
+"""Coordinate PDF preparation, isolated ML stages, progress, and artifact export."""
 from collections.abc import Callable
 from pathlib import Path
 import time
@@ -9,7 +10,30 @@ from backend.pipeline.dispatch import run_stage
 
 
 class PipelineRunner:
+    """Run a project through rasterization, segmentation, recognition, and export.
+
+    Args:
+        config: Run settings, copied so path normalization does not alter the caller.
+        progress_callback: Optional callable receiving phase, integer progress,
+            message, and optional page-count details. It runs synchronously.
+
+    Worker processes own ML models; this coordinator stays in the API runtime.
+
+    Example:
+        Run from the repository root after syncing all three runtime environments::
+
+            config = ProjectConfig(input_pdf_path="sample.pdf", project_id="example")
+            project = Project(id="example", name="Example", source_path="sample.pdf", config=config)
+            PipelineRunner(config).process_project(project)
+
+        ``project.pages`` contains the recognized domain records. Direct runner use
+        writes artifacts but does not create HTTP jobs or persist SQLite review rows;
+        the job service owns those steps. Use the HTTP workflow for a durable UI project.
+    """
     def __init__(self, config: ProjectConfig, progress_callback: Callable | None = None):
+        """Copy the configuration, resolve worker-facing paths, and capture the active per-page
+        cooldown.
+        """
         self.config = config.model_copy(deep=True)
         # Workers do not depend on the API process's working directory.
         self.config.temp_dir = str(Path(config.temp_dir).resolve())
@@ -21,14 +45,31 @@ class PipelineRunner:
         self.page_cooldown_seconds = get_active_limits().page_cooldown_ms / 1000
 
     def _report_progress(self, phase, progress, message, details=None):
+        """Synchronously forward a progress event when a callback was supplied."""
         if self.progress_callback:
             self.progress_callback(phase, progress, message, details)
 
     def process_project(self, project: Project):
+        """Populate project.pages and write transcript/page/JSON artifacts.
+
+        Segmentation may use multiple CPU workers; recognition uses one model
+        process. Stage errors propagate to the job service, which records the
+        failure and handles run cleanup. The return value is None.
+
+        Args:
+            project: Domain project whose source PDF is processed and whose
+                pages are replaced after both ML stages succeed.
+        """
         from backend.pipeline.artifacts import export
         from backend.pipeline.prepare import prepare_pages
 
         def report(phase, completed, total, offset, label):
+            """Translate stage page counts into overall progress capped at 94 percent before
+            export.
+
+            Report rasterized, segmented, and recognized page totals and apply the
+            configured cooldown after completed ML pages.
+            """
             counts = {
                 "total_pages": total,
                 "rasterized_pages": completed if offset == 0 else total,

@@ -1,3 +1,5 @@
+"""SQLAlchemy project, page, and line tables backing persisted review data. Domain worker
+records and HTTP schemas are defined separately."""
 from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
@@ -7,6 +9,7 @@ import datetime as dt
 Base = declarative_base()
 
 class Project(Base):
+    """Persistent project metadata and aggregate relationships to source pages."""
     __tablename__ = 'projects'
 
     id = Column(Integer, primary_key=True)
@@ -27,6 +30,7 @@ class Project(Base):
     pages = relationship("Page", back_populates="project", cascade="all, delete-orphan")
 
 class Page(Base):
+    """A persisted rasterized page and its review lines, owned by one project."""
     __tablename__ = 'pages'
 
     id = Column(Integer, primary_key=True)
@@ -42,6 +46,7 @@ class Page(Base):
     lines = relationship("Line", back_populates="page", cascade="all, delete-orphan")
 
 class Line(Base):
+    """Review text, ordering, geometry, and serialized recognition metadata."""
     __tablename__ = 'lines'
 
     id = Column(Integer, primary_key=True)

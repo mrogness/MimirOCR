@@ -1,3 +1,7 @@
+/**
+ * @file Define routes linking the project dashboard, project processing, review, help, and
+ * settings views.
+ */
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '../features/projects/DashboardView.vue'

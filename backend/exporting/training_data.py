@@ -7,18 +7,25 @@ import zipfile
 from backend.exporting.common import ExportArtifact, ExportError
 
 def _slugify(value: str) -> str:
+    """Convert a project name into a lowercase ASCII archive-directory slug with a project
+    fallback.
+    """
     text = re.sub(r"[^a-zA-Z0-9]+", "-", (value or "").strip().lower())
     text = text.strip("-")
     return text or "project"
 
 
 def _clean_basename(value: str) -> str:
+    """Remove unsafe filename characters from a line identifier, falling back to line."""
     text = re.sub(r"[^a-zA-Z0-9_-]+", "_", (value or "").strip())
     text = text.strip("_")
     return text or "line"
 
 
 def _line_training_text(line) -> str:
+    """Prefer a nonempty corrected transcription over OCR output and return an empty string
+    when neither exists.
+    """
     corrected = getattr(line, "corrected_text", None)
     predicted = getattr(line, "ocr_text", None)
     value = corrected if corrected not in (None, "") else predicted

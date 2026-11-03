@@ -3,6 +3,9 @@ from backend.workers.server import serve
 
 
 def initialize(config):
+    """Set PyTorch thread limits, load one Kraken model, and return a handler that segments
+    pages with that model and run configuration.
+    """
     import os
     import torch
     from backend.workers.segmenter.engine import create_segmenter, segment
