@@ -1,8 +1,7 @@
-"""Expose CPU/runtime status and reserve or cancel coordinated backend restarts."""
+"""Expose runtime/performance status and reserve or cancel coordinated backend restarts."""
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Literal
 
@@ -62,15 +61,6 @@ def _remove_reservation_file() -> None:
         _reservation_path().unlink(missing_ok=True)
     except OSError:
         pass
-
-
-@router.get("/cpu")
-def get_cpu_info() -> dict[str, int]:
-    """Report logical CPU count and the active profile's default segmentation worker count."""
-    return {
-        "total_cores": os.cpu_count() or 1,
-        "default_worker_count": get_active_limits().segmentation_workers,
-    }
 
 
 @router.get("/runtime")

@@ -20,15 +20,6 @@ def _client() -> TestClient:
     return TestClient(app)
 
 
-def test_get_cpu_info_has_expected_shape() -> None:
-    response = _client().get("/system/cpu")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total_cores"] >= 1
-    assert payload["default_worker_count"] >= 1
-
-
 def test_prepare_then_cancel_restart_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(system_routes, "get_app_data_dir", lambda: tmp_path)
 

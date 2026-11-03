@@ -183,13 +183,6 @@ export function useLineEditing({
   }
 
   /**
-   * Return the current zero-based index of a page, or -1 when it is absent.
-   */
-  function findPageIndexById(pageId) {
-    return pages.value.findIndex((candidate) => candidate.id === pageId)
-  }
-
-  /**
    * Select the page needed for undo when its finite ID differs from the current selection and
    * a selection callback is available.
    */

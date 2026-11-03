@@ -1,6 +1,5 @@
 <script setup>
 /** @file Acknowledge the OCR engines, tools, fonts, and other resources used by MimirOCR. */
-import { h } from 'vue';
 import { useAppVersion } from '../../../shared/composables/useAppVersion'
 
 const { appVersion } = useAppVersion()

@@ -31,7 +31,7 @@ function formatDuration(seconds) {
 }
 
 /**
- * Summarize probe status, duration, and transport/policy error detail for diagnostics
+ * Summarize probe status, duration, and error detail for diagnostics
  * display.
  */
 function summarizeProbe(probe) {
@@ -42,10 +42,6 @@ function summarizeProbe(probe) {
   const base = `${probe.status} in ${probe.elapsedMs}ms`
   if (probe.ok) {
     return base
-  }
-
-  if (probe.noCorsReachable) {
-    return `${base} (transport reachable via no-cors; likely CORS/response policy blocking)`
   }
 
   return probe.error ? `${base} (${probe.error})` : base
