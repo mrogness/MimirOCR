@@ -1,7 +1,7 @@
 /**
  * @file Assemble theme, performance, and diagnostics behavior for the settings view.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 
 import { useAppVersion } from '../../../shared/composables/useAppVersion'
 import { useBackendDiagnostics } from './useBackendDiagnostics'
@@ -15,7 +15,6 @@ import { usePerformanceProfileSettings } from './usePerformanceProfileSettings'
  * @returns {object} Combined control refs/actions plus prioritized settings error feedback.
  */
 export function useSettingsView(dependencies) {
-  const settingsMessage = ref('')
   const profileSettings = usePerformanceProfileSettings(dependencies)
   const themeSettings = useBrandThemeSettings(dependencies)
   const diagnostics = useBackendDiagnostics(dependencies)
@@ -39,7 +38,6 @@ export function useSettingsView(dependencies) {
     ...themeSettings,
     ...diagnostics,
     ...version,
-    settingsMessage,
     settingsError,
   }
 }

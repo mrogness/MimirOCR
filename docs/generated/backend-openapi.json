@@ -2239,32 +2239,6 @@
         ]
       }
     },
-    "/system/cpu": {
-      "get": {
-        "description": "Report logical CPU count and the active profile's default segmentation worker count.",
-        "operationId": "get_cpu_info_system_cpu_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
-                  "title": "Response Get Cpu Info System Cpu Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Get Cpu Info",
-        "tags": [
-          "system"
-        ]
-      }
-    },
     "/system/restart/cancel": {
       "post": {
         "description": "Cancel the matching unexpired restart token and remove its reservation file.\n\nReturn HTTP 409 when the token is missing, expired, or does not match the pending\nreservation.",

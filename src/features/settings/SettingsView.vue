@@ -55,6 +55,7 @@ const {
   outputDir,
   sidecarSelectedPath,
   sidecarCheckedPaths,
+  sidecarUptimeSummary,
   backendStartupIssue,
   healthProbeSummary,
   projectsProbeSummary,
@@ -173,6 +174,7 @@ const {
       </p>
 
       <ConnectivityDiagnostics :is-open="isDiagnosticsOpen" :is-refreshing="isRefreshingDiagnostics"
+        :sidecar-uptime-summary="sidecarUptimeSummary"
         :backend-mode="backendMode" :backend-runtime="backendRuntime" :sidecar-selected-path="sidecarSelectedPath"
         :sidecar-checked-paths="sidecarCheckedPaths" :frontend-origin="frontendOrigin" :frontend-port="frontendPort"
         :backend-status-url="backendStatusUrl" :backend-base-url="backendBaseUrl" :backend-port="backendPort"

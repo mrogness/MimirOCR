@@ -30,7 +30,6 @@ job failure semantics, and runtime errors that FastAPI does not infer from excep
 | GET | [`/projects/{project_id}/pages`](#get-projects-project-id-pages) | List Project Pages | projects |
 | GET | [`/projects/{project_id}/pages/{page_id}/image`](#get-projects-project-id-pages-page-id-image) | Get Project Page Image | projects |
 | GET | [`/projects/{project_id}/source-pdf`](#get-projects-project-id-source-pdf) | Get Project Source Pdf | projects |
-| GET | [`/system/cpu`](#get-system-cpu) | Get Cpu Info | system |
 | POST | [`/system/restart/cancel`](#post-system-restart-cancel) | Cancel Backend Restart | system |
 | POST | [`/system/restart/prepare`](#post-system-restart-prepare) | Prepare Backend Restart | system |
 | GET | [`/system/runtime`](#get-system-runtime) | Get Runtime Info | system |
@@ -471,16 +470,6 @@ prerequisites produce HTTP 404.
 |---|---|---|---|
 | 200 | Successful Response | application/json | Not declared |
 | 422 | Validation Error | application/json | [HTTPValidationError](#schema-httpvalidationerror) |
-
-## GET `/system/cpu` { #get-system-cpu }
-
-Report logical CPU count and the active profile's default segmentation worker count.
-
-### Declared responses
-
-| Status | Description | Content type | Schema |
-|---|---|---|---|
-| 200 | Successful Response | application/json | `object` |
 
 ## POST `/system/restart/cancel` { #post-system-restart-cancel }
 

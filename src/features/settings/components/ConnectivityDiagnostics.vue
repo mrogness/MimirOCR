@@ -9,6 +9,8 @@ defineProps({
   backendMode: String,
   /** Host-reported backend runtime description. */
   backendRuntime: String,
+  /** Formatted time since the current backend process was started. */
+  sidecarUptimeSummary: String,
   /** Backend executable or interpreter path selected by the desktop host. */
   sidecarSelectedPath: String,
   /** Candidate backend paths considered by the desktop host during startup. */
@@ -101,6 +103,7 @@ function handleToggle(event) {
         <dl class="grid grid-cols-1 gap-2 text-sm text-brand-700">
           <div><dt class="inline font-semibold">Backend mode:</dt> <dd class="inline">{{ backendMode || 'unknown' }}</dd></div>
           <div><dt class="inline font-semibold">Backend runtime:</dt> <dd class="inline">{{ backendRuntime || 'unknown' }}</dd></div>
+          <div><dt class="inline font-semibold">Backend uptime:</dt> <dd class="inline">{{ sidecarUptimeSummary || 'unknown' }}</dd></div>
           <div><dt class="inline font-semibold">Selected sidecar path:</dt> <dd class="inline">{{ sidecarSelectedPath || 'none' }}</dd></div>
           <div><dt class="inline font-semibold">Sidecar candidates checked:</dt> <dd class="inline">{{ sidecarCheckedPaths.length ? sidecarCheckedPaths.join(', ') : 'none' }}</dd></div>
           <div><dt class="inline font-semibold">Frontend origin:</dt> <dd class="inline">{{ frontendOrigin || 'unknown' }}</dd></div>

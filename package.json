@@ -34,14 +34,12 @@
   "dependencies": {
     "@floating-ui/vue": "^2.0.1",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2",
     "pdfjs-dist": "^6.1.200",
     "vue": "^3.5.13",
     "vue-router": "4"
   },
   "devDependencies": {
     "@babel/parser": "7.29.12",
-    "@tailwindcss/cli": "^4.3.1",
     "@tailwindcss/vite": "^4.3.1",
     "@tauri-apps/cli": "^2",
     "@vitejs/plugin-vue": "^5.2.1",

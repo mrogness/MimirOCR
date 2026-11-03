@@ -91,14 +91,6 @@ const overlayWasTruncated = computed(
   () => Array.isArray(props.linesWithGeometry) && props.linesWithGeometry.length > drawableLines.value.length
 )
 
-const drawableLineById = computed(() => {
-  const map = new Map()
-  for (const line of drawableLines.value) {
-    map.set(line.id, line)
-  }
-  return map
-})
-
 /**
  * Build the SVG clipping-path ID associated with one review line.
  */

@@ -66,10 +66,6 @@ const gridStyle = computed(() => ({
   gridTemplateColumns: `${leftWidth.value}px ${DIVIDER_WIDTH}px minmax(0, 1fr)`,
 }))
 
-const separatorStyle = computed(() => ({
-  left: `${leftWidth.value}px`,
-}))
-
 /**
  * Read a finite saved left-pane width from localStorage when a storage key is configured.
  */

@@ -74,7 +74,6 @@ async function probeEndpoint(url, path, timeoutMs = 2500) {
       status: String(response.status),
       elapsedMs: Math.round(performance.now() - start),
       error: '',
-      noCorsReachable: false,
     }
   } catch (error) {
     return {
@@ -82,7 +81,6 @@ async function probeEndpoint(url, path, timeoutMs = 2500) {
       status: 'error',
       elapsedMs: Math.round(performance.now() - start),
       error: String(error),
-      noCorsReachable: false,
     }
   } finally {
     clearTimeout(timeoutId)
