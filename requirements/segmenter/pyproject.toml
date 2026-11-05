@@ -4,8 +4,8 @@ version = "0.0.0"
 requires-python = "==3.11.*"
 dependencies = [
   "kraken==7.1.1",
-  "torch==2.9.0",
-  "torchvision==0.24.0",
+  "torch==2.10.0",
+  "torchvision==0.25.0",
   "coremltools==9.0",
   "pydantic==2.13.4",
   "numpy==2.2.6",
