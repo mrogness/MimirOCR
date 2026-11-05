@@ -15,7 +15,7 @@ dependencies = [
 
 [dependency-groups]
 build = ["pyinstaller==6.21.0", "pyinstaller-hooks-contrib==2026.6"]
-test = ["pytest==8.4.2", "pytest-cov==6.2.1", "httpx==0.28.1"]
+test = ["pytest==9.0.3", "pytest-cov==6.2.1", "httpx==0.28.1"]
 docs = [
   "mkdocs==1.6.1",
   "mkdocs-material==9.6.20",
