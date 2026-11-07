@@ -1,7 +1,7 @@
 {
   "name": "Mimir",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.3.1-test-release",
   "type": "module",
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
