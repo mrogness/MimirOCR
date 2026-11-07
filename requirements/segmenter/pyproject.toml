@@ -10,6 +10,7 @@ dependencies = [
   "pydantic==2.13.4",
   "numpy==2.2.6",
   "pillow==13.0.0",
+ " pytorch-lightning==2.6.6"
 ]
 
 [dependency-groups]
