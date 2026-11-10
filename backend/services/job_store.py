@@ -1,3 +1,8 @@
+"""Thread-protected, bounded in-memory upload and OCR-job status records.
+
+These records support polling within the current API process. Durable project
+content belongs to the persistence layer; this store is not a job database.
+"""
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import Lock
@@ -11,11 +16,13 @@ UPLOAD_TTL_SECONDS = 60 * 60
 
 
 def _utc_now() -> datetime:
+    """Return a timezone-aware UTC timestamp for upload and job records."""
     return datetime.now(timezone.utc)
 
 
 @dataclass
 class UploadedPdfRecord:
+    """An uploaded PDF's token, owner, on-disk location, and registration time."""
     upload_id: str
     project_id: int
     filename: str
@@ -25,6 +32,7 @@ class UploadedPdfRecord:
 
 @dataclass
 class OcrJobRecord:
+    """Mutable status snapshot exposed to frontend OCR polling."""
     job_id: str
     project_id: int
     upload_id: str
@@ -45,12 +53,24 @@ class OcrJobRecord:
 
 
 class JobStore:
+    """Maintain upload tokens and job snapshots under a lock.
+
+    Pruning removes expired upload registrations and limits retained records.
+    Removing a registration does not itself delete its file. Getters return
+    the stored records, rather than immutable copies.
+    """
     def __init__(self) -> None:
+        """Create empty upload/job registries and their synchronization lock."""
         self._lock = Lock()
         self._uploads: Dict[str, UploadedPdfRecord] = {}
         self._jobs: Dict[str, OcrJobRecord] = {}
 
     def register_upload(self, project_id: int, filename: str, stored_path: str) -> UploadedPdfRecord:
+        """Prune retained records and register a stored PDF under a new opaque upload ID.
+
+        This method records an existing file path; it neither writes nor validates the PDF
+        itself.
+        """
         upload_id = str(uuid.uuid4())
         record = UploadedPdfRecord(
             upload_id=upload_id,
@@ -65,14 +85,19 @@ class JobStore:
         return record
 
     def get_upload(self, upload_id: str) -> Optional[UploadedPdfRecord]:
+        """Look up the stored upload record under the lock, returning None when its token is
+        absent.
+        """
         with self._lock:
             return self._uploads.get(upload_id)
 
     def consume_upload(self, upload_id: str) -> Optional[UploadedPdfRecord]:
+        """Atomically remove and return an upload token so it cannot be submitted twice."""
         with self._lock:
             return self._uploads.pop(upload_id, None)
 
     def create_job(self, project_id: int, upload_id: str) -> OcrJobRecord:
+        """Prune retained records and create a queued job snapshot with a new opaque job ID."""
         job_id = str(uuid.uuid4())
         record = OcrJobRecord(
             job_id=job_id,
@@ -90,10 +115,12 @@ class JobStore:
         return record
 
     def get_job(self, job_id: str) -> Optional[OcrJobRecord]:
+        """Return the retained mutable job record under the lock, or None for an unknown ID."""
         with self._lock:
             return self._jobs.get(job_id)
 
     def list_project_jobs(self, project_id: int) -> List[OcrJobRecord]:
+        """Prune old records and return this project's job snapshots newest first."""
         with self._lock:
             self._prune_locked()
             jobs = [job for job in self._jobs.values() if job.project_id == project_id]
@@ -101,6 +128,7 @@ class JobStore:
         return jobs
 
     def clear_project_records(self, project_id: int) -> None:
+        """Remove all upload and job registrations for one project without deleting files."""
         with self._lock:
             self._uploads = {key: value for key, value in self._uploads.items() if value.project_id != project_id}
             self._jobs = {key: value for key, value in self._jobs.items() if value.project_id != project_id}
@@ -123,6 +151,11 @@ class JobStore:
         segmented_pages: Optional[int] = None,
         ocr_pages: Optional[int] = None,
     ) -> Optional[OcrJobRecord]:
+        """Update supplied fields of an existing job under the lock and return the same record.
+
+        Ignore fields whose arguments are None, clamp progress to 0..100 and page counts to
+        nonnegative values, and return None when the job has been removed.
+        """
         with self._lock:
             job = self._jobs.get(job_id)
             if not job:
@@ -158,6 +191,11 @@ class JobStore:
             return job
 
     def _prune_locked(self) -> None:
+        """Discard expired upload registrations and trim excess uploads/jobs oldest first.
+
+        The caller must hold the store lock. Pruning removes metadata only and is performed
+        during selected store operations, not by a background timer.
+        """
         now = _utc_now()
         expired_upload_ids = [
             upload_id

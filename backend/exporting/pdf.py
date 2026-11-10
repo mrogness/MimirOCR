@@ -1,3 +1,8 @@
+"""Render corrected OCR text as source-line or reflowed reading PDFs.
+
+Page geometry arrives in image pixels; layout code converts it to PDF points.
+ExportPdfRequest controls font, page size, normalization, and fitting behavior.
+"""
 from __future__ import annotations
 
 import json
@@ -43,6 +48,9 @@ PAGE_SIZES = {
 
 
 def _pdf_export_filename(project_name: str) -> str:
+    """Build an ASCII-safe PDF attachment name from the project name, falling back to
+    project_export.pdf.
+    """
     base = re.sub(r"\s+", "_", (project_name or "").strip())
     base = re.sub(r"[^a-zA-Z0-9_-]+", "", base)
     base = base.strip("_")
@@ -51,6 +59,7 @@ def _pdf_export_filename(project_name: str) -> str:
 
 @dataclass
 class LineLayout:
+    """Normalized line text and its source bounding box in raster-image pixels."""
     text: str
     x_min: float
     y_min: float
@@ -60,6 +69,9 @@ class LineLayout:
 
 @dataclass
 class RenderLine:
+    """A wrapped output segment with indentation in PDF points and an optional blank-line
+    marker.
+    """
     text: str
     indent_pt: float
     is_blank: bool = False
@@ -71,6 +83,9 @@ def _line_text(
     normalize_long_s: bool,
     normalize_double_oblique_hyphen: bool,
 ) -> str:
+    """Trim a transcription, apply the requested historical-character replacements, and
+    sanitize it for built-in PDF fonts.
+    """
     text = (raw_text or "").strip()
     if normalize_low_double_quote:
         text = text.replace("\u201e", '"')
@@ -87,6 +102,12 @@ def _line_text(
 
 
 def _sanitize_for_builtin_pdf_fonts(text: str) -> str:
+    """Replace common Unicode punctuation/ligatures and encode unsupported Latin-1 glyphs as
+    replacement characters.
+
+    The built-in ReportLab font path does not preserve arbitrary Unicode; this helper
+    prevents unsupported characters from rendering as missing-glyph boxes.
+    """
     replacement_map = {
         "\u00A0": " ",
         "\u2018": "'",
@@ -117,6 +138,9 @@ def _sanitize_for_builtin_pdf_fonts(text: str) -> str:
 
 
 def _extract_bbox(raw_bbox: Optional[str]) -> Optional[Tuple[float, float, float, float]]:
+    """Decode a stored JSON dictionary into four float coordinates, returning None for
+    malformed or nonnumeric geometry.
+    """
     if not raw_bbox:
         return None
 
@@ -140,6 +164,12 @@ def _extract_bbox(raw_bbox: Optional[str]) -> Optional[Tuple[float, float, float
 
 
 def _word_wrap(text: str, max_width_pt: float, font_size: float) -> List[str]:
+    """Wrap whitespace-separated text using an estimated glyph width rather than exact font
+    metrics.
+
+    Return one empty segment for empty text and preserve an oversized token rather than
+    splitting the word itself.
+    """
     if not text:
         return [""]
 
@@ -174,6 +204,9 @@ def _to_layout_lines(
     normalize_long_s: bool,
     normalize_double_oblique_hyphen: bool,
 ) -> List[LineLayout]:
+    """Convert persisted lines with nonempty text and usable JSON boxes to normalized source-
+    layout records.
+    """
     prepared: List[LineLayout] = []
 
     for line in db_lines:
@@ -194,6 +227,12 @@ def _to_layout_lines(
 
 
 def _split_spread(lines: List[LineLayout], page_width: Optional[int]) -> Tuple[List[LineLayout], List[LineLayout], float]:
+    """Partition lines by their left edge relative to the page midpoint and sort each side
+    geometrically.
+
+    Return left lines, right lines, and the midpoint; estimate the midpoint from line starts
+    when the page width is unavailable.
+    """
     if not lines:
         return [], [], 1.0
 
@@ -225,6 +264,9 @@ def _render_lines_for_region(
     content_width_pt: float,
     font_size: float,
 ) -> List[RenderLine]:
+    """Convert source indentation to PDF points, wrap text, and insert blank lines for large
+    vertical gaps.
+    """
     if not lines:
         return []
 
@@ -256,6 +298,11 @@ def _render_lines_for_region(
 
 
 def _build_virtual_pages(db_page, request: ExportPdfRequest, content_width_pt: float) -> List[List[RenderLine]]:
+    """Turn one source page into one output region or ordered left/right spread regions.
+
+    Preserve an empty spread side so book-page sequencing is retained even when one side
+    contains no usable text.
+    """
     ordered = sorted(db_page.lines, key=lambda line: ((line.line_order or 10**9), line.id))
     lines = _to_layout_lines(
         ordered,
@@ -311,10 +358,18 @@ def _fit_lines_for_page(
     line_spacing: float,
     fit_to_page: bool,
 ) -> Tuple[List[RenderLine], float, float]:
+    """Wrap lines at the base font size and optionally shrink them to reduce vertical overflow.
+
+    Return prepared segments, chosen font size, and leading. Shrinking is bounded by the
+    scale and six-point minimum, so very dense content can still overflow.
+    """
     if not lines:
         return [], base_font_size, base_font_size * line_spacing
 
     def _effective(font_size: float) -> Tuple[List[RenderLine], float]:
+        """Rewrap nonblank segments for a candidate font size and estimate their total vertical
+        height.
+        """
         adjusted: List[RenderLine] = []
         for line in lines:
             if line.is_blank:
@@ -345,6 +400,13 @@ def _render_reading_mode_pdf(
     page_size: tuple[float, float],
     margin: float,
 ) -> BytesIO:
+    """Infer paragraphs from source regions and flow them across PDF pages with capped
+    indentation.
+
+    Escape transcription text before passing it to ReportLab's paragraph markup parser.
+    Raise ExportError for missing rendering dependencies or no usable paragraphs, and return
+    a rewound BytesIO buffer.
+    """
     if SimpleDocTemplate is None or Paragraph is None or ParagraphStyle is None:
         raise ExportError(
             status_code=500,
@@ -419,6 +481,7 @@ def _render_reading_mode_pdf(
 
 
 def ensure_pdf_dependency() -> None:
+    """Raise an HTTP-adaptable ExportError when ReportLab's PDF canvas could not be imported."""
     if canvas is None:
         raise ExportError(
             status_code=500,
@@ -430,7 +493,20 @@ def ensure_pdf_dependency() -> None:
 
 
 def build_pdf(project_name: str, db_pages: list, request: ExportPdfRequest) -> ExportArtifact:
-    """Render a PDF using the existing layout, normalization, and filename rules."""
+    """Render persisted review text with source-line or reading/reflow layout.
+
+    Args:
+        project_name: Display name used to derive the download filename.
+        db_pages: Persisted pages with their line records and image dimensions.
+        request: Font, paper, margins, text normalization, and fitting settings.
+
+    Returns:
+        ExportArtifact: An in-memory PDF stream with filename and media type.
+
+    Raises:
+        ExportError: The PDF dependency is unavailable or no usable text/pages
+            can be exported.
+    """
     ensure_pdf_dependency()
     if not db_pages:
         raise ExportError(status_code=400, detail="No OCR pages available for export")

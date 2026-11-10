@@ -1,3 +1,4 @@
+"""Persist review text edits, line deletion, and undo restoration through HTTP."""
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +19,9 @@ router = APIRouter(prefix="/lines", tags=["lines"])
 
 
 def _line_to_read_payload(line) -> ProjectLineRead:
+    """Convert a persisted line to its HTTP schema, decoding stored geometry and character-
+    position JSON.
+    """
     bbox = json.loads(line.bounding_box) if line.bounding_box else None
     polygon_points = json.loads(line.polygon_points) if line.polygon_points else None
     char_positions = json.loads(line.char_positions) if line.char_positions else None
@@ -38,6 +42,11 @@ def _line_to_read_payload(line) -> ProjectLineRead:
 
 @router.patch("/{line_id}", response_model=LineUpdateResponse)
 def update_line(line_id: int, payload: LineUpdateRequest, db: Session = Depends(get_db)) -> LineUpdateResponse:
+    """Persist corrected text and optional ordering, returning the refreshed review line.
+
+    When the supplied line ID is absent, optionally locate the line by page ID and order.
+    Return HTTP 404 when neither lookup finds a line.
+    """
     line = repository.get_line(db, line_id)
     if not line and payload.page_id is not None and payload.line_order is not None:
         line = repository.get_line_by_page_and_order(db, payload.page_id, payload.line_order)
@@ -50,6 +59,11 @@ def update_line(line_id: int, payload: LineUpdateRequest, db: Session = Depends(
 
 @router.post("/restore", response_model=LineRestoreResponse)
 def restore_line(payload: LineRestoreRequest, db: Session = Depends(get_db)) -> LineRestoreResponse:
+    """Restore a deleted review line and its saved page ordering.
+
+    Map a missing page to HTTP 404, an occupied line ID to 409, and an invalid restoration
+    snapshot to 400.
+    """
     try:
         restored = repository.restore_deleted_line(db, payload.line, payload.line_orders)
     except LookupError as error:
@@ -68,6 +82,9 @@ def restore_line(payload: LineRestoreRequest, db: Session = Depends(get_db)) -> 
 
 @router.delete("/{line_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_line(line_id: int, db: Session = Depends(get_db)) -> Response:
+    """Delete a persisted review line and return an empty HTTP 204 response; an unknown ID
+    produces 404.
+    """
     line = repository.get_line(db, line_id)
     if not line:
         raise HTTPException(status_code=404, detail="Line not found")

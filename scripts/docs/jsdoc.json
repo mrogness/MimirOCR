@@ -1,0 +1,6 @@
+{
+  "plugins": ["./scripts/docs/jsdoc-source.cjs"],
+  "source": { "includePattern": ".+\\.(js|vue)$" },
+  "opts": { "encoding": "utf8" },
+  "recurseDepth": 20
+}

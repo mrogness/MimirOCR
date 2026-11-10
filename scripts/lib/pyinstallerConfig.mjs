@@ -19,6 +19,7 @@ export function createPyInstallerArgs(root, role, krakenModel) {
   } else if (role === 'recognizer') {
     args.push('--exclude-module', 'backend.workers.segmenter',
       '--collect-all', 'calamari_ocr',
+      '--collect-submodules', 'tf_keras',
       '--hidden-import', 'tensorflow.python.profiler.trace',
       '--collect-submodules', 'tensorflow.compiler.tf2tensorrt',
       '--add-data', `${path.join(root, 'backend/ml/calamari')}${separator}backend/ml/calamari`,

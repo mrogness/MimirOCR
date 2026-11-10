@@ -1,3 +1,4 @@
+<!-- @file Explain the intended uses of source-line and reading exports and the checks to make before downloading. -->
 <template>
   <section id="exporting" class="scroll-mt-6 space-y-5" aria-labelledby="exporting-title">
     <header>

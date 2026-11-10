@@ -8,21 +8,6 @@ use super::state::{
 };
 
 #[tauri::command]
-pub fn greet(name: &str) -> String {
-    format!("Hello, {name}! You've been greeted from Rust!")
-}
-
-#[tauri::command]
-pub fn backend_url(state: State<'_, BackendState>) -> Option<String> {
-    reconcile_backend_child_state(&state);
-    let slot = state
-        .port
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    (*slot).map(frontend_backend_url)
-}
-
-#[tauri::command]
 pub fn backend_status(state: State<'_, BackendState>) -> BackendStatus {
     reconcile_backend_child_state(&state);
     BackendStatus {
@@ -84,18 +69,5 @@ pub fn restart_backend(
             *state.startup_error.lock().unwrap_or_else(|p| p.into_inner()) = Some(error.clone());
             Err(error)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::greet;
-
-    #[test]
-    fn greet_formats_message() {
-        assert_eq!(
-            greet("Mimir"),
-            "Hello, Mimir! You've been greeted from Rust!".to_string()
-        );
     }
 }

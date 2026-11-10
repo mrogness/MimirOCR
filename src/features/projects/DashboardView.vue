@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * @file Project dashboard presenting creation, selection, deletion, and backend startup
+ * feedback.
+ */
 import { useRouter } from 'vue-router'
 
 import { useDashboard } from './composables/useDashboard'

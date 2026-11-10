@@ -1,3 +1,6 @@
+/**
+ * @file Connect reactive review selection and display scaling to the pure geometry helpers.
+ */
 import { computed } from 'vue'
 import {
   buildSuspiciousCharacterBoxes,
@@ -7,6 +10,12 @@ import {
   shouldRenderPolygon as canRenderPolygon,
 } from '../geometry'
 
+/**
+ * Derive renderable lines, image scale factors, and suspicious-character rectangles from
+ * reactive review state.
+ * @param {object} inputs - Selected page/lines, rendered dimensions, overlay flags, and confidence-segment lookup.
+ * @returns {object} Computed geometry and polygon-rendering helpers.
+ */
 export function useReviewGeometry({
   selectedPage,
   selectedPageLines,
@@ -53,7 +62,15 @@ export function useReviewGeometry({
     boxScaleX,
     boxScaleY,
     suspiciousCharBoxes,
+    /**
+     * Choose polygon rendering for a line using the current overlay preference and available
+     * geometry.
+     */
     shouldRenderPolygon: (line) => canRenderPolygon(line, usePolygonOverlay.value),
+    /**
+     * Format source polygon points for SVG using the current horizontal and vertical image
+     * scale factors.
+     */
     polygonPointsString: (points) => formatPolygonPoints(points, boxScaleX.value, boxScaleY.value),
   }
 }

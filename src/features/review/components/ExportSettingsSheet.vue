@@ -1,20 +1,39 @@
 <script setup>
+/**
+ * @file Collect PDF layout and normalization choices and emit export requests.
+ */
 import { onBeforeUnmount, watch } from 'vue'
 
 const props = defineProps({
+  /** Whether the export settings sheet is visible. */
   show: { type: Boolean, required: true },
+  /** Parent-owned mutable PDF export settings edited by the sheet's controls. */
   settings: { type: Object, required: true },
+  /** Whether a PDF or training-data download is currently being prepared. */
   isExporting: { type: Boolean, required: true },
 })
 
-const emit = defineEmits(['close', 'export-pdf', 'export-training-data'])
+const emit = defineEmits([
+  /** Request closure of the export settings sheet when it is not busy. */
+  'close',
+  /** Request a PDF export using the current parent-owned settings. */
+  'export-pdf',
+  /** Request the project's line-image/ground-truth training ZIP. */
+  'export-training-data',
+])
 
+/**
+ * Request dialog closure only when an export is not currently running.
+ */
 function closeDialog() {
   if (!props.isExporting) {
     emit('close')
   }
 }
 
+/**
+ * Handle Escape for an open export sheet, respecting the busy-state closure guard.
+ */
 function onKeydown(event) {
   if (event.key === 'Escape' && props.show) {
     closeDialog()

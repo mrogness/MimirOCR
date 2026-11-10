@@ -11,6 +11,9 @@ isolated while preserving a single API surface for the frontend.
 
 ## Source map
 
+Browse signatures, classes, methods, and docstrings in the generated
+[backend source reference](../reference/index.md).
+
 | Package or module | Responsibility |
 |---|---|
 | `backend/main.py` | FastAPI app creation, CORS/middleware setup, startup/shutdown hooks |
@@ -54,9 +57,9 @@ recognition, and communicate with the API via the shared worker protocol.
 
 ## Legacy layout notes
 
-The migration from older module locations is complete. `backend/stages/` and
-`backend/models/` are retained only as empty directories (with generated cache
-contents) and are not part of the active source layout.
+The active layout is the package map above. Older `backend/stages/` and
+`backend/models/` paths are not tracked source directories. Local cache directories
+left by an earlier checkout do not indicate active packages.
 
 ## Validation references
 

@@ -1,50 +1,90 @@
 <script setup>
+/**
+ * @file Present recognized lines and relay review interactions to the parent workspace.
+ */
 import PredictedLineRow from './PredictedLineRow.vue'
 
 const props = defineProps({
+  /** Current page's review lines in displayed reading order. */
   selectedPageLines: { type: Array, required: true },
+  /** Transiently active line ID used by hover and image-overlay highlighting. */
   activeLineId: { type: Number, default: null },
+  /** Selected persistent line ID shared by the text panel and image overlay. */
   selectedLineId: { type: Number, default: null },
+  /** Per-line save-status/message map used to show pending, saving, saved, and error feedback. */
   lineSaveState: { type: Object, required: true },
+  /** Whether low-confidence character hints and their navigation should be displayed. */
   showSuspiciousHints: { type: Boolean, required: true },
+  /** Character-confidence cutoff on the 0..1 probability scale. */
   suspiciousThreshold: { type: Number, required: true },
+  /** Number of suspicious character targets on the current page. */
   suspiciousCount: { type: Number, default: 0 },
+  /** One-based position of the active suspicious target, or zero when none is active. */
   currentSuspiciousIndex: { type: Number, default: 0 },
+  /** Available review panel height in CSS pixels. */
   panelViewportHeight: { type: Number, required: true },
+  /** Callback reporting whether a review line has any suspicious character segments. */
   lineHasSuspiciousChars: { type: Function, required: true },
+  /** Callback returning the cached character-analysis records for a given review line. */
   suspiciousSegmentsForLine: { type: Function, required: true },
+  /** Callback receiving a line ID and row element, or null on release, for synchronized scrolling. */
   rowRefFn: { type: Function, required: true },
 })
 
 const emit = defineEmits([
+  /** Emit whether suspicious-character hints should be visible. */
   'update:showSuspiciousHints',
+  /** Emit the numeric confidence cutoff on the 0..1 probability scale. */
   'update:suspiciousThreshold',
+  /** Request advancing to the next suspicious character on this page. */
   'next-suspicious',
+  /** Emit the line ID to highlight transiently. */
   'set-active-line',
+  /** Request clearing transient line highlighting. */
   'clear-active-line',
+  /** Emit the persistent line ID selected by the user. */
   'select-line',
+  /** Emit a review line and relative order offset for a reorder operation. */
   'move-line',
+  /** Emit a review line and raw absolute-order input for parent validation. */
   'commit-line-order-input',
+  /** Emit the review line whose deletion is requested. */
   'delete-line',
+  /** Emit a review line and its edited transcription string. */
   'line-input',
 ])
 
+/**
+ * Emit the checkbox state as the requested suspicious-character visibility setting.
+ */
 function onToggleSuspiciousHints(event) {
   emit('update:showSuspiciousHints', event.target.checked)
 }
 
+/**
+ * Convert the confidence-threshold input to a number and emit the new cutoff.
+ */
 function onThresholdInput(event) {
   emit('update:suspiciousThreshold', Number(event.target.value))
 }
 
+/**
+ * Relay a review line and relative order offset to the parent editing workflow.
+ */
 function onMoveLine(line, offset) {
   emit('move-line', line, offset)
 }
 
+/**
+ * Relay a review line and raw absolute-order input to the parent editing workflow.
+ */
 function onCommitLineOrderInput(line, value) {
   emit('commit-line-order-input', line, value)
 }
 
+/**
+ * Relay a review line and corrected text to the parent's save handler.
+ */
 function onLineInput(line, value) {
   emit('line-input', line, value)
 }

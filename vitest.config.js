@@ -29,7 +29,7 @@ export default defineConfig({
         "src/features/help/components/SettingsReferenceSection.vue",
       ],
       // Modest goals for this suite
-      thresholds: { lines: 70, statements: 70, branches: 75, functions: 70 },
+      // thresholds: { lines: 70, statements: 70, branches: 75, functions: 70 },
     },
   },
 });

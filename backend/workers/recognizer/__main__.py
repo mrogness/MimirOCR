@@ -3,7 +3,13 @@ from backend.workers.server import serve
 
 
 def initialize(config):
+    """Set TensorFlow thread limits, load one predictor, and return the page handler that
+    reuses it with the configured I/J policy.
+    """
     import os
+
+    # The upstream Calamari branch uses the Keras 2 API provided by tf-keras.
+    os.environ["TF_USE_LEGACY_KERAS"] = "1"
     import tensorflow as tf
     from backend.workers.recognizer.engine import create_predictor, ocr_with_predictor
 

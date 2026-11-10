@@ -15,6 +15,7 @@ router = APIRouter(prefix="/export", tags=["export"])
 
 
 def _response(artifact: ExportArtifact) -> StreamingResponse:
+    """Stream an export buffer with its media type and attachment filename."""
     return StreamingResponse(
         artifact.buffer,
         media_type=artifact.media_type,
@@ -23,6 +24,11 @@ def _response(artifact: ExportArtifact) -> StreamingResponse:
 
 
 def _pdf_response(project_id: int, request: ExportPdfRequest, db: Session) -> StreamingResponse:
+    """Load a project's persisted pages and render its PDF export.
+
+    Check the rendering dependency before querying, report missing projects as HTTP 404, and
+    translate ExportError into the corresponding HTTP error.
+    """
     try:
         # Preserve the existing dependency check before querying the project.
         ensure_pdf_dependency()
@@ -41,6 +47,9 @@ def export_project_pdf_post(
     request: ExportPdfRequest,
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
+    """Download a project PDF using layout and normalization options from the JSON request
+    body.
+    """
     return _pdf_response(project_id, request, db)
 
 
@@ -50,11 +59,17 @@ def export_project_pdf_get(
     request: ExportPdfRequest = Depends(),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
+    """Download a project PDF using export options supplied as query parameters."""
     return _pdf_response(project_id, request, db)
 
 
 @router.get("/projects/{project_id}/training-data")
 def export_project_training_data(project_id: int, db: Session = Depends(get_db)) -> StreamingResponse:
+    """Download a ZIP of eligible line crops and transcriptions.
+
+    Return HTTP 404 for a missing project and translate archive-generation failures into
+    their declared HTTP status.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

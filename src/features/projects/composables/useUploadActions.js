@@ -1,7 +1,16 @@
+/**
+ * @file Validate and upload the selected PDF, construct OCR job requests, and update
+ * submission feedback.
+ */
 import { ref, watch } from 'vue'
 
 import { getProjectSettings, saveProjectSettings } from '../../../shared/services/appSettings'
 
+/**
+ * Manage per-project OCR settings, source-DPI analysis, PDF upload, and job admission.
+ * @param {object} dependencies - Project/run refs, backend access, timer/polling helpers, and runtime refresh callbacks.
+ * @returns {object} Upload/analysis feedback, settings refs, PDF selection, and submit handlers.
+ */
 export function useUploadActions({
   backendFetch,
   project,
@@ -41,11 +50,18 @@ export function useUploadActions({
 
   let dpiAnalysisRequestId = 0
 
+  /**
+   * Parse a positive integer setting or return the caller's default.
+   */
   function toPositiveInteger(value, fallback) {
     const n = Number.parseInt(value, 10)
     return Number.isFinite(n) && n >= 1 ? n : fallback
   }
 
+  /**
+   * Load the selected project's persisted ingestion, spread, reading-order, and I/J settings
+   * into controls.
+   */
   function loadProjectScopedSettings() {
     const settings = getProjectSettings(project.value?.id)
     dpiInput.value = String(settings.dpi)
@@ -55,6 +71,10 @@ export function useUploadActions({
     ijDisambiguation.value = settings.ijDisambiguation !== false
   }
 
+  /**
+   * Normalize current controls and save settings only when a persistent project ID is
+   * available.
+   */
   function persistProjectScopedSettings() {
     if (!project.value?.id) return
     saveProjectSettings(project.value.id, {
@@ -75,6 +95,10 @@ export function useUploadActions({
     void analyzeSelectedPdf(file)
   })
 
+  /**
+   * Capture the first selected File, clear the file input for reselection, and reset stale
+   * run feedback when no OCR run is active.
+   */
   function onPdfSelected(event) {
     selectedPdf.value = event.target.files?.[0] || null
     event.target.value = ''
@@ -96,11 +120,20 @@ export function useUploadActions({
     }
   }
 
+  /**
+   * Read an API error detail/message when possible, otherwise include the HTTP status in a
+   * fallback message.
+   */
   async function errorFromResponse(response, fallback) {
     const body = await response.json().catch(() => ({}))
     return body.detail?.message || body.detail || `${fallback} (${response.status})`
   }
 
+  /**
+   * Request a scan-DPI estimate for the selected file and apply a validated recommendation.
+   * Ignore responses for superseded file selections and preserve current-request error/busy
+   * state.
+   */
   async function analyzeSelectedPdf(file) {
     const requestId = ++dpiAnalysisRequestId
 
@@ -158,6 +191,11 @@ export function useUploadActions({
     }
   }
 
+  /**
+   * Validate project/file selection and runtime availability, upload the PDF, and submit its
+   * token with OCR overrides. Initialize timing, persistence, and polling on success; expose
+   * failures and refresh shared runtime state.
+   */
   async function uploadPdfAndStartOcr() {
     if (!project.value) {
       uploadError.value = 'Project must be loaded before uploading.'

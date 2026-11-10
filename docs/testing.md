@@ -40,7 +40,7 @@ router with the same routes in the same order.
 
 ## Vue: unit and component tests
 
-Use Node 22 and Yarn Classic 1.22.22, matching CI:
+Use Node 22.22.2 or newer within Node 22 and Yarn Classic 1.22.22, matching CI:
 
 ```sh
 corepack enable
@@ -145,7 +145,7 @@ the packaged backend starts or that OCR quality improved.
 ## Production dependency and real inference checks
 
 The separate `.github/workflows/ml-runtime-tests.yml` workflow installs all
-three production environments on Windows x64 and macOS ARM with Python 3.10.
+three production environments on Windows x64 and macOS ARM with Python 3.11.
 It runs on every PR, on `main` pushes, and on manual dispatch, so its two checks
 can be required without leaving unrelated PRs waiting for a path-filtered job.
 Setup uses committed locks and exact sync, never a cached application environment.
@@ -153,7 +153,7 @@ It inventories and audits the production packages before adding backend test too
 Audit findings are advisory and uploaded per runtime; installation and inference
 failures remain blocking. See [dependency management](maintenance/dependencies.md).
 
-Run the same checks locally from the repository root with Python 3.10 and Node
+Run the same checks locally from the repository root with a host Python and Node
 22 (these commands do not build executables or require frontend dependencies):
 
 ```sh
@@ -166,8 +166,9 @@ yarn test:ml
 The driver uses the backend environment's pytest and the existing
 `MIMIR_SEGMENTER_PYTHON` / `MIMIR_RECOGNIZER_PYTHON` overrides. ML packages are
 imported only in their owning runtime processes. Preflight prints each runtime's
-interpreter, verifies Kraken 7.1.1, imports the task/configuration/extraction APIs
-used by the adapter, and runs `uv pip check` for every environment. Each role uses its own lockfile.
+interpreter, checks Python 3.11, verifies the pinned Kraken version, imports the Kraken adapter
+APIs and Calamari predictor, and runs `uv pip check` for every environment. Each
+role uses its own lockfile; the host Python only launches setup.
 PyInstaller is only required by preflight when `--build` is passed.
 
 `pytest-ml.ini` keeps the real-model tests out of the default model-free

@@ -6,6 +6,8 @@ on:
     paths:
       - "requirements/**"
       - "scripts/**"
+      - "src-tauri/tauri*.conf.json"
+      - "src-tauri/windows/**"
       - ".github/workflows/build-artifacts.yml"
       - ".github/workflows/ml-runtime-tests.yml"
   push:
@@ -49,7 +51,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -114,7 +116,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -143,7 +145,12 @@ jobs:
         run: yarn build:sidecar
 
       - name: Build unsigned Windows installer
-        run: node scripts/package_desktop.mjs win32
+        run: |
+          Get-ChildItem src-tauri/resources -Directory | ForEach-Object {
+            $bytes = (Get-ChildItem $_.FullName -Recurse -File | Measure-Object Length -Sum).Sum
+            Write-Host ("{0}: {1:N1} MiB" -f $_.Name, ($bytes / 1MB))
+          }
+          node scripts/package_desktop.mjs win32
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v5

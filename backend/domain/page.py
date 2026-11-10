@@ -1,3 +1,4 @@
+"""Rasterized pages, ordered text lines, and page-level confidence helpers."""
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -6,6 +7,12 @@ from backend.domain.line import Line
 
 
 class Page(BaseModel):
+    """A zero-based source page and its lines in raster-image coordinates.
+
+    The image dimensions define the geometry shared with workers. Reading
+    order is stored in line metadata and is applied by ``ordered_lines``;
+    the physical order of ``lines`` need not already match it.
+    """
     id: str
     page_number: int
 
@@ -19,13 +26,18 @@ class Page(BaseModel):
 
     @property
     def text(self) -> str:
+        """Join lines in reading order, preferring nonempty corrected text."""
         return "\n".join(l.correct_text or l.ocr_text or "" for l in self.ordered_lines())
 
     def ordered_lines(self) -> list[Line]:
+        """Return a sorted copy using source order, then top/left coordinates."""
         return sorted(self.lines, key=lambda l: (self._source_order(l), *self._xy_from_bbox(l.bbox)))
 
     @staticmethod
     def _xy_from_bbox(bbox: object) -> tuple[float, float]:
+        """Return a top/left sorting key for dictionary or sequence boxes; missing coordinates
+        sort last.
+        """
         if isinstance(bbox, dict):
             y = bbox.get("y_min")
             x = bbox.get("x_min")
@@ -46,25 +58,32 @@ class Page(BaseModel):
 
     @staticmethod
     def _source_order(line: Line) -> int:
+        """Read the segmenter's integer source-order index, placing lines without one after
+        indexed lines.
+        """
         meta = line.baseline_info if isinstance(line.baseline_info, dict) else {}
         order = meta.get("source_order")
         return order if isinstance(order, int) else 10**9
 
     @property
     def confidence(self) -> float | None:
+        """Average available line scores; return None when no line is scored."""
         # average of lines that have a confidence score
         scored = [l.confidence for l in self.lines if l.confidence is not None]
         return sum(scored) / len(scored) if scored else None
 
     def get_low_confidence_lines(self, threshold: float = 0.8) -> list[Line]:
+        """Return scored lines below threshold; unscored lines are excluded."""
         return [l for l in self.lines if l.confidence is not None and l.confidence < threshold]
 
     def sort_lines(self) -> None:
+        """Replace the line list with geometric top-to-bottom, left-to-right order."""
         sorted_lines = list(self.lines)
         sorted_lines.sort(key=lambda l: self._xy_from_bbox(l.bbox))
         self.lines = sorted_lines
 
     def update_line(self, line_id: str, new_text: str) -> None:
+        """Correct the first matching line; do nothing when the ID is absent."""
         for line in self.lines:
             if line.id == line_id:
                 line.update_text(new_text)

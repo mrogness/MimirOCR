@@ -1,5 +1,15 @@
+/**
+ * @file Load persisted pages and lines, maintain review selection, and construct page-image
+ * URLs. Request generations prevent obsolete project responses from replacing the current
+ * view.
+ */
 import { computed, ref } from 'vue'
 
+/**
+ * Create reactive review data and page/line selection for the current project.
+ * @param {object} dependencies - Project ID ref, backend access, and viewport reset callback.
+ * @returns {object} Page data, selection refs, image URLs, and loading/navigation helpers.
+ */
 export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUrl, resetViewportState }) {
   const backendBaseUrl = ref('')
   const pages = ref([])
@@ -33,6 +43,9 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     return `${backendBaseUrl.value}/projects/${projectId.value}/pages/${selectedPage.value.id}/image?v=${cacheKey}`
   })
 
+  /**
+   * Normalize a page payload to an array and ensure every page has a line array.
+   */
   function normalizeProjectPages(rawPages) {
     if (!Array.isArray(rawPages)) {
       return []
@@ -44,6 +57,10 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     }))
   }
 
+  /**
+   * Fetch and normalize a project's persisted review pages, throwing for non-success HTTP
+   * responses.
+   */
   async function fetchProjectPages(id = projectId.value) {
     const response = await backendFetch(`/projects/${id}/pages`)
     if (!response.ok) {
@@ -54,6 +71,10 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     return normalizeProjectPages(data.pages)
   }
 
+  /**
+   * Load the current project's pages and backend URL, reset page/line selection and viewport
+   * state, and ignore obsolete load generations.
+   */
   async function loadReviewData() {
     const generation = ++loadGeneration
     const requestedProjectId = projectId.value
@@ -80,6 +101,10 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     }
   }
 
+  /**
+   * Replace page data after a write/recovery while retaining the selected page ID and line
+   * IDs when the project/load generation is still current.
+   */
   async function refreshPagesPreservingSelection() {
     const generation = loadGeneration
     const requestedProjectId = projectId.value
@@ -102,6 +127,10 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     activeLineId.value = activeId
   }
 
+  /**
+   * Clamp a zero-based page index, synchronize the one-based input, and clear active/selected
+   * lines.
+   */
   function selectPage(index) {
     if (pages.value.length === 0) {
       selectedPageIndex.value = 0
@@ -116,22 +145,38 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     selectedLineId.value = null
   }
 
+  /**
+   * Select the first available review page through the shared clamping helper.
+   */
   function goToFirstPage() {
     selectPage(0)
   }
 
+  /**
+   * Move one review page backward without passing the first page.
+   */
   function goToPreviousPage() {
     selectPage(selectedPageIndex.value - 1)
   }
 
+  /**
+   * Move one review page forward without passing the last page.
+   */
   function goToNextPage() {
     selectPage(selectedPageIndex.value + 1)
   }
 
+  /**
+   * Select the final review page, using the empty-dataset fallback when no pages exist.
+   */
   function goToLastPage() {
     selectPage(pages.value.length - 1)
   }
 
+  /**
+   * Convert the one-based page input into a clamped selection, restoring the displayed number
+   * for invalid input.
+   */
   function commitPageInput() {
     const parsed = Number.parseInt(pageInputValue.value, 10)
     if (!Number.isFinite(parsed)) {
@@ -142,14 +187,24 @@ export function useProjectReviewData({ projectId, backendFetch, getBackendBaseUr
     selectPage(parsed - 1)
   }
 
+  /**
+   * Set the transient active line ID used by hover/overlay highlighting.
+   */
   function setActiveLine(lineId) {
     activeLineId.value = lineId
   }
 
+  /**
+   * Clear transient line highlighting without changing persistent selection.
+   */
   function clearActiveLine() {
     activeLineId.value = null
   }
 
+  /**
+   * Set both selected and active line IDs so text and image overlays highlight the same
+   * record.
+   */
   function selectLine(lineId) {
     selectedLineId.value = lineId
     activeLineId.value = lineId

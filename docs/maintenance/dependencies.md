@@ -9,19 +9,19 @@ Unused historical constraints are removed; upstream engine dependencies remain.
 | Project | Managed environment | Production responsibilities |
 |---|---|---|
 | `requirements/backend/` | `.venvs/backend` | FastAPI, SQLAlchemy, PDF preparation and export |
-| `requirements/segmenter/` | `.venvs/segmenter` | Kraken 7.1.1, Torch, line segmentation |
-| `requirements/recognizer/` | `.venvs/recognizer` | Calamari 2.3.1, TensorFlow/Keras 2.15, recognition |
+| `requirements/segmenter/` | `.venvs/segmenter` | Kraken `910e55e`, Torch, line segmentation |
+| `requirements/recognizer/` | `.venvs/recognizer` | Calamari `tf-keras` branch, TensorFlow and TF-Keras 2.21, recognition |
 
 The supported desktop targets remain macOS ARM and Windows x64. The API also
 supports Linux for model-free tests and documentation. All projects currently
-require Python 3.10; this migration does not upgrade the ML engines or models.
+require Python 3.11; the current locks retain the documented ML engine/model versions.
 Interpreter requirements live in each manifest. A future interpreter migration
 also needs corresponding preflight checks, wheel availability, and native tests.
 
 ## Setup and optional tools
 
 Install `uv==0.13.4`, then use the host Python to run setup. The host interpreter
-does not have to be Python 3.10: uv selects a compatible installed interpreter or
+does not have to be Python 3.11: uv selects a compatible installed interpreter or
 downloads one. Commands below are identical on Windows and macOS.
 
 ```sh
@@ -67,11 +67,60 @@ the complete lock diff, including compatible child-package updates. Dependency
 metadata compatibility is necessary but does not prove successful inference.
 
 Keep TensorFlow, Keras, Calamari/TFAIP, and the trained checkpoint compatible as a
-set. Keras 3 is not a routine update to this recognizer. TensorBoard 2.15 still
-uses `pkg_resources`, so the recognizer explicitly retains `setuptools<82`.
+set. The recognizer pins the Calamari `tf-keras` branch and its companion TFAIP
+and `paiargparse` commits from [Calamari PR #378](https://github.com/Calamari-OCR/calamari/pull/378).
+TensorFlow installs Keras 3. The worker sets `TF_USE_LEGACY_KERAS=1` before
+importing TensorFlow so Calamari uses the separately installed `tf-keras` API.
+Audit both Keras distributions as part of the recognizer inventory.
+
+The bundled `r10.ckpt.json` and `r10.ckpt.keras` are a Calamari version 7
+checkpoint. Keep the two files together. The worker tries both HDF5 group
+separators while loading weights so checkpoints can move between Windows and
+macOS or Linux. Calamari loads version 7 models with
+`safe_mode=False`, so the worker accepts the bundled checkpoint and a single
+optional checkpoint explicitly named by `MIMIR_TRUSTED_OCR_MODEL`. To use a
+custom version 7 checkpoint, set that variable to its absolute checkpoint stem
+and use the same stem as `ocr_model_path`. Checkpoint conversion is an offline
+operation. When converting your own version 6 checkpoint with upstream
+Calamari, work on a copy of its metadata and SavedModel directory.
+
+The segmenter pins [Kraken commit `910e55e`](https://github.com/mittagessen/kraken/commit/910e55ee317dd3bc6e944e23456306e0ec7d3291)
+for its `lightning==2.6.6` dependency, which addresses [GHSA-qqmf-gpg7-g8gw](https://github.com/advisories/GHSA-qqmf-gpg7-g8gw).
+The lock tracks `lightning` and `pytorch-lightning` as separate distributions.
+When moving back to a published Kraken release, verify its Lightning pin and
+update the Kraken version in `scripts/lib/runtimes.mjs` with the lockfile.
+
 Keep Torch/torchvision compatible in the segmenter. Pillow 13 requires an
-interpreter migration beyond Python 3.10. Independent environments permit
-different shared-library versions; JSON contract tests still protect the boundary.
+interpreter newer than Python 3.10. All three runtimes now lock Pillow 13.0.0;
+the segmenter locks filelock 4.2.7, resolving the Python-version blockers for
+those security updates. Independent environments permit different shared-library
+versions, with JSON contract tests protecting the boundary.
+
+## Sync or upgrade an existing checkout
+
+Stop the application and workers before syncing an existing checkout. If a
+managed environment is activated, deactivate it and run setup with a host Python.
+uv recreates an environment whose interpreter no longer matches its manifest;
+there is no need to delete unrelated environments or install packages with pip.
+
+```sh
+uv python install 3.11
+python scripts/setup_backend.py --dev --build
+node scripts/check_backend_sidecar_env.mjs --build
+node scripts/run_backend.mjs -m pytest
+node scripts/test_ml_runtimes.mjs
+```
+
+On macOS ARM or Windows x64, run the full ML suite before trying the desktop app
+with `yarn tauri:dev:auto`. To verify distribution builds as well, run
+`yarn package:mac` or `yarn package:windows`. The PR workflows run native
+inference and packaging checks for dependency/build changes. Clear or update any
+`MIMIR_*_PYTHON` override that still points to an old Python 3.10 environment.
+
+The Python 3.11 migration and targeted Pillow/filelock updates are part of the
+current baseline. Run production audits after dependency changes and review
+remaining alerts; a compatible lockfile does not establish that every dependency
+is free of vulnerabilities.
 
 ## Audits and inventories
 
@@ -91,7 +140,9 @@ when installed; sync production-only first to measure production dependencies.
 
 The auditor runs in uvx's separate tool environment. It sends installed package
 names/versions to the advisory service, does not install or resolve the engines
-again, and never applies fixes. It exits nonzero on findings or errors, including
+again, and never applies fixes. The segmenter and recognizer audits query OSV
+by package version because their pinned Kraken and Calamari builds are
+unpublished on PyPI. The auditor exits nonzero on findings or errors, including
 incomplete collection, but still attempts every requested runtime. Read the logs
 and summary: a service/interpreter failure is not a clean security report.
 
@@ -109,10 +160,13 @@ alert merely because application source does not import the package directly.
 ## Dependabot and native validation
 
 `.github/dependabot.yml` tracks each uv project independently, plus npm, Cargo,
-and Actions. It groups related engine packages for routine updates and does not
-auto-merge updates or suppress major/security updates. Once this layout reaches
-the default branch, supersede old PRs against deleted constraints files with PRs
-against the appropriate project. Security alerts remain a separate GitHub setting.
+and Actions. Every entry sets `open-pull-requests-limit: 0` to disable routine
+version-update PRs without blocking security-update PRs. Keep Dependabot alerts
+and Dependabot security updates enabled in GitHub's repository settings; this
+file does not enable those features. Existing version-update grouping rules are
+inactive while version updates are disabled. No updates are auto-merged.
+Supersede old PRs against deleted constraints files with PRs against the
+appropriate project.
 
 For every PR, real ML checks install locked environments, import the production
 APIs, run dependency checks, and perform inference on macOS ARM and Windows x64.

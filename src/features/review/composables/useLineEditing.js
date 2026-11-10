@@ -1,9 +1,41 @@
+/**
+ * @file Coordinate debounced text saves, line reordering, deletion, retries, and undo.
+ * Request tokens prevent stale responses from overwriting newer edits; export can flush
+ * pending saves.
+ */
 import { computed, ref } from 'vue'
 
 import { useReviewHistory } from './useReviewHistory'
 
 const TEXT_SAVE_DEBOUNCE_MS = 350
 
+/**
+ * Attach persistent editing and undo behavior to a review workspace's reactive state.
+ *
+ * Own one instance per review workspace. Text input updates the supplied line immediately
+ * and saves after 350 ms. Await flushPendingSaves before exporting or replacing data that
+ * must include edits. Call clearPendingTimers and clearUndoHistory on dataset teardown;
+ * cancelling timers discards queued saves and does not abort requests already sent.
+ *
+ * @param {object} dependencies - Page/selection refs, API access, and selection callbacks.
+ * @param {object} dependencies.selectedPage - Vue computed/ref containing the selected page or null.
+ * @param {object} dependencies.pages - Mutable Vue ref of HTTP page records, with persistent line IDs and line_order.
+ * @param {object} dependencies.selectedLineId - Mutable Vue ref of the selected line ID or null.
+ * @param {object} dependencies.activeLineId - Mutable Vue ref of the focused line ID or null.
+ * @param {Function} dependencies.backendFetch - Async (path, RequestInit) function returning a Response; HTTP failures must retain their status.
+ * @param {Function} dependencies.refreshPagesPreservingSelection - Async reload callback used when local restoration needs fresh server IDs.
+ * @param {Function} dependencies.selectPageById - Async page-selection callback used before undoing an action on another page.
+ * @returns {object} Reactive lineSaveState, undoStack, canUndo, undoLabel, isUndoing, and undoErrorMessage;
+ * setLineSaveState, onLineInput, moveLine, commitLineOrderInput, deleteLine, undoLastAction,
+ * clearUndoHistory, clearPendingTimers, and flushPendingSaves actions. Returned refs remain refs.
+ * @example
+ * // Within a Vue setup function with the listed refs/callbacks already created:
+ * const editing = useLineEditing({ selectedPage, pages, selectedLineId, activeLineId,
+ *   backendFetch, refreshPagesPreservingSelection, selectPageById })
+ * editing.onLineInput(selectedPage.value.lines[0], 'Corrected transcription')
+ * await editing.flushPendingSaves() // Rejects if a correction remains unsaved.
+ * onBeforeUnmount(() => { editing.clearPendingTimers(); editing.clearUndoHistory() })
+ */
 export function useLineEditing({
   selectedPage,
   pages,
@@ -44,10 +76,17 @@ export function useLineEditing({
     return stackUndoLabel.value
   })
 
+  /**
+   * Report whether an undo/restore operation is currently suppressing new history records.
+   */
   function isHistorySuppressed() {
     return historyWriteDepth.value > 0
   }
 
+  /**
+   * Await an operation while incrementing history-suppression depth, restoring the depth even
+   * if it rejects.
+   */
   async function withHistorySuppressed(callback) {
     historyWriteDepth.value += 1
     try {
@@ -57,10 +96,18 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Prefer nonempty corrected text over OCR text, returning an empty string when neither is
+   * present.
+   */
   function getDisplayedText(line) {
     return line.corrected_text || line.ocr_text || ''
   }
 
+  /**
+   * Remove a line's save indicator by replacing the state object so Vue observes the
+   * deletion.
+   */
   function removeLineSaveState(lineId) {
     if (!lineSaveState.value[lineId]) {
       return
@@ -71,6 +118,9 @@ export function useLineEditing({
     lineSaveState.value = next
   }
 
+  /**
+   * Replace a line's reactive save status and optional user-facing message.
+   */
   function setLineSaveState(lineId, status, message = '') {
     lineSaveState.value = {
       ...lineSaveState.value,
@@ -78,20 +128,32 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Advance and return a line's request generation so older responses can be ignored.
+   */
   function bumpLineRequestToken(lineId) {
     const next = (lineRequestTokens.get(lineId) || 0) + 1
     lineRequestTokens.set(lineId, next)
     return next
   }
 
+  /**
+   * Read a line's current request generation, using zero before any edit or invalidation.
+   */
   function getLineRequestToken(lineId) {
     return lineRequestTokens.get(lineId) || 0
   }
 
+  /**
+   * Find a page in the current review dataset, returning null if its persistent ID is absent.
+   */
   function findPageById(pageId) {
     return pages.value.find((candidate) => candidate.id === pageId) || null
   }
 
+  /**
+   * Find a line under the specified page, returning null when the page or line is absent.
+   */
   function findLineById(pageId, lineId) {
     const page = findPageById(pageId)
     if (!page || !Array.isArray(page.lines)) {
@@ -100,6 +162,10 @@ export function useLineEditing({
     return page.lines.find((candidate) => candidate.id === lineId) || null
   }
 
+  /**
+   * Reidentify a line after refreshing the dataset, preferring its page/order mapping before
+   * the old ID.
+   */
   function findLineForRetry(target) {
     const page = findPageById(target.page_id)
     if (!page) {
@@ -116,10 +182,10 @@ export function useLineEditing({
     return page.lines.find((candidate) => candidate.id === target.id) || null
   }
 
-  function findPageIndexById(pageId) {
-    return pages.value.findIndex((candidate) => candidate.id === pageId)
-  }
-
+  /**
+   * Select the page needed for undo when its finite ID differs from the current selection and
+   * a selection callback is available.
+   */
   async function ensurePageSelected(pageId) {
     if (!Number.isFinite(pageId)) {
       return
@@ -132,6 +198,10 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Copy line IDs and saved orders in stable review order, supplying sequential orders when a
+   * stored value is nonfinite.
+   */
   function captureLineOrderSnapshot(page) {
     if (!page || !Array.isArray(page.lines)) {
       return []
@@ -146,6 +216,9 @@ export function useLineEditing({
     }))
   }
 
+  /**
+   * Compare two ordered snapshots by length, line IDs, and order values.
+   */
   function snapshotsEqual(a, b) {
     if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
       return false
@@ -160,6 +233,10 @@ export function useLineEditing({
     return true
   }
 
+  /**
+   * Reorder the page's current line objects from a snapshot and assign contiguous one-based
+   * local orders.
+   */
   function applyOrderSnapshotLocally(page, snapshot) {
     if (!page || !Array.isArray(page.lines) || !Array.isArray(snapshot)) {
       return
@@ -179,6 +256,10 @@ export function useLineEditing({
     })
   }
 
+  /**
+   * Move one line to a clamped one-based target position and return a fresh contiguous order
+   * snapshot.
+   */
   function buildMovedOrderSnapshot(page, lineId, targetOrder) {
     if (!page || !Array.isArray(page.lines) || !Number.isFinite(targetOrder)) {
       return []
@@ -202,6 +283,10 @@ export function useLineEditing({
     }))
   }
 
+  /**
+   * Return entries whose order differs from the before snapshot, preserving the
+   * after-snapshot order.
+   */
   function changedOrderEntries(beforeOrder, afterOrder) {
     const beforeMap = new Map(beforeOrder.map((entry) => [entry.id, entry.line_order]))
     const changed = []
@@ -213,6 +298,10 @@ export function useLineEditing({
     return changed
   }
 
+  /**
+   * Count edit sessions still waiting on debounce timers and publish whether pending text can
+   * be undone locally.
+   */
   function updatePendingUndoCount() {
     let count = 0
     for (const lineId of pendingTextEdits.keys()) {
@@ -223,6 +312,10 @@ export function useLineEditing({
     pendingUndoCount.value = count
   }
 
+  /**
+   * Deep-copy the review fields required to restore a deleted line, retaining geometry and
+   * recognition metadata.
+   */
   function cloneLineSnapshot(line) {
     return cloneSerializable({
       id: line.id,
@@ -239,6 +332,9 @@ export function useLineEditing({
     })
   }
 
+  /**
+   * Normalize a returned API line into the nullable field shape used by review state.
+   */
   function convertApiLinePayload(linePayload) {
     return {
       id: linePayload.id,
@@ -255,6 +351,11 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Persist text/order overrides and apply the returned values only for the current request
+   * token. On an initial 404, refresh page mappings and retry once against the reidentified
+   * line; other HTTP failures throw.
+   */
   async function saveLineToApi(line, { allowRetry = true, requestToken = null, overrideText = null, overrideLineOrder = null } = {}) {
     const correctedText = overrideText != null ? overrideText : line.corrected_text || ''
     const lineOrder = overrideLineOrder != null ? overrideLineOrder : line.line_order
@@ -311,6 +412,10 @@ export function useLineEditing({
     throw new Error(`Unable to save line ${line.id} (${response.status})`)
   }
 
+  /**
+   * Save only changed line orders sequentially, updating per-line feedback. Attach
+   * successfully written IDs to a thrown error so callers can attempt a partial rollback.
+   */
   async function persistOrderSnapshot(page, beforeOrder, afterOrder) {
     const changed = changedOrderEntries(beforeOrder, afterOrder)
     if (!changed.length) {
@@ -342,6 +447,10 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Best-effort restore selected line orders after partial persistence; skip missing lines
+   * and tolerate individual rollback failures.
+   */
   async function restoreBackendOrderSnapshot(page, snapshot, lineIds = null) {
     const snapshotById = new Map(snapshot.map((entry) => [entry.id, entry.line_order]))
     const targetIds = Array.isArray(lineIds) && lineIds.length
@@ -370,6 +479,10 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Return the newest edit session whose debounce timer has not fired, or null when none can
+   * be cancelled locally.
+   */
   function getLatestPendingTextEdit() {
     let latest = null
     for (const session of pendingTextEdits.values()) {
@@ -383,6 +496,10 @@ export function useLineEditing({
     return latest
   }
 
+  /**
+   * Cancel a queued line save, optionally restore its original text, and invalidate obsolete
+   * responses. Clear requested pending state and return the edit session when one existed.
+   */
   function cancelPendingTextSave(lineId, { restoreInitialText = false, clearPendingState = true } = {}) {
     const timer = lineSaveTimers.get(lineId)
     if (timer) {
@@ -409,6 +526,10 @@ export function useLineEditing({
     return session
   }
 
+  /**
+   * POST a deleted-line snapshot and its original page order to the restore endpoint,
+   * returning a normalized line or throwing on failure.
+   */
   async function restoreDeletedLineAction(action) {
     const response = await backendFetch('/lines/restore', {
       method: 'POST',
@@ -429,6 +550,9 @@ export function useLineEditing({
     return convertApiLinePayload(payload.line)
   }
 
+  /**
+   * Replace a matching local line or append a restored line before order is reapplied.
+   */
   function upsertRestoredLine(page, linePayload) {
     const existingIndex = page.lines.findIndex((candidate) => candidate.id === linePayload.id)
     if (existingIndex >= 0) {
@@ -438,12 +562,21 @@ export function useLineEditing({
     page.lines.push(linePayload)
   }
 
+  /**
+   * Clear committed undo history and pending edit-session bookkeeping without cancelling
+   * timers by itself.
+   */
   function clearUndoAndPendingTextEdits() {
     clearUndoHistory()
     pendingTextEdits.clear()
     pendingUndoCount.value = 0
   }
 
+  /**
+   * Serialize saves for one line and skip obsolete request generations. Record a successful
+   * text edit in undo history, retain failures in save feedback, and track the promise for
+   * export flushing.
+   */
   function persistTextSave(line, requestToken) {
     const lineId = line.id
     const previous = inFlightTextSaves.get(lineId)
@@ -489,6 +622,13 @@ export function useLineEditing({
     return saving
   }
 
+  /**
+   * Persist queued edits immediately and await in-flight writes before export.
+   * Older requests finish before the newest correction is written. This does not flush
+   * reorder/delete operations that the caller has not awaited.
+   * @returns {Promise<void>} Resolves when queued text saves have completed successfully.
+   * @throws {Error} A line remains in the error state; the caller should stop export and offer retry.
+   */
   async function flushPendingSaves() {
     // Finish older requests first so the newest correction is the final write.
     while (lineSaveTimers.size || inFlightTextSaves.size) {
@@ -510,6 +650,10 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Replace a line's debounce timer, advance its request token, and publish pending state
+   * before saving after the delay.
+   */
   function queueLineSave(line) {
     const lineId = line.id
     setLineSaveState(lineId, 'pending')
@@ -531,6 +675,10 @@ export function useLineEditing({
     updatePendingUndoCount()
   }
 
+  /**
+   * Start or extend a text-edit session, remember its original displayed text, update the
+   * local correction, and queue a debounced save.
+   */
   function onLineInput(line, value) {
     const lineId = line.id
     let session = pendingTextEdits.get(lineId)
@@ -552,6 +700,11 @@ export function useLineEditing({
     queueLineSave(line)
   }
 
+  /**
+   * Apply a requested move locally and persist changed orders before adding undo history. On
+   * failure, restore local order and best-effort roll back only the backend writes known to
+   * have succeeded.
+   */
   async function applyReorderOperation(line, targetOrder) {
     const page = findPageById(line.page_id)
     if (!page || !Number.isFinite(targetOrder)) {
@@ -587,11 +740,18 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Request a relative move from the line's current one-based order.
+   */
   function moveLine(line, offset) {
     const currentOrder = Number(line.line_order || 1)
     applyReorderOperation(line, currentOrder + offset)
   }
 
+  /**
+   * Parse a numeric order input and request the corresponding absolute move, ignoring invalid
+   * input.
+   */
   function commitLineOrderInput(line, value) {
     const parsed = Number.parseInt(String(value), 10)
     if (!Number.isFinite(parsed)) {
@@ -601,6 +761,11 @@ export function useLineEditing({
     applyReorderOperation(line, parsed)
   }
 
+  /**
+   * Cancel pending text for a line, delete it through the API, and persist contiguous orders
+   * for survivors. Save the original line/order snapshots for undo after success; report
+   * failures through line and undo feedback.
+   */
   async function deleteLine(line) {
     const page = findPageById(line.page_id)
     if (!page) {
@@ -658,6 +823,11 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Cancel the latest still-debounced edit and restore its original text locally without
+   * creating a server undo write. Select its page/line and report whether a pending edit was
+   * found.
+   */
   async function undoPendingTextEdit() {
     const pending = getLatestPendingTextEdit()
     if (!pending) {
@@ -675,6 +845,10 @@ export function useLineEditing({
     return true
   }
 
+  /**
+   * Write an undo action's original text with a fresh request token. Restore the displayed
+   * text on failure and select the affected line after a successful write.
+   */
   async function undoTextAction(action) {
     const line = findLineById(action.pageId, action.lineId)
     if (!line) {
@@ -706,6 +880,10 @@ export function useLineEditing({
     activeLineId.value = line.id
   }
 
+  /**
+   * Restore an action's before-order snapshot locally and on the server. If persistence
+   * fails, recover the after-order view and attempt to roll back successful undo writes.
+   */
   async function undoReorderAction(action) {
     const page = findPageById(action.pageId)
     if (!page) {
@@ -725,6 +903,10 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Restore a deleted line through the API, reapply the original page order, and select the
+   * restored line.
+   */
   async function undoDeleteAction(action) {
     const page = findPageById(action.pageId)
     if (!page) {
@@ -739,6 +921,11 @@ export function useLineEditing({
     removeLineSaveState(restored.id)
   }
 
+  /**
+   * Undo a waiting text edit before consulting committed history. Serialize undo execution,
+   * suppress new history entries during restoration, and pop a committed action only after
+   * successful completion.
+   */
   async function undoLastAction() {
     if (isUndoing.value) {
       return
@@ -785,6 +972,10 @@ export function useLineEditing({
     }
   }
 
+  /**
+   * Cancel queued debounce timers, invalidate existing line request tokens, and clear pending
+   * sessions during dataset teardown. Already sent requests are not aborted.
+   */
   function clearPendingTimers() {
     for (const timer of lineSaveTimers.values()) {
       clearTimeout(timer)

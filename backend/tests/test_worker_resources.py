@@ -2,6 +2,9 @@
 from pathlib import Path
 import sys
 
+import pytest
+
+from backend.domain.project_config import DEFAULT_OCR_MODEL_PATH
 from backend.runtime import paths
 from backend.workers.recognizer import engine, ij_disambiguation
 
@@ -10,26 +13,36 @@ def test_development_model_path_is_repo_relative_from_another_directory(tmp_path
     root = tmp_path / "repo"
     module = root / "backend/workers/recognizer/engine.py"
     module.parent.mkdir(parents=True)
-    checkpoint = root / "backend/ml/calamari/test.ckpt"
-    checkpoint.parent.mkdir(parents=True)
-    checkpoint.write_text("checkpoint")
     monkeypatch.setattr(engine, "__file__", str(module))
-    monkeypatch.delattr(sys, "_MEIPASS", raising=False)
     monkeypatch.chdir(tmp_path)
-    assert engine._resolve_model_path("backend/ml/calamari/test.ckpt") == str(checkpoint)
+    assert engine._resolve_model_path(DEFAULT_OCR_MODEL_PATH) == str(root / DEFAULT_OCR_MODEL_PATH)
 
 
 def test_bundled_model_and_lexicon_use_existing_resource_paths(tmp_path, monkeypatch):
     bundle = tmp_path / "_internal"
-    checkpoint = bundle / "backend/ml/calamari/test.ckpt"
+    checkpoint = bundle / DEFAULT_OCR_MODEL_PATH
     lexicon = bundle / "backend/resources/fraktur_ij_lexicon.txt"
-    for path in (checkpoint, lexicon):
+    shadow = tmp_path / f"{DEFAULT_OCR_MODEL_PATH}.keras"
+    for path in (Path(f"{checkpoint}.keras"), lexicon, shadow):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("resource")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
     monkeypatch.chdir(tmp_path)
-    assert engine._resolve_model_path("backend/ml/calamari/test.ckpt") == str(checkpoint)
+    assert engine._resolve_model_path(DEFAULT_OCR_MODEL_PATH) == str(checkpoint)
     assert ij_disambiguation._lexicon_path() == lexicon
+
+
+def test_custom_model_must_match_the_locally_trusted_checkpoint(tmp_path, monkeypatch):
+    checkpoint = tmp_path / "custom.ckpt"
+    monkeypatch.delenv("MIMIR_TRUSTED_OCR_MODEL", raising=False)
+    with pytest.raises(ValueError, match="MIMIR_TRUSTED_OCR_MODEL"):
+        engine._resolve_model_path(str(checkpoint))
+
+    monkeypatch.setenv("MIMIR_TRUSTED_OCR_MODEL", f"{checkpoint}.json")
+    assert engine._resolve_model_path(f"{checkpoint}.keras") == str(checkpoint)
+    with pytest.raises(ValueError, match="MIMIR_TRUSTED_OCR_MODEL"):
+        engine._resolve_model_path(str(tmp_path / "different.ckpt"))
 
 
 def test_development_lexicon_remains_available(tmp_path, monkeypatch):

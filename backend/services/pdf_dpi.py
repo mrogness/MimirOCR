@@ -1,3 +1,5 @@
+"""Estimate scanned PDF resolution from embedded image geometry and recommend an ingestion
+DPI while filtering probable repeated decorations."""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -29,6 +31,9 @@ class PdfDpiAnalysisError(ValueError):
 
 @dataclass(frozen=True)
 class _ImageCandidate:
+    """One embedded raster image occurrence with page coverage, identity digest, and axis-
+    specific DPI estimates.
+    """
     page_number: int
     digest: bytes | None
     coverage: float
@@ -37,6 +42,7 @@ class _ImageCandidate:
 
     @property
     def effective_dpi(self) -> float:
+        """Use the lower axis DPI as the conservative resolution of this image occurrence."""
         return min(self.dpi_x, self.dpi_y)
 
 
@@ -148,6 +154,9 @@ def analyze_pdf_dpi(pdf_bytes: bytes, filename: str) -> PdfDpiAnalysisResponse:
 
 
 def _page_image_candidates(page: fitz.Page, page_number: int) -> list[_ImageCandidate]:
+    """Extract plausible raster-image occurrences from page image metadata without rendering
+    the page.
+    """
     page_area = float(page.rect.width * page.rect.height)
     if page_area <= 0:
         return []
@@ -166,6 +175,12 @@ def _candidate_from_image_info(
     page_area: float,
     page_number: int,
 ) -> _ImageCandidate | None:
+    """Convert image dimensions, transform, and clipped coverage into a plausible DPI
+    candidate.
+
+    Reject missing or degenerate geometry and implausible resolutions; retain an image
+    digest when available for repeated-decoration filtering.
+    """
     try:
         pixel_width = float(info.get("width", 0))
         pixel_height = float(info.get("height", 0))
@@ -200,6 +215,9 @@ def _candidate_from_image_info(
 
 
 def _displayed_dimensions(info: dict[str, Any], bbox: fitz.Rect) -> tuple[float, float]:
+    """Measure displayed image width/height from transform-vector lengths, falling back to
+    bounding-box dimensions.
+    """
     transform = info.get("transform")
     if isinstance(transform, (tuple, list)) and len(transform) >= 4:
         try:
@@ -214,10 +232,14 @@ def _displayed_dimensions(info: dict[str, Any], bbox: fitz.Rect) -> tuple[float,
 
 
 def _is_plausible_dpi(value: float) -> bool:
+    """Accept finite scan resolutions within the configured minimum and maximum DPI bounds."""
     return isfinite(value) and _MIN_PLAUSIBLE_DPI <= value <= _MAX_PLAUSIBLE_DPI
 
 
 def _recommended_dpi(detected_median_dpi: int) -> int:
+    """Map the median scan estimate to the supported 300, 400, or 600 DPI processing
+    recommendation.
+    """
     if detected_median_dpi < 350:
         return 300
     if detected_median_dpi < 500:
@@ -226,6 +248,7 @@ def _recommended_dpi(detected_median_dpi: int) -> int:
 
 
 def _confidence(pages_with_estimate: int, page_count: int) -> str:
+    """Grade estimate coverage as high at 90 percent, medium at 60 percent, and low below that."""
     ratio = pages_with_estimate / page_count
     if ratio >= 0.90:
         return "high"
@@ -242,6 +265,9 @@ def _analysis_warnings(
     page_dpi_estimates: list[float],
     ignored_probable_watermark_images: int,
 ) -> list[str]:
+    """Explain partial inspection, absent scans, ignored decorations, mixed resolution, and
+    low-resolution limits.
+    """
     warnings: list[str] = []
     if page_analysis_errors:
         warnings.append(

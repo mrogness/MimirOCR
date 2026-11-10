@@ -1,4 +1,5 @@
 <script setup>
+/** @file Present the basic project creation, PDF selection, OCR, review, and export workflow. */
 const quickstartSteps = [
   'Select Add Project, choose a project name, and open the new workspace.',
   'Select the PDF you want MimirOCR to process.',

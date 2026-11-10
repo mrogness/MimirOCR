@@ -1,33 +1,61 @@
 <script setup>
+/**
+ * @file Present page navigation, display options, and review/export actions.
+ */
 const props = defineProps({
+  /** Zero-based index of the currently selected review page. */
   selectedPageIndex: { type: Number, required: true },
+  /** Number of source pages in the current document or review dataset. */
   totalPages: { type: Number, required: true },
+  /** Parent-owned one-based page-number input text awaiting validation/commit. */
   pageInputValue: { type: String, required: true },
+  /** Whether a pending text edit or committed review action is available to undo. */
   canUndo: { type: Boolean, default: false },
+  /** Whether an undo operation is currently being persisted. */
   isUndoing: { type: Boolean, default: false },
+  /** Action-specific label for the undo control. */
   undoLabel: { type: String, default: 'Undo' },
+  /** User-facing error from attempting to undo a review operation. */
   undoErrorMessage: { type: String, default: '' },
+  /** Whether a PDF or training-data download is currently being prepared. */
   isExporting: { type: Boolean, required: true },
+  /** User-facing export preparation or download failure. */
   exportErrorMessage: { type: String, default: '' },
+  /** Feedback naming the most recently downloaded export. */
   exportSuccessMessage: { type: String, default: '' },
 })
 
 const emit = defineEmits([
+  /** Emit edited one-based page-number input text without navigating immediately. */
   'update:pageInputValue',
+  /** Request selection of the first review page. */
   'first-page',
+  /** Request selection of the preceding review page. */
   'previous-page',
+  /** Request selection of the following review page. */
   'next-page',
+  /** Request selection of the last review page. */
   'last-page',
+  /** Request validation and navigation using the current page-number input. */
   'commit-page-input',
+  /** Request undo of the latest available review operation. */
   'undo',
+  /** Request display of the PDF/training export settings sheet. */
   'open-export-settings',
+  /** Request a PDF export using the current parent-owned settings. */
   'export-pdf',
 ])
 
+/**
+ * Emit page-input text for parent-owned state without navigating yet.
+ */
 function onPageInput(event) {
   emit('update:pageInputValue', event.target.value)
 }
 
+/**
+ * Request that the parent validate and apply the current page-input value.
+ */
 function onCommitPageInput() {
   emit('commit-page-input')
 }

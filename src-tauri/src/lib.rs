@@ -5,7 +5,7 @@ use tauri::{Manager, RunEvent};
 
 mod backend;
 
-use backend::commands::{backend_status, backend_url, greet, restart_backend};
+use backend::commands::{backend_status, restart_backend};
 use backend::launcher::launch_initial_backend;
 use backend::process::shutdown_backend;
 use backend::state::BackendState;
@@ -29,8 +29,6 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
-            backend_url,
             backend_status,
             restart_backend,
         ])

@@ -10,8 +10,9 @@ try {
     const python = runtimePython(root, role)
     console.log(`Checking ${role}: ${python}`)
     runCommand(python, ['-c', `
-import importlib, importlib.metadata, importlib.util, sys
-assert sys.version_info[:2] == (3, 10), 'Use Python 3.10 for the pinned ML stack'
+import importlib, importlib.metadata, importlib.util, os, sys
+${role === 'recognizer' ? 'os.environ["TF_USE_LEGACY_KERAS"] = "1"' : ''}
+assert sys.version_info[:2] == (3, 11), 'Use Python 3.11; resync with scripts/setup_backend.py'
 print(f'Interpreter: {sys.executable}', flush=True)
 required = ${JSON.stringify(build ? runtime.imports.concat('PyInstaller') : runtime.imports)}
 forbidden = ${JSON.stringify(runtime.forbidden)}
@@ -29,6 +30,10 @@ ${role === 'segmenter' ? `from kraken.tasks import SegmentationTaskModel
 from kraken.configs import SegmentationInferenceConfig
 from kraken.lib.segmentation import extract_polygons
 from kraken.ketos.util import to_ptl_device` : ''}
+${role === 'recognizer' ? `import tensorflow as tf
+import tf_keras
+from calamari_ocr.ocr.predict.predictor import Predictor, PredictorParams
+assert tf.keras.Model is tf_keras.Model, 'Recognizer must use the tf-keras API'` : ''}
 `], { stdio: 'inherit' })
     runCommand('uv', ['pip', 'check', '--python', python], { stdio: 'inherit' })
   }

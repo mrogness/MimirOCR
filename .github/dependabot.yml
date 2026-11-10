@@ -2,10 +2,12 @@ version: 2
 updates:
   - package-ecosystem: uv
     directory: /requirements/backend
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
   - package-ecosystem: uv
     directory: /requirements/segmenter
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     groups:
@@ -13,6 +15,7 @@ updates:
         patterns: [kraken, torch, torchvision, lightning, pytorch-lightning, coremltools]
   - package-ecosystem: uv
     directory: /requirements/recognizer
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     groups:
@@ -20,6 +23,7 @@ updates:
         patterns: [calamari-ocr, "tensorflow*", keras, "ocrd-fork-*"]
   - package-ecosystem: npm
     directory: /
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     groups:
@@ -27,9 +31,11 @@ updates:
         patterns: [vitest, "@vitest/*", vite-node]
   - package-ecosystem: cargo
     directory: /src-tauri
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
   - package-ecosystem: github-actions
     directory: /
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly

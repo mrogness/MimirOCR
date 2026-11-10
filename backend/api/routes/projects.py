@@ -1,3 +1,4 @@
+"""Manage projects, persisted pages, source documents, and project artifact cleanup."""
 import json
 from pathlib import Path
 import shutil
@@ -25,6 +26,11 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 def _cleanup_project_artifacts(project_id: int, source_pdf_path: Optional[str]) -> None:
+    """Delete one project's output directories, temporary line crops, and uploaded PDFs.
+
+    Match complete IDs and supported filename prefixes to avoid removing neighboring
+    projects. File deletion failures are tolerated during cleanup.
+    """
     output_root = get_output_dir()
     candidate_output_dirs = [output_root / str(project_id), output_root / f"project{project_id}"]
     for output_dir in candidate_output_dirs:
@@ -78,18 +84,21 @@ def _cleanup_project_artifacts(project_id: int, source_pdf_path: Optional[str]) 
 
 @router.post("/", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> ProjectRead:
+    """Create and commit a project with the requested name, returning its persistent metadata."""
     project = repository.create_project(db, name=payload.name)
     return project
 
 
 @router.get("/", response_model=ProjectsListResponse)
 def list_projects(db: Session = Depends(get_db)) -> ProjectsListResponse:
+    """Return the repository's project listing in the HTTP collection envelope."""
     projects = repository.list_projects(db)
     return ProjectsListResponse(projects=projects)
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
 def read_project(project_id: int, db: Session = Depends(get_db)) -> ProjectRead:
+    """Return persistent project metadata, or HTTP 404 for an unknown project ID."""
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -98,6 +107,9 @@ def read_project(project_id: int, db: Session = Depends(get_db)) -> ProjectRead:
 
 @router.put("/{project_id}", response_model=ProjectRead)
 def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db)) -> ProjectRead:
+    """Rename an existing project and return the committed metadata; unknown IDs produce HTTP
+    404.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -108,6 +120,12 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: int, db: Session = Depends(get_db)) -> Response:
+    """Remove project job records, filesystem artifacts, and database rows, then return HTTP
+    204.
+
+    The route reports an unknown project as 404. Filesystem cleanup occurs before the
+    repository commits the row deletion.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -120,6 +138,11 @@ def delete_project(project_id: int, db: Session = Depends(get_db)) -> Response:
 
 @router.get("/{project_id}/pages", response_model=ProjectPagesResponse)
 def list_project_pages(project_id: int, db: Session = Depends(get_db)) -> ProjectPagesResponse:
+    """Return stored pages with ordered lines and decoded review geometry.
+
+    Sort each page's lines by persisted order, using line ID as a tie-breaker, and decode
+    polygon and character-position JSON for the frontend.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -160,6 +183,11 @@ def list_project_pages(project_id: int, db: Session = Depends(get_db)) -> Projec
 
 @router.get("/{project_id}/pages/{page_id}/image")
 def get_project_page_image(project_id: int, page_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    """Serve a persisted page image after checking project ownership and file availability.
+
+    Disable browser caching so a rerun can replace the image without showing obsolete page
+    content. Missing records or files produce HTTP 404.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -186,6 +214,11 @@ def get_project_page_image(project_id: int, page_id: int, db: Session = Depends(
 
 @router.get("/{project_id}/source-pdf")
 def get_project_source_pdf(project_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    """Serve the project's stored source PDF as an attachment with caching disabled.
+
+    Require project metadata, an original filename, and an existing file; missing
+    prerequisites produce HTTP 404.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

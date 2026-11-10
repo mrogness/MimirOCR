@@ -1,3 +1,4 @@
+"""Write per-page text, a combined transcript, and a serialized project snapshot."""
 import json
 import os
 from datetime import datetime
@@ -43,12 +44,19 @@ def export(project: Project, config: ProjectConfig) -> Project:
 
 
 def _page_text(page: Page) -> str:
+    """Join a page's lines in source reading order, preferring nonempty corrected text over OCR
+    text.
+    """
     lines = _ordered_lines(page)
     return "\n".join(line.correct_text or line.ocr_text or "" for line in lines)
 
 
 def _ordered_lines(page: Page):
+    """Sort lines by source-order metadata and then top/left bounding-box coordinates."""
     def _source_order(line):
+        """Use an integer reading-order index when present, otherwise sort the line after
+        indexed records.
+        """
         meta = line.baseline_info if isinstance(line.baseline_info, dict) else {}
         order = meta.get("source_order")
         return order if isinstance(order, int) else 10**9
@@ -57,6 +65,9 @@ def _ordered_lines(page: Page):
 
 
 def _page_payload(page: Page) -> dict:
+    """Serialize page identity, image dimensions, ordered text, average confidence, and line
+    payloads for project.json.
+    """
     return {
         "id": page.id,
         "page_number": page.page_number,
@@ -70,6 +81,9 @@ def _page_payload(page: Page) -> dict:
 
 
 def _line_payload(line) -> dict:
+    """Serialize a line's crop path, coordinate list, transcription, correction, and confidence
+    for artifact export.
+    """
     return {
         "id": line.id,
         "bbox": [line.bbox['x_min'], line.bbox['y_min'], line.bbox['x_max'], line.bbox['y_max']],

@@ -1,8 +1,21 @@
+/**
+ * @file Derive suspicious characters and candidate probabilities from OCR metadata.
+ * Confidence indices follow recognized text rather than subsequent manual corrections.
+ */
 import { computed } from 'vue'
 
+/**
+ * Build cached per-line confidence segments and candidate lists for the review UI.
+ * Character probabilities take precedence over the line-score fallback.
+ * @param {object} selectedPageLines - Vue ref containing the current page's lines.
+ * @param {object} suspiciousThreshold - Vue ref containing a probability cutoff on a 0..1 scale.
+ * @param {object} [options={}] - Optional enabled ref for suspending analysis.
+ * @returns {object} Line/character lookup helpers backed by computed analysis.
+ */
 export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, options = {}) {
   const enabled = options.enabled
 
+  /** Convert finite values and percentage scores to the probability scale used by the UI. */
   function normalizeConfidence(value) {
     const numeric = Number(value)
     if (!Number.isFinite(numeric)) {
@@ -17,12 +30,20 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     return numeric
   }
 
+  /**
+   * Prefer original OCR text so confidence indices stay aligned to model output, falling back
+   * to corrected text when OCR text is unavailable.
+   */
   function lineDisplayText(line) {
     // Keep suspicious indexing aligned to model outputs (char_confidence / char_positions),
     // which are tied to OCR text, not post-edit corrected text.
     return line.ocr_text || line.corrected_text || ''
   }
 
+  /**
+   * Accept arrays, JSON arrays, or delimited confidence strings and normalize usable scores.
+   * Return null when the payload cannot supply character confidence.
+   */
   function parseCharConfidence(line) {
     const raw = line?.char_confidence
     if (!raw) {
@@ -56,6 +77,9 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     return delimited.length ? delimited : null
   }
 
+  /**
+   * Decode JSON when necessary and accept only an array of character-position records.
+   */
   function parseCharPositions(line) {
     const raw = line?.char_positions
     if (!raw) {
@@ -78,6 +102,7 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     return positions
   }
 
+  /** Deduplicate candidates by glyph, keeping its highest score, and sort descending. */
   function normalizeCandidates(position) {
     if (!Array.isArray(position?.candidates)) {
       return []
@@ -105,10 +130,15 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
       .sort((left, right) => right.confidence - left.confidence)
   }
 
+  /**
+   * Recognize the glyph set eligible for the low-line-confidence fallback when an individual
+   * character score is missing.
+   */
   function isPotentiallyConfusableGlyph(ch) {
     return /[ſsfnriI1l|0OoB8cCe]/.test(ch)
   }
 
+  /** Align recognized characters with their scores and derive highlight/candidate metadata. */
   function suspiciousSegments(line) {
     const text = lineDisplayText(line)
     const chars = [...text]
@@ -168,10 +198,17 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     return map
   })
 
+  /**
+   * Look up cached character segments by line ID, returning an empty array when analysis is
+   * disabled or absent.
+   */
   function suspiciousSegmentsForLine(line) {
     return suspiciousAnalysisByLineId.value.get(line.id)?.segments || []
   }
 
+  /**
+   * Report whether cached analysis marks any character on this line as suspicious.
+   */
   function lineHasSuspiciousChars(line) {
     return Boolean(suspiciousAnalysisByLineId.value.get(line.id)?.hasSuspicious)
   }
@@ -186,6 +223,9 @@ export function useSuspiciousAnalysis(selectedPageLines, suspiciousThreshold, op
     return set
   })
 
+  /**
+   * Test whether the line ID belongs to the computed set of suspicious lines.
+   */
   function isSuspiciousLine(line) {
     return suspiciousLineIds.value.has(line.id)
   }

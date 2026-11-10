@@ -1,3 +1,5 @@
+"""Translate performance profile names into process/thread limits and per-page cooldowns
+for the isolated ML runtimes."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -9,6 +11,7 @@ PROFILE_NAMES = ("cool", "balanced", "fast")
 
 @dataclass(frozen=True)
 class PerformanceLimits:
+    """Resolved worker counts, native thread limits, and cooldown for one profile."""
     profile: str
     logical_cores: int
     segmentation_workers: int
@@ -18,15 +21,22 @@ class PerformanceLimits:
     page_cooldown_ms: int = 0
 
     def as_dict(self) -> dict[str, int | str]:
+        """Serialize the immutable profile limits for runtime-status responses."""
         return asdict(self)
 
 
 def normalize_profile(value: object) -> str:
+    """Normalize a profile name, defaulting unknown or empty values to balanced."""
     profile = str(value or "").strip().lower()
     return profile if profile in PROFILE_NAMES else "balanced"
 
 
 def resolve_performance_limits(profile: object, logical_cores: int | None = None) -> PerformanceLimits:
+    """Derive bounded worker/thread counts and cooldowns from a profile and logical CPU count.
+
+    Use the system CPU count when none is provided, cap segmentation and recognition
+    concurrency, and keep each segmentation worker single-threaded.
+    """
     cores = max(1, int(logical_cores or os.cpu_count() or 1))
     normalized = normalize_profile(profile)
 
@@ -81,4 +91,7 @@ ACTIVE_LIMITS = resolve_performance_limits(os.getenv("MIMIR_PERFORMANCE_PROFILE"
 
 
 def get_active_limits() -> PerformanceLimits:
+    """Return the limits captured when this backend process started; profile changes require a
+    restart.
+    """
     return ACTIVE_LIMITS

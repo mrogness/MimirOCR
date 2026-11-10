@@ -1,3 +1,8 @@
+"""Infer reading paragraphs and indentation from persisted OCR line geometry.
+
+Helpers normalize historical line breaks and use spacing, indentation, and
+punctuation to group lines before the PDF renderer lays out the resulting text.
+"""
 from __future__ import annotations
 
 import json
@@ -27,6 +32,9 @@ TERMINAL_PUNCTUATION = (".", "!", "?", ":", ";", "\u201d", '"', "\u2019", "'")
 
 @dataclass(frozen=True)
 class SourceLine:
+    """Immutable transcription plus source-page, region, ordering, and pixel bounding-box
+    metadata.
+    """
     line_id: int
     text: str
     x_min: float
@@ -39,15 +47,18 @@ class SourceLine:
 
     @property
     def width(self) -> float:
+        """Return nonnegative source-box width in pixels."""
         return max(0.0, self.x_max - self.x_min)
 
     @property
     def height(self) -> float:
+        """Return nonnegative source-box height in pixels."""
         return max(0.0, self.y_max - self.y_min)
 
 
 @dataclass(frozen=True)
 class RegionStats:
+    """Robust region edges and typical line/gap/indent measurements in source pixels."""
     left_edge: float
     right_edge: float
     median_line_height: float
@@ -56,6 +67,9 @@ class RegionStats:
 
 
 class BoundaryKind(Enum):
+    """How adjacent source lines combine: spaced join, unspaced join, paragraph break, or
+    region block break.
+    """
     JOIN_WITH_SPACE = auto()
     JOIN_WITHOUT_SPACE = auto()
     PARAGRAPH = auto()
@@ -64,6 +78,9 @@ class BoundaryKind(Enum):
 
 @dataclass(frozen=True)
 class SourceRegion:
+    """An ordered page/spread region paired with the geometric statistics used to interpret its
+    lines.
+    """
     source_page_number: int
     source_region_index: int
     lines: list[SourceLine]
@@ -72,6 +89,9 @@ class SourceRegion:
 
 @dataclass
 class ReflowParagraph:
+    """Joined reading text with source provenance, relative indentation, and spacing before the
+    paragraph.
+    """
     text: str
     source_line_ids: list[int]
     source_page_numbers: list[int]
@@ -82,6 +102,7 @@ class ReflowParagraph:
 
 @dataclass(frozen=True)
 class BoundaryDecision:
+    """Classified line boundary and its measured nonnegative vertical gap in source pixels."""
     kind: BoundaryKind
     vertical_gap: float
 
@@ -92,6 +113,9 @@ def normalize_for_reflow(
     normalize_low_double_quote: bool,
     normalize_long_s: bool,
 ) -> str:
+    """Trim a source transcription and optionally normalize low double quotes and long-s
+    variants.
+    """
     text = (raw_text or "").strip()
     if normalize_low_double_quote:
         text = text.replace("\u201e", '"')
@@ -101,16 +125,25 @@ def normalize_for_reflow(
 
 
 def normalize_remaining_historical_hyphens(text: str, *, enabled: bool) -> str:
+    """Replace remaining historical join/dash marks with ASCII hyphens only when normalization
+    is enabled.
+    """
     if not enabled:
         return text
     return HISTORICAL_HYPHEN_RE.sub("-", text)
 
 
 def has_trailing_historical_join_mark(text: str) -> bool:
+    """Detect a historical join mark at the end of a line, allowing surrounding trailing
+    whitespace.
+    """
     return HISTORICAL_JOIN_MARK_RE.search(text or "") is not None
 
 
 def strip_trailing_historical_join_mark(text: str) -> str:
+    """Remove a trailing historical join mark and its surrounding whitespace before an unspaced
+    line join.
+    """
     return HISTORICAL_JOIN_MARK_RE.sub("", text or "")
 
 
@@ -202,6 +235,11 @@ def build_source_regions(
 
 
 def compute_region_stats(lines: Sequence[SourceLine]) -> RegionStats:
+    """Estimate robust text edges, typical line height/gap, and an indentation threshold.
+
+    Trim extreme starts, favor well-filled line endings, and supply stable defaults for
+    empty or sparse regions.
+    """
     if not lines:
         return RegionStats(
             left_edge=0.0,
@@ -260,6 +298,12 @@ def classify_boundary(
     previous_stats: RegionStats,
     join_historical_line_breaks: bool,
 ) -> BoundaryDecision:
+    """Choose how two source lines should join using region identity, historical marks, gaps,
+    and indentation.
+
+    Cross-region boundaries become block breaks unless an enabled historical join mark joins
+    the word; within a region, unusually large gaps take paragraph-break precedence.
+    """
     same_region = (
         previous.source_page_number == current.source_page_number
         and previous.source_region_index == current.source_region_index
@@ -327,6 +371,9 @@ def infer_reflow_paragraphs(
     current_space_before = 0.0
 
     def finalize_paragraph(text: str, source_lines: Sequence[SourceLine], space_before_lines: float) -> None:
+        """Normalize a completed paragraph and append its text, source IDs/pages, indentation,
+        and spacing if nonempty.
+        """
         normalized_text = normalize_remaining_historical_hyphens(text.strip(), enabled=normalize_double_oblique_hyphen)
         if not normalized_text:
             return
@@ -377,6 +424,12 @@ def infer_reflow_paragraphs(
 
 
 def infer_paragraph_indentation(lines: Sequence[SourceLine]) -> tuple[float, float]:
+    """Return first-line and hanging/left indentation ratios from the first start versus later
+    line starts.
+
+    Ignore small shifts and single-line paragraphs, and cap the inferred ratio at the
+    configured maximum.
+    """
     if len(lines) < 2:
         return (0.0, 0.0)
 
@@ -398,6 +451,9 @@ def infer_paragraph_indentation(lines: Sequence[SourceLine]) -> tuple[float, flo
 
 
 def _extract_bbox(raw_bbox: str | None) -> tuple[float, float, float, float] | None:
+    """Decode a stored JSON bounding-box dictionary into numeric coordinates, returning None
+    for unsupported data.
+    """
     if not raw_bbox:
         return None
     try:
@@ -419,6 +475,9 @@ def _extract_bbox(raw_bbox: str | None) -> tuple[float, float, float, float] | N
 
 
 def _split_spread_lines(lines: Sequence[SourceLine], page_width: int | None) -> tuple[list[SourceLine], list[SourceLine]]:
+    """Copy lines into left/right source regions according to their starts and sort each side
+    for reading.
+    """
     if not lines:
         return ([], [])
 
@@ -454,10 +513,16 @@ def _split_spread_lines(lines: Sequence[SourceLine], page_width: int | None) -> 
 
 
 def _line_sort_key(line: SourceLine) -> tuple[float, int, float, int]:
+    """Sort a source line by top coordinate, source order, left coordinate, and persistent line
+    ID.
+    """
     return (line.y_min, line.source_order, line.x_min, line.line_id)
 
 
 def _space_before_for_boundary(decision: BoundaryDecision, stats: RegionStats) -> float:
+    """Convert block or paragraph breaks into bounded spacing measured in typical line-height
+    units.
+    """
     if decision.kind == BoundaryKind.BLOCK:
         return BLOCK_SPACE_BEFORE_LINES
     if decision.kind != BoundaryKind.PARAGRAPH:
@@ -469,6 +534,9 @@ def _space_before_for_boundary(decision: BoundaryDecision, stats: RegionStats) -
 
 
 def ends_with_terminal_punctuation(text: str) -> bool:
+    """Test the final nonwhitespace character against the paragraph heuristic's punctuation
+    set.
+    """
     stripped = (text or "").rstrip()
     if not stripped:
         return False
@@ -476,6 +544,7 @@ def ends_with_terminal_punctuation(text: str) -> bool:
 
 
 def _safe_median(values: Sequence[float], *, fallback: float) -> float:
+    """Take the median of numeric entries or return the caller's fallback when none remain."""
     cleaned = [float(value) for value in values if isinstance(value, (int, float))]
     if not cleaned:
         return fallback
@@ -483,6 +552,7 @@ def _safe_median(values: Sequence[float], *, fallback: float) -> float:
 
 
 def _trim_outliers(values: Sequence[float], *, lower: float, upper: float) -> list[float]:
+    """Keep numeric values between the requested inclusive quantile cutoffs."""
     if not values:
         return []
     low = _quantile(values, lower)
@@ -493,6 +563,9 @@ def _trim_outliers(values: Sequence[float], *, lower: float, upper: float) -> li
 
 
 def _quantile(values: Sequence[float], q: float) -> float:
+    """Calculate an interpolated quantile after numeric sorting, using zero for an empty
+    sequence.
+    """
     cleaned = sorted(float(value) for value in values if isinstance(value, (int, float)))
     if not cleaned:
         return 0.0
@@ -508,4 +581,5 @@ def _quantile(values: Sequence[float], q: float) -> float:
 
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:
+    """Bound a numeric value to the inclusive minimum/maximum interval."""
     return max(min_value, min(max_value, value))

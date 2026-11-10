@@ -33,9 +33,12 @@ def audit_environment(role, output):
     (output / f"{role}-inventory.json").write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
     requirements = output / f"{role}-installed.txt"
     requirements.write_text("".join(f"{p['name']}=={p['version']}\n" for p in inventory["packages"]), encoding="utf-8")
+    # OSV accepts version queries for the unpublished Kraken and Calamari builds.
+    service = "pypi" if role == "backend" else "osv"
     result = subprocess.run([
         "uvx", "--from", AUDITOR, "pip-audit", "--requirement", str(requirements),
         "--no-deps", "--disable-pip", "--strict", "--progress-spinner", "off",
+        "--vulnerability-service", service,
         "--format", "json", "--output", str(output / f"{role}-audit.json"),
     ], cwd=ROOT, capture_output=True, text=True)
     (output / f"{role}-audit.log").write_text(result.stdout + result.stderr, encoding="utf-8")

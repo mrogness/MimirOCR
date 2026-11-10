@@ -1,32 +1,65 @@
 <script setup>
+/** @file Present host paths, connection probes, and startup details in an expandable diagnostics panel. */
 defineProps({
+  /** Whether the diagnostics details panel is expanded. */
   isOpen: Boolean,
+  /** Whether a diagnostics snapshot request is currently pending. */
   isRefreshing: Boolean,
+  /** Host-reported backend launch mode for diagnostic display. */
   backendMode: String,
+  /** Host-reported backend runtime description. */
   backendRuntime: String,
+  /** Formatted time since the current backend process was started. */
+  sidecarUptimeSummary: String,
+  /** Backend executable or interpreter path selected by the desktop host. */
   sidecarSelectedPath: String,
+  /** Candidate backend paths considered by the desktop host during startup. */
   sidecarCheckedPaths: {
     type: Array,
+    /**
+     * Create an independent empty candidate-path array for this diagnostics panel instance.
+     */
     default: () => [],
   },
+  /** Origin of the current frontend window used in connection diagnostics. */
   frontendOrigin: String,
+  /** Explicit port parsed from the frontend origin, if present. */
   frontendPort: String,
+  /** Backend URL reported directly by the desktop host's status command. */
   backendStatusUrl: String,
+  /** Currently cached/resolved local API base URL. */
   backendBaseUrl: String,
+  /** Explicit port parsed from the chosen backend URL. */
   backendPort: String,
+  /** Resolved persistent application-data directory reported by the host. */
   appDataDir: String,
+  /** Resolved cache directory reported by the host. */
   cacheDir: String,
+  /** Resolved temporary working directory reported by the host. */
   tempDir: String,
+  /** Resolved local SQLite database path. */
   dbPath: String,
+  /** Resolved source-PDF upload directory. */
   uploadsDir: String,
+  /** Resolved OCR artifact/output directory. */
   outputDir: String,
+  /** Formatted status and timing of the backend health endpoint probe. */
   healthProbeSummary: String,
+  /** Formatted runtime-endpoint probe, retained under its historical diagnostics field name. */
   projectsProbeSummary: String,
+  /** Host startup-error detail or diagnostics collection error. */
   backendStartupIssue: String,
 })
 
-const emit = defineEmits(['toggle'])
+const emit = defineEmits([
+  /** Emit whether the native diagnostics details element is open. */
+  'toggle',
+])
 
+/**
+ * Emit the native details element's open state so the parent can start or stop diagnostics
+ * polling.
+ */
 function handleToggle(event) {
   emit('toggle', event.target.open)
 }
@@ -70,6 +103,7 @@ function handleToggle(event) {
         <dl class="grid grid-cols-1 gap-2 text-sm text-brand-700">
           <div><dt class="inline font-semibold">Backend mode:</dt> <dd class="inline">{{ backendMode || 'unknown' }}</dd></div>
           <div><dt class="inline font-semibold">Backend runtime:</dt> <dd class="inline">{{ backendRuntime || 'unknown' }}</dd></div>
+          <div><dt class="inline font-semibold">Backend uptime:</dt> <dd class="inline">{{ sidecarUptimeSummary || 'unknown' }}</dd></div>
           <div><dt class="inline font-semibold">Selected sidecar path:</dt> <dd class="inline">{{ sidecarSelectedPath || 'none' }}</dd></div>
           <div><dt class="inline font-semibold">Sidecar candidates checked:</dt> <dd class="inline">{{ sidecarCheckedPaths.length ? sidecarCheckedPaths.join(', ') : 'none' }}</dd></div>
           <div><dt class="inline font-semibold">Frontend origin:</dt> <dd class="inline">{{ frontendOrigin || 'unknown' }}</dd></div>

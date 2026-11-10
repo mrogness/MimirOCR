@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * @file Application settings screen for theme, backend performance, and diagnostic
+ * information.
+ */
 import AppHelp from '../../shared/components/AppHelp.vue'
 import ConnectivityDiagnostics from './components/ConnectivityDiagnostics.vue'
 import SettingRow from './components/SettingRow.vue'
@@ -51,6 +55,7 @@ const {
   outputDir,
   sidecarSelectedPath,
   sidecarCheckedPaths,
+  sidecarUptimeSummary,
   backendStartupIssue,
   healthProbeSummary,
   projectsProbeSummary,
@@ -169,6 +174,7 @@ const {
       </p>
 
       <ConnectivityDiagnostics :is-open="isDiagnosticsOpen" :is-refreshing="isRefreshingDiagnostics"
+        :sidecar-uptime-summary="sidecarUptimeSummary"
         :backend-mode="backendMode" :backend-runtime="backendRuntime" :sidecar-selected-path="sidecarSelectedPath"
         :sidecar-checked-paths="sidecarCheckedPaths" :frontend-origin="frontendOrigin" :frontend-port="frontendPort"
         :backend-status-url="backendStatusUrl" :backend-base-url="backendBaseUrl" :backend-port="backendPort"

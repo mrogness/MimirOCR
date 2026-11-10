@@ -1,3 +1,4 @@
+"""Upload source PDFs and analyze scan resolution before OCR job submission."""
 import asyncio
 from contextlib import suppress
 from pathlib import Path
@@ -20,6 +21,11 @@ router = APIRouter(prefix="/files", tags=["files"])
 
 
 def _cleanup_project_artifacts(project_id: int, source_pdf_path: str) -> None:
+    """Remove a replaced dataset's output, temporary crops, and previous uploaded PDF.
+
+    Directory matching respects complete project IDs so similarly numbered projects are
+    preserved. Cleanup tolerates missing files and best-effort deletion failures.
+    """
     output_root = get_output_dir()
     candidate_output_dirs = [output_root / str(project_id), output_root / f"project{project_id}"]
     for output_dir in candidate_output_dirs:
@@ -66,6 +72,11 @@ def _cleanup_project_artifacts(project_id: int, source_pdf_path: str) -> None:
 async def analyze_uploaded_pdf_dpi(
     file: Annotated[UploadFile, File(description="A PDF file to analyze without storing")],
 ) -> PdfDpiAnalysisResponse:
+    """Estimate scan resolution from an uploaded PDF without persisting the file.
+
+    Reject non-PDF content types and invalid PDF data with HTTP 400. Run the CPU-bound
+    analysis in a thread so it does not block the async request loop.
+    """
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
 
@@ -83,6 +94,13 @@ async def upload_pdf_for_project(
     file: Annotated[UploadFile, File(description="A PDF file")],
     db: Session = Depends(get_db),
 ) -> UploadedPdfResponse:
+    """Store a replacement PDF, clear the previous OCR dataset, and return an upload token.
+
+    Read and write the replacement before clearing persisted pages, job records, and old
+    artifacts. A read or file-write failure preserves the previous dataset; errors later in
+    the replacement sequence can still propagate. The token identifies the stored file for a
+    subsequent OCR job.
+    """
     project = repository.get_project(db, project_id=project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

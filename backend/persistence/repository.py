@@ -1,3 +1,9 @@
+"""Persist project metadata, review edits, and OCR page/line replacements.
+
+Repository write operations commit their session changes. Domain OCR pages are
+converted to SQLAlchemy rows here, and image assets are copied to persistent
+storage so review does not depend on a job's temporary directory.
+"""
 import json
 from datetime import datetime
 import datetime as dt
@@ -13,15 +19,22 @@ from backend.runtime.paths import get_output_dir
 
 
 def _utcnow():
+    """Return a timezone-aware UTC timestamp for persistent project updates."""
     return datetime.now(dt.timezone.utc)
 
 
 def _touch_project(project: Project | None) -> None:
+    """Update a project's modification timestamp in memory when a project was supplied; do not
+    commit by itself.
+    """
     if project is not None:
         project.date_modified = _utcnow()
 
 
 def _extract_polygon_points(line: Any) -> list[list[float]] | None:
+    """Clean the domain line's boundary into numeric point pairs, requiring at least three
+    usable vertices.
+    """
     meta = line.baseline_info if isinstance(line.baseline_info, dict) else {}
     boundary = meta.get("boundary") if isinstance(meta, dict) else None
     if not isinstance(boundary, list) or len(boundary) < 3:
@@ -39,6 +52,11 @@ def _extract_polygon_points(line: Any) -> list[list[float]] | None:
 
 
 def _persist_image_asset(source_path: str | None, destination_path: Path) -> str | None:
+    """Copy an available image to persistent assets and return its resolved destination path.
+
+    Return None for an empty source path and preserve the original path when the source is
+    missing or copying fails; directory-creation errors still propagate.
+    """
     if not source_path:
         return None
 
@@ -56,6 +74,7 @@ def _persist_image_asset(source_path: str | None, destination_path: Path) -> str
 
 
 def create_project(db: Session, name: str) -> Project:
+    """Insert a named project, commit it, refresh generated fields, and return the ORM row."""
     project = Project(name=name)
     db.add(project)
     db.commit()
@@ -64,14 +83,17 @@ def create_project(db: Session, name: str) -> Project:
 
 
 def get_project(db: Session, project_id: int) -> Project | None:
+    """Find a project by persistent integer ID, returning None when it is absent."""
     return db.query(Project).filter(Project.id == project_id).first()
 
 
 def list_projects(db: Session) -> list[Project]:
+    """Return persistent projects ordered by most recent modification first."""
     return db.query(Project).order_by(Project.date_modified.desc()).all()
 
 
 def update_project_name(db: Session, project: Project, name: str) -> Project:
+    """Rename a project, update its modification time, commit, and refresh the same ORM row."""
     project.name = name
     _touch_project(project)
     db.commit()
@@ -80,6 +102,9 @@ def update_project_name(db: Session, project: Project, name: str) -> Project:
 
 
 def update_project_source_pdf(db: Session, project: Project, source_pdf_name: str, source_pdf_path: str) -> Project:
+    """Commit replacement source-PDF name/path metadata and the project's modification
+    timestamp.
+    """
     project.source_pdf_name = source_pdf_name
     project.source_pdf_path = source_pdf_path
     _touch_project(project)
@@ -89,6 +114,9 @@ def update_project_source_pdf(db: Session, project: Project, source_pdf_name: st
 
 
 def mark_project_ocr_started(db: Session, project: Project) -> Project:
+    """Increment the run count and commit running status while clearing the previous elapsed
+    duration.
+    """
     project.ocr_run_count = (project.ocr_run_count or 0) + 1
     project.ocr_last_status = "running"
     project.ocr_last_elapsed_seconds = None
@@ -99,6 +127,7 @@ def mark_project_ocr_started(db: Session, project: Project) -> Project:
 
 
 def mark_project_ocr_finished(db: Session, project: Project, status: str, elapsed_seconds: float) -> Project:
+    """Commit a run's terminal status, elapsed seconds, and updated project timestamp."""
     project.ocr_last_status = status
     project.ocr_last_elapsed_seconds = elapsed_seconds
     _touch_project(project)
@@ -115,6 +144,12 @@ def replace_project_pages_and_lines(
     source_pdf_name: str | None = None,
     source_pdf_path: str | None = None,
 ) -> None:
+    """Replace a project's persisted OCR dataset and commit the new page records.
+
+    Images are copied from worker output into the project's persistent assets
+    directory. Line geometry, scores, and candidates are serialized for review.
+    The caller supplies completed domain pages, not SQLAlchemy Page instances.
+    """
     existing_pages = db.query(Page).filter(Page.project_id == project.id).all()
     for existing_page in existing_pages:
         for existing_line in list(existing_page.lines):
@@ -171,6 +206,7 @@ def replace_project_pages_and_lines(
 
 
 def list_project_pages(db: Session, project_id: int) -> list[Page]:
+    """Return one project's persisted pages in ascending source-page-number order."""
     return (
         db.query(Page)
         .filter(Page.project_id == project_id)
@@ -180,6 +216,7 @@ def list_project_pages(db: Session, project_id: int) -> list[Page]:
 
 
 def get_project_page(db: Session, project_id: int, page_id: int) -> Page | None:
+    """Find a page only when both its ID and owning project ID match."""
     return (
         db.query(Page)
         .filter(Page.project_id == project_id, Page.id == page_id)
@@ -188,10 +225,14 @@ def get_project_page(db: Session, project_id: int, page_id: int) -> Page | None:
 
 
 def get_line(db: Session, line_id: int) -> Line | None:
+    """Find a persisted review line by its integer ID, or return None."""
     return db.query(Line).filter(Line.id == line_id).first()
 
 
 def get_line_by_page_and_order(db: Session, page_id: int, line_order: int) -> Line | None:
+    """Find the first review line matching a page ID and saved order as a fallback to ID
+    lookup.
+    """
     return (
         db.query(Line)
         .filter(Line.page_id == page_id, Line.line_order == line_order)
@@ -200,6 +241,9 @@ def get_line_by_page_and_order(db: Session, page_id: int, line_order: int) -> Li
 
 
 def _serialize_json_field(value: Any) -> str | None:
+    """Preserve an existing JSON string, encode structured data, and keep None as a database
+    null.
+    """
     if value is None:
         return None
     if isinstance(value, str):
@@ -208,6 +252,9 @@ def _serialize_json_field(value: Any) -> str | None:
 
 
 def update_line(db: Session, line: Line, corrected_text: str, line_order: int | None = None) -> Line:
+    """Commit corrected text and an optional positive line order, touching the owning project's
+    timestamp.
+    """
     line.corrected_text = corrected_text
     if line_order is not None and line_order > 0:
         line.line_order = line_order
@@ -221,6 +268,12 @@ def update_line(db: Session, line: Line, corrected_text: str, line_order: int | 
 
 
 def restore_deleted_line(db: Session, line_snapshot: Any, line_orders: list[Any]) -> Line:
+    """Recreate a deleted line under its original ID and commit a complete page-order snapshot.
+
+    Require the page to exist, the ID to be unused, and every resulting page line to appear
+    exactly once with contiguous positive orders. Raise LookupError, FileExistsError, or
+    ValueError before insertion when those checks fail.
+    """
     page = db.query(Page).filter(Page.id == line_snapshot.page_id).first()
     if not page:
         raise LookupError("page-not-found")
@@ -282,6 +335,9 @@ def restore_deleted_line(db: Session, line_snapshot: Any, line_orders: list[Any]
 
 
 def delete_line(db: Session, line: Line) -> None:
+    """Touch the owning project, delete the line row, and commit; neighboring line orders are
+    not renumbered here.
+    """
     page = line.page
     _touch_project(page.project if page else None)
     db.delete(line)
@@ -289,5 +345,8 @@ def delete_line(db: Session, line: Line) -> None:
 
 
 def delete_project(db: Session, project: Project) -> None:
+    """Delete and commit the project row, relying on ORM relationships for dependent row
+    cleanup.
+    """
     db.delete(project)
     db.commit()

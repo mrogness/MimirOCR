@@ -1,20 +1,17 @@
 [project]
 name = "mimirocr-recognizer-environment"
 version = "0.0.0"
-requires-python = "==3.10.*"
+requires-python = "==3.11.*"
 dependencies = [
-  "calamari_ocr==2.3.1",
-  "tensorflow==2.15.1",
-  # TensorFlow's Windows wheel is a wrapper; lock the implementation explicitly.
-  "tensorflow-intel==2.15.1; sys_platform == 'win32'",
-  "tensorflow-estimator==2.15.0",
-  "keras==2.15.0",
+  "calamari-ocr",
+  "ocrd-fork-tfaip",
+  "paiargparse",
+  "tensorflow==2.21.0",
+  "tf-keras==2.21.0",
+  "keras==3.15.1",
   "pydantic==2.13.4",
-  "numpy==1.23.5",
-  "pillow==12.3.0",
-  "protobuf==3.20.3",
-  # TensorBoard 2.15 still uses pkg_resources, removed in setuptools 82.
-  "setuptools<85",
+  "numpy==2.4.6",
+  "pillow==13.0.0",
 ]
 
 [dependency-groups]
@@ -27,3 +24,9 @@ environments = [
   "sys_platform == 'darwin'",
   "sys_platform == 'win32'",
 ]
+
+[tool.uv.sources]
+# Calamari PR #378 and the companion commits used by its test workflow.
+calamari-ocr = { git = "https://github.com/Calamari-OCR/calamari.git", rev = "8e956010293b81fa1791bf038addad6d588ec064" }
+ocrd-fork-tfaip = { git = "https://github.com/Calamari-OCR/tfaip.git", rev = "88e5e529ad5892fe8e462764cc1b6ed0c663eead" }
+paiargparse = { git = "https://github.com/Calamari-OCR/paiargparse.git", rev = "f2fce966c9a22ac7c92778d79f2e5b9a561735ce" }

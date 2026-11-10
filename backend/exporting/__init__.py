@@ -1,3 +1,4 @@
+"""Public reflow data types and helpers shared by export implementations."""
 from backend.exporting.reflow import (
     HISTORICAL_JOIN_MARK_RE,
     BoundaryKind,

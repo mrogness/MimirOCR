@@ -1,9 +1,12 @@
 <script setup>
+/** @file Group related settings under a title, optional description, and header action. */
 defineProps({
+  /** Visible heading for this group of related settings. */
   title: {
     type: String,
     required: true,
   },
+  /** Optional explanatory text displayed beneath the setting/section heading. */
   description: {
     type: String,
     default: '',
@@ -22,10 +25,12 @@ defineProps({
           </p>
         </div>
 
+        <!-- @slot Optional action control aligned with the section heading. -->
         <slot name="header-action" />
       </div>
     </header>
 
+    <!-- @slot Setting rows or other controls belonging to this section. -->
     <slot />
   </section>
 </template>
