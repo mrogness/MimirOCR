@@ -18,8 +18,9 @@ test('each runtime owns its manifest and lock, with build tools optional', () =>
     assert.ok(existsSync(path.join(root, `requirements/${role}/uv.lock`)))
     if (role !== 'backend') assert.ok(!manifest.includes('pytest'))
   }
-  const segmenter = readFileSync(path.join(root, 'requirements/segmenter/pyproject.toml'), 'utf8')
-  const kraken = segmenter.match(/"kraken==([^"\n]+)"/)[1]
+  const segmenterLock = readFileSync(path.join(root, 'requirements/segmenter/uv.lock'), 'utf8')
+  const kraken = segmenterLock.match(/^\[\[package\]\]\r?\nname = "kraken"\r?\nversion = "([^"\r\n]+)"/m)?.[1]
+  assert.ok(kraken, 'The segmenter lockfile must contain a resolved Kraken version')
   assert.equal(RUNTIMES.segmenter.versions.kraken, kraken)
 })
 
