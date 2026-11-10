@@ -10,7 +10,7 @@ Unused historical constraints are removed; upstream engine dependencies remain.
 |---|---|---|
 | `requirements/backend/` | `.venvs/backend` | FastAPI, SQLAlchemy, PDF preparation and export |
 | `requirements/segmenter/` | `.venvs/segmenter` | Kraken 7.1.1, Torch, line segmentation |
-| `requirements/recognizer/` | `.venvs/recognizer` | Calamari 2.3.1, TensorFlow/Keras 2.15, recognition |
+| `requirements/recognizer/` | `.venvs/recognizer` | Calamari `tf-keras` branch, TensorFlow and TF-Keras 2.21, recognition |
 
 The supported desktop targets remain macOS ARM and Windows x64. The API also
 supports Linux for model-free tests and documentation. All projects currently
@@ -67,15 +67,28 @@ the complete lock diff, including compatible child-package updates. Dependency
 metadata compatibility is necessary but does not prove successful inference.
 
 Keep TensorFlow, Keras, Calamari/TFAIP, and the trained checkpoint compatible as a
-set. Keras 3 is not a routine update to this recognizer. TensorBoard 2.15 still
-uses `pkg_resources`, so the recognizer explicitly retains `setuptools<82`.
+set. The recognizer pins the Calamari `tf-keras` branch and its companion TFAIP
+and `paiargparse` commits from [Calamari PR #378](https://github.com/Calamari-OCR/calamari/pull/378).
+TensorFlow installs Keras 3. The worker sets `TF_USE_LEGACY_KERAS=1` before
+importing TensorFlow so Calamari uses the separately installed `tf-keras` API.
+Audit both Keras distributions as part of the recognizer inventory.
+
+The bundled `r10.ckpt.json` and `r10.ckpt.keras` are a Calamari version 7
+checkpoint. Keep the two files together. The worker tries both HDF5 group
+separators while loading weights so checkpoints can move between Windows and
+macOS or Linux. Calamari loads version 7 models with
+`safe_mode=False`, so the worker accepts the bundled checkpoint and a single
+optional checkpoint explicitly named by `MIMIR_TRUSTED_OCR_MODEL`. To use a
+custom version 7 checkpoint, set that variable to its absolute checkpoint stem
+and use the same stem as `ocr_model_path`. Checkpoint conversion is an offline
+operation. When converting your own version 6 checkpoint with upstream
+Calamari, work on a copy of its metadata and SavedModel directory.
+
 Keep Torch/torchvision compatible in the segmenter. Pillow 13 requires an
 interpreter newer than Python 3.10. All three runtimes now lock Pillow 13.0.0;
 the segmenter locks filelock 4.2.7, resolving the Python-version blockers for
-those security updates. The recognizer also moves scikit-image from 0.19.3 to
-0.21.0 for Python 3.11 wheels, keeping NumPy 1.23.5 and TensorFlow/Keras 2.15.
-Independent environments permit
-different shared-library versions; JSON contract tests still protect the boundary.
+those security updates. Independent environments permit different shared-library
+versions, with JSON contract tests protecting the boundary.
 
 ## Sync or upgrade an existing checkout
 
@@ -121,7 +134,9 @@ when installed; sync production-only first to measure production dependencies.
 
 The auditor runs in uvx's separate tool environment. It sends installed package
 names/versions to the advisory service, does not install or resolve the engines
-again, and never applies fixes. It exits nonzero on findings or errors, including
+again, and never applies fixes. The recognizer uses OSV because its pinned
+Calamari development version is unpublished on PyPI. This queries package
+versions in the advisory database. It exits nonzero on findings or errors, including
 incomplete collection, but still attempts every requested runtime. Read the logs
 and summary: a service/interpreter failure is not a clean security report.
 

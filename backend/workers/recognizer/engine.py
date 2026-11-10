@@ -1,41 +1,65 @@
 """Load a Calamari predictor and recognize page line crops."""
 import os
 import sys
+from contextlib import contextmanager
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Iterable
 
 from backend.domain.page import Page
-from backend.domain.project_config import ProjectConfig
+from backend.domain.project_config import DEFAULT_OCR_MODEL_PATH, ProjectConfig
 from backend.workers.recognizer.ij_disambiguation import disambiguate_ij_text
 from backend.workers.recognizer.predictions import (
     _char_confidence_from_positions, _extract_char_confidence, _extract_char_positions,
     _extract_line_confidence, _read_predictor_codec,
 )
 
+def _checkpoint_stem(raw_path: str) -> Path:
+    """Accept a Calamari checkpoint stem or either of its two files."""
+    path = Path(raw_path).expanduser()
+    return path.with_suffix("") if path.suffix in {".json", ".keras"} else path
+
+
 def _resolve_model_path(raw_path: str) -> str:
-    """Try the supplied checkpoint, frozen bundle, and source-tree locations, returning the
-    original path if none exists.
-    """
-    candidate = Path(raw_path)
-    if candidate.is_absolute() and candidate.exists():
-        return str(candidate)
+    """Resolve the bundled checkpoint or an explicitly trusted local checkpoint."""
+    root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[3]
+    default = Path(DEFAULT_OCR_MODEL_PATH)
+    bundled = (root / default).resolve()
+    candidate = _checkpoint_stem(raw_path)
+    if candidate == default or candidate.resolve() == bundled:
+        return str(bundled)
 
-    if candidate.exists():
-        return str(candidate)
+    trusted = os.environ.get("MIMIR_TRUSTED_OCR_MODEL")
+    if trusted:
+        trusted_stem = _checkpoint_stem(trusted).resolve()
+        if candidate.resolve() == trusted_stem:
+            return str(trusted_stem)
 
-    meipass = getattr(sys, '_MEIPASS', '')
-    if meipass:
-        bundled = Path(meipass) / candidate
-        if bundled.exists():
-            return str(bundled)
+    raise ValueError("OCR checkpoint must be the bundled model or match MIMIR_TRUSTED_OCR_MODEL")
 
-    project_root = Path(__file__).resolve().parents[3]
-    repo_relative = project_root / candidate
-    if repo_relative.exists():
-        return str(repo_relative)
 
-    return raw_path
+@contextmanager
+def _portable_checkpoint_weights():
+    """Read TF-Keras HDF5 group keys written with either OS path separator."""
+    from tf_keras.src.saving.saving_lib import H5IOStore
+
+    get_weights = H5IOStore.get
+
+    def get_portable_weights(store, path):
+        """Try the other separator when the archive has no group for the original key."""
+        weights = get_weights(store, path)
+        if weights:
+            return weights
+        # TF-Keras 2.21 uses host path separators for keys inside the archive.
+        alternate = path.replace("\\", "/") if "\\" in path else path.replace("/", "\\")
+        return get_weights(store, alternate) if alternate != path else weights
+
+    # The recognizer loads one predictor at a time during worker initialization.
+    H5IOStore.get = get_portable_weights
+    try:
+        yield
+    finally:
+        H5IOStore.get = get_weights
 
 
 def create_predictor(config: ProjectConfig):
@@ -45,17 +69,18 @@ def create_predictor(config: ProjectConfig):
     incompatibilities into a checkpoint/runtime mismatch error; other load errors propagate.
     """
     max_threads = int(os.environ["MIMIR_OCR_THREADS"])
+    resolved_model_path = _resolve_model_path(config.ocr.model_path)
 
     # Canonical predictor import path for the current OCR stack.
     from calamari_ocr.ocr.predict.predictor import Predictor, PredictorParams
 
-    resolved_model_path = _resolve_model_path(config.ocr.model_path)
-
     try:
-        predictor = Predictor.from_checkpoint(
-            params=PredictorParams(),
-            checkpoint=resolved_model_path,
-        )
+        with _portable_checkpoint_weights():
+            predictor = Predictor.from_checkpoint(
+                params=PredictorParams(),
+                checkpoint=resolved_model_path,
+                auto_update_checkpoints=False,
+            )
     except Exception as exc:  # noqa: BLE001
         message = str(exc)
         if "DisableCopyOnRead" in message or "Op type not registered" in message:

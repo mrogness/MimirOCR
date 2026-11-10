@@ -8,7 +8,7 @@ Parameterized cases and build/documentation tooling are not included in these to
 
 | Layer | Files | Approx test count |
 |---|---:|---:|
-| Backend pytest | 23 | 130 |
+| Backend pytest | 23 | 131 |
 | ML runtime pytest | 1 | 4 |
 | Frontend vitest | 25 | 119 |
 | Rust unit tests | 9 | 9 |
@@ -22,7 +22,7 @@ Parameterized cases and build/documentation tooling are not included in these to
 | ocr and orchestration | 5 |
 | other | 80 |
 | runtime and restart | 4 |
-| workers and pipeline | 22 |
+| workers and pipeline | 23 |
 
 ## Backend files
 
@@ -50,7 +50,7 @@ Parameterized cases and build/documentation tooling are not included in these to
 | backend/tests/test_system_routes.py | 6 |
 | backend/tests/test_worker_helpers.py | 4 |
 | backend/tests/test_worker_processes.py | 10 |
-| backend/tests/test_worker_resources.py | 4 |
+| backend/tests/test_worker_resources.py | 5 |
 
 ## ML runtime files
 
