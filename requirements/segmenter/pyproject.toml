@@ -3,7 +3,7 @@ name = "mimirocr-segmenter-environment"
 version = "0.0.0"
 requires-python = "==3.11.*"
 dependencies = [
-  "kraken==7.1.1",
+  "kraken",
   "torch==2.10.0",
   "torchvision==0.25.0",
   "coremltools==9.0",
@@ -23,3 +23,7 @@ environments = [
   "sys_platform == 'darwin'",
   "sys_platform == 'win32'",
 ]
+
+[tool.uv.sources]
+# Upstream updates the lightning distribution to 2.6.6 for GHSA-qqmf-gpg7-g8gw.
+kraken = { git = "https://github.com/mittagessen/kraken.git", rev = "910e55ee317dd3bc6e944e23456306e0ec7d3291" }

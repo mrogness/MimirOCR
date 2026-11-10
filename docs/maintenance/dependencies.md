@@ -9,7 +9,7 @@ Unused historical constraints are removed; upstream engine dependencies remain.
 | Project | Managed environment | Production responsibilities |
 |---|---|---|
 | `requirements/backend/` | `.venvs/backend` | FastAPI, SQLAlchemy, PDF preparation and export |
-| `requirements/segmenter/` | `.venvs/segmenter` | Kraken 7.1.1, Torch, line segmentation |
+| `requirements/segmenter/` | `.venvs/segmenter` | Kraken `910e55e`, Torch, line segmentation |
 | `requirements/recognizer/` | `.venvs/recognizer` | Calamari `tf-keras` branch, TensorFlow and TF-Keras 2.21, recognition |
 
 The supported desktop targets remain macOS ARM and Windows x64. The API also
@@ -84,6 +84,12 @@ and use the same stem as `ocr_model_path`. Checkpoint conversion is an offline
 operation. When converting your own version 6 checkpoint with upstream
 Calamari, work on a copy of its metadata and SavedModel directory.
 
+The segmenter pins [Kraken commit `910e55e`](https://github.com/mittagessen/kraken/commit/910e55ee317dd3bc6e944e23456306e0ec7d3291)
+for its `lightning==2.6.6` dependency, which addresses [GHSA-qqmf-gpg7-g8gw](https://github.com/advisories/GHSA-qqmf-gpg7-g8gw).
+The lock tracks `lightning` and `pytorch-lightning` as separate distributions.
+When moving back to a published Kraken release, verify its Lightning pin and
+update the Kraken version in `scripts/lib/runtimes.mjs` with the lockfile.
+
 Keep Torch/torchvision compatible in the segmenter. Pillow 13 requires an
 interpreter newer than Python 3.10. All three runtimes now lock Pillow 13.0.0;
 the segmenter locks filelock 4.2.7, resolving the Python-version blockers for
@@ -134,9 +140,9 @@ when installed; sync production-only first to measure production dependencies.
 
 The auditor runs in uvx's separate tool environment. It sends installed package
 names/versions to the advisory service, does not install or resolve the engines
-again, and never applies fixes. The recognizer uses OSV because its pinned
-Calamari development version is unpublished on PyPI. This queries package
-versions in the advisory database. It exits nonzero on findings or errors, including
+again, and never applies fixes. The segmenter and recognizer audits query OSV
+by package version because their pinned Kraken and Calamari builds are
+unpublished on PyPI. The auditor exits nonzero on findings or errors, including
 incomplete collection, but still attempts every requested runtime. Read the logs
 and summary: a service/interpreter failure is not a clean security report.
 

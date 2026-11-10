@@ -54,19 +54,19 @@ class EnvironmentToolsTests(unittest.TestCase):
         inventory = {"python": "3.10", "packages": [{"name": "Pillow", "version": "12.3.0"}]}
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
-            with patch.dict(os.environ, {"MIMIR_RECOGNIZER_PYTHON": "/custom/python"}), \
+            with patch.dict(os.environ, {"MIMIR_SEGMENTER_PYTHON": "/custom/python"}), \
                     patch.object(audit.subprocess, "check_output", return_value=json.dumps(inventory)) as read, \
                     patch.object(audit.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, "", "finding")) as run:
-                self.assertEqual(audit.audit_environment("recognizer", output), 1)
+                self.assertEqual(audit.audit_environment("segmenter", output), 1)
             self.assertEqual(read.call_args.args[0][0], "/custom/python")
-            self.assertEqual((output / "recognizer-installed.txt").read_text(), "Pillow==12.3.0\n")
+            self.assertEqual((output / "segmenter-installed.txt").read_text(), "Pillow==12.3.0\n")
             command = run.call_args.args[0]
             self.assertEqual(command[:2], ["uvx", "--from"])
             self.assertIn("--no-deps", command)
             self.assertIn("--strict", command)
             self.assertEqual(command[command.index("--vulnerability-service") + 1], "osv")
             self.assertNotIn("--fix", command)
-            self.assertEqual((output / "recognizer-audit.log").read_text(), "finding")
+            self.assertEqual((output / "segmenter-audit.log").read_text(), "finding")
 
     def test_failed_audit_does_not_prevent_the_other_reports(self):
         with tempfile.TemporaryDirectory() as directory:
