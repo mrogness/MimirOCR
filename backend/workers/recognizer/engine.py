@@ -1,6 +1,7 @@
 """Load a Calamari predictor and recognize page line crops."""
 import os
 import sys
+from contextlib import contextmanager
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Iterable
@@ -37,6 +38,30 @@ def _resolve_model_path(raw_path: str) -> str:
     raise ValueError("OCR checkpoint must be the bundled model or match MIMIR_TRUSTED_OCR_MODEL")
 
 
+@contextmanager
+def _portable_checkpoint_weights():
+    """Read TF-Keras HDF5 group keys written with either OS path separator."""
+    from tf_keras.src.saving.saving_lib import H5IOStore
+
+    get_weights = H5IOStore.get
+
+    def get_portable_weights(store, path):
+        """Try the other separator when the archive has no group for the original key."""
+        weights = get_weights(store, path)
+        if weights:
+            return weights
+        # TF-Keras 2.21 uses host path separators for keys inside the archive.
+        alternate = path.replace("\\", "/") if "\\" in path else path.replace("/", "\\")
+        return get_weights(store, alternate) if alternate != path else weights
+
+    # The recognizer loads one predictor at a time during worker initialization.
+    H5IOStore.get = get_portable_weights
+    try:
+        yield
+    finally:
+        H5IOStore.get = get_weights
+
+
 def create_predictor(config: ProjectConfig):
     """Load the configured Calamari checkpoint and limit its preprocessing parallelism.
 
@@ -50,11 +75,12 @@ def create_predictor(config: ProjectConfig):
     from calamari_ocr.ocr.predict.predictor import Predictor, PredictorParams
 
     try:
-        predictor = Predictor.from_checkpoint(
-            params=PredictorParams(),
-            checkpoint=resolved_model_path,
-            auto_update_checkpoints=False,
-        )
+        with _portable_checkpoint_weights():
+            predictor = Predictor.from_checkpoint(
+                params=PredictorParams(),
+                checkpoint=resolved_model_path,
+                auto_update_checkpoints=False,
+            )
     except Exception as exc:  # noqa: BLE001
         message = str(exc)
         if "DisableCopyOnRead" in message or "Op type not registered" in message:

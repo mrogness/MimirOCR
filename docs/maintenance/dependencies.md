@@ -74,7 +74,9 @@ importing TensorFlow so Calamari uses the separately installed `tf-keras` API.
 Audit both Keras distributions as part of the recognizer inventory.
 
 The bundled `r10.ckpt.json` and `r10.ckpt.keras` are a Calamari version 7
-checkpoint. Keep the two files together. Calamari loads version 7 models with
+checkpoint. Keep the two files together. The worker tries both HDF5 group
+separators while loading weights so checkpoints can move between Windows and
+macOS or Linux. Calamari loads version 7 models with
 `safe_mode=False`, so the worker accepts the bundled checkpoint and a single
 optional checkpoint explicitly named by `MIMIR_TRUSTED_OCR_MODEL`. To use a
 custom version 7 checkpoint, set that variable to its absolute checkpoint stem
@@ -132,7 +134,9 @@ when installed; sync production-only first to measure production dependencies.
 
 The auditor runs in uvx's separate tool environment. It sends installed package
 names/versions to the advisory service, does not install or resolve the engines
-again, and never applies fixes. It exits nonzero on findings or errors, including
+again, and never applies fixes. The recognizer uses OSV because its pinned
+Calamari development version is unpublished on PyPI. This queries package
+versions in the advisory database. It exits nonzero on findings or errors, including
 incomplete collection, but still attempts every requested runtime. Read the logs
 and summary: a service/interpreter failure is not a clean security report.
 

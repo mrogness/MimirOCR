@@ -64,6 +64,7 @@ class EnvironmentToolsTests(unittest.TestCase):
             self.assertEqual(command[:2], ["uvx", "--from"])
             self.assertIn("--no-deps", command)
             self.assertIn("--strict", command)
+            self.assertEqual(command[command.index("--vulnerability-service") + 1], "osv")
             self.assertNotIn("--fix", command)
             self.assertEqual((output / "recognizer-audit.log").read_text(), "finding")
 
