@@ -166,7 +166,7 @@ yarn test:ml
 The driver uses the backend environment's pytest and the existing
 `MIMIR_SEGMENTER_PYTHON` / `MIMIR_RECOGNIZER_PYTHON` overrides. ML packages are
 imported only in their owning runtime processes. Preflight prints each runtime's
-interpreter, checks Python 3.11, verifies Kraken 7.1.1, imports the Kraken adapter
+interpreter, checks Python 3.11, verifies the pinned Kraken version, imports the Kraken adapter
 APIs and Calamari predictor, and runs `uv pip check` for every environment. Each
 role uses its own lockfile; the host Python only launches setup.
 PyInstaller is only required by preflight when `--build` is passed.
