@@ -117,9 +117,8 @@ stderr inside workers; only JSON responses use the reserved protocol pipe.
 Each runtime owns `requirements/<role>/pyproject.toml` and `uv.lock`. These are
 independent uv projects, not members of a shared workspace. API, segmentation,
 and recognition versions can therefore evolve independently. There is no shared
-constraints file and no combined ML environment. The recognizer's TensorFlow 2.15,
-Keras 2.15, NumPy 1.23, and Windows-specific transitive versions remain locked
-separately from Kraken 7's Torch/NumPy stack.
+constraints file and no combined ML environment. The recognizer's TensorFlow and
+TF-Keras 2.21 stack is locked separately from Kraken 7's Torch stack.
 
 Run `python scripts/setup_backend.py --role segmenter --build` to sync just the
 segmenter. Setup manages only `.venvs/<role>`; it never clears a custom interpreter

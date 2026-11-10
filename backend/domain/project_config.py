@@ -1,6 +1,8 @@
 """Typed run configuration serialized to both isolated worker runtimes."""
 from pydantic import BaseModel, Field
 
+DEFAULT_OCR_MODEL_PATH = "backend/ml/calamari/r10.ckpt"
+
 class IngestionConfig(BaseModel):
     """Rasterization resolution in DPI and line-crop binarization threshold."""
     dpi: int = 300
@@ -13,7 +15,7 @@ class SegmentationConfig(BaseModel):
 
 class OCRConfig(BaseModel):
     """Calamari checkpoint location and optional lexicon-based I/J correction."""
-    model_path: str = "backend/ml/calamari/r10.ckpt"
+    model_path: str = DEFAULT_OCR_MODEL_PATH
     disambiguate_ij: bool = True
 
 class ProjectConfig(BaseModel):

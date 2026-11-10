@@ -9,7 +9,7 @@ export const RUNTIMES = {
     versions: { kraken: '7.1.1' },
     forbidden: ['calamari_ocr', 'tensorflow', 'fastapi'] },
   recognizer: { name: 'mimir-recognizer', entry: 'backend/workers/recognizer/__main__.py',
-    imports: ['pydantic', 'PIL', 'numpy', 'calamari_ocr', 'tensorflow'],
+    imports: ['pydantic', 'PIL', 'numpy', 'calamari_ocr', 'tensorflow', 'tf_keras'],
     forbidden: ['kraken', 'torch', 'coremltools', 'fastapi'] },
 }
 
