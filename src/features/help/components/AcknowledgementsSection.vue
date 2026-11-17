@@ -58,7 +58,6 @@ const { appVersion } = useAppVersion()
           <dt class="font-semibold text-brand-900">Application</dt>
           <dd>
             MimirOCR<span v-if="appVersion !== 'unknown'"> v{{ appVersion }}</span>.<br>
-            Copyright © 2026 Matthew Rogness.<br>
             Distributed under the GNU General Public License v3.
           </dd>
         </div>
